@@ -94,13 +94,22 @@ jobs:
       - name: Smoke spec (real and refused calls)
         env:
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
-        # brave-search's live call needs the repository secret BRAVE_API_KEY; without it only the
-        # refused call runs.
+          SERVER: ${{ matrix.server }}
+        # The output goes into a file (not a pipe, which a leftover process could hold open); when the smoke fails,
+        # its last lines become an annotation, which the API returns without the log.
         run: |
+          status=0
           python3 scripts/smoke_test.py --engine docker \
-            --image local/sandbox-ai-mcp-${{ matrix.server }}:ci \
-            --spec servers/${{ matrix.server }}/smoke.json \
-            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures"
+            --image "local/sandbox-ai-mcp-${SERVER}:ci" \
+            --spec "servers/${SERVER}/smoke.json" \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            > smoke.txt 2>&1 || status=$?
+          cat smoke.txt
+          if [ "$status" -ne 0 ]; then
+            text=$(tail -n 40 smoke.txt | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=smoke failed (${SERVER})::exit ${status}%0A${text}"
+          fi
+          exit "$status"
 
       - name: Install Trivy ${{ env.TRIVY_VERSION }} (checksum pinned)
         run: |
