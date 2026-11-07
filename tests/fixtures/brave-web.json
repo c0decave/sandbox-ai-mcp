@@ -1,0 +1,4 @@
+{"type": "search", "web": {"results": [
+  {"title": "Example Domain", "url": "https://example.com/", "description": "Example description"},
+  {"title": "Bad", "url": "javascript:alert(1)", "description": "dropped"}
+]}}

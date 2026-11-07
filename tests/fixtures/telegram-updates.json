@@ -1,0 +1,20 @@
+{"ok": true, "result": [
+  {"update_id": 500, "message": {"message_id": 7, "date": 1762300000, "chat": {"id": 111, "type": "private", "first_name": "Ada", "username": "ada"},
+   "from": {"id": 111, "is_bot": false, "first_name": "Ada", "username": "ada", "language_code": "en"},
+   "text": "Hello bot", "entities": [{"type": "bold", "offset": 0, "length": 5}]}},
+  {"update_id": 501, "channel_post": {"message_id": 3, "date": 1762300010, "chat": {"id": -1001234567890, "type": "channel", "title": "News"},
+   "sender_chat": {"id": -1001234567890, "type": "channel", "title": "News"},
+   "photo": [{"file_id": "AgAC", "file_unique_id": "x", "width": 90, "height": 90}], "caption": "A picture"}},
+  {"update_id": 502, "message": {"message_id": 8, "date": 1762300020, "chat": {"id": 999, "type": "private", "first_name": "Eve"},
+   "from": {"id": 999, "is_bot": false, "first_name": "Eve"}, "text": "not for you"}},
+  {"update_id": 503, "edited_message": {"message_id": 7, "date": 1762300000, "edit_date": 1762300030,
+   "chat": {"id": 111, "type": "private", "first_name": "Ada"}, "from": {"id": 111, "is_bot": false, "first_name": "Ada"},
+   "text": "my token is 123456:fake-token-for-the-tests-only-xxxx", "reply_to_message": {"message_id": 6, "date": 1762299990, "chat": {"id": 111, "type": "private"}}}},
+  {"update_id": 504, "callback_query": {"id": "4382", "from": {"id": 111, "is_bot": false, "first_name": "Ada"},
+   "message": {"message_id": 9, "date": 1762300040, "chat": {"id": 111, "type": "private"}}, "data": "yes"}},
+  {"update_id": 505, "my_chat_member": {"chat": {"id": -42, "type": "group", "title": "Group"}, "from": {"id": 5, "is_bot": false, "first_name": "Bob"},
+   "date": 1762300050}},
+  {"update_id": 506, "poll": {"id": "1", "question": "?", "options": []}},
+  "not an update",
+  {"message": {"text": "no update_id"}}
+]}

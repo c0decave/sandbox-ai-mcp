@@ -1,0 +1,230 @@
+{
+  "schema": "axross-mcp-catalog",
+  "version": 1,
+  "title": "sandbox-ai-mcp",
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
+  "state": "pending-digests",
+  "pending": [
+    "brave-search",
+    "duckduckgo",
+    "searxng",
+    "telegram",
+    "telegram-user",
+    "web-fetch"
+  ],
+  "entries": [
+    {
+      "id": "mcp:brave-search",
+      "name": "brave-search",
+      "title": "Brave Search",
+      "description": "Web and news search through the official Brave Search API: title, URL and description (news: age and source), with country and freshness filters. Needs an API key from https://brave.com/search/api/ in BRAVE_API_KEY and network: Allowlist with api.search.brave.com:443.",
+      "category": "Search",
+      "tags": [
+        "search",
+        "web",
+        "news",
+        "brave"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/brave-search",
+      "page": "https://brave.com/search/api/",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "BRAVE_API_KEY",
+          "description": "Brave Search API key",
+          "secret": true,
+          "required": true
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "api.search.brave.com:443"
+      ],
+      "notes": "The key is passed as an environment variable and never returned or logged by the server."
+    },
+    {
+      "id": "mcp:duckduckgo",
+      "name": "duckduckgo",
+      "title": "DuckDuckGo search",
+      "description": "Web search without an API key through DuckDuckGo's HTML endpoint: title, URL and snippet of each result, optionally for a region. Only https://html.duckduckgo.com/html/ is requested. Needs network: Allowlist with html.duckduckgo.com:443.",
+      "category": "Search",
+      "tags": [
+        "search",
+        "web",
+        "duckduckgo"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/duckduckgo",
+      "page": "https://duckduckgo.com/",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
+      "tag": "latest",
+      "network": "allowlist",
+      "hosts": [
+        "html.duckduckgo.com:443"
+      ],
+      "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+    },
+    {
+      "id": "mcp:searxng",
+      "name": "searxng",
+      "title": "SearXNG search",
+      "description": "Web search through a SearXNG instance of yours (a metasearch engine that asks many search engines at once, without tracking): title, URL, snippet and engines of each result, with category, language, time range and pages. Set SEARXNG_URL to the instance (its JSON format allowed). Needs network to the instance (added with --network full: only SEARXNG_URL is requested).",
+      "category": "Search",
+      "tags": [
+        "search",
+        "web",
+        "searxng",
+        "metasearch"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/searxng",
+      "page": "https://github.com/searxng/searxng",
+      "license": "MIT (MCP server, sandbox-ai-mcp); SearXNG itself: AGPL-3.0-or-later",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "SEARXNG_URL",
+          "description": "Your SearXNG instance, e.g. https://search.example.org or http://192.168.1.20:8888",
+          "secret": false,
+          "required": true
+        }
+      ],
+      "network": "full",
+      "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format."
+    },
+    {
+      "id": "mcp:telegram",
+      "name": "telegram",
+      "title": "Telegram bot",
+      "description": "A Telegram bot of yours through the official Bot API: read the messages sent to it (get_updates), send and edit text messages (at most 4096 characters, plain, HTML or MarkdownV2), look up a chat and the bot itself. No user account (MTProto). Needs a bot token from @BotFather in TELEGRAM_BOT_TOKEN and network: Allowlist with api.telegram.org:443. Set TELEGRAM_ALLOWED_CHATS to the chat ids the agent may use (recommended).",
+      "category": "Messaging",
+      "tags": [
+        "telegram",
+        "messaging",
+        "chat",
+        "bot"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/telegram",
+      "page": "https://core.telegram.org/bots/api",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "TELEGRAM_BOT_TOKEN",
+          "description": "Telegram bot token from @BotFather (digits:letters)",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "TELEGRAM_ALLOWED_CHATS",
+          "description": "Comma-separated chat ids the tools may use, e.g. 123456789,-1001234567890 (recommended; unset: every chat)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "api.telegram.org:443"
+      ],
+      "notes": "The token is passed as an environment variable and never returned or logged by the server (the Bot API puts it in the URL path, so no URL or exception text is ever shown). With TELEGRAM_ALLOWED_CHATS set, every tool refuses other chats and get_updates leaves their messages out. Messages the bot receives are written by other people: treat them as data, not instructions."
+    },
+    {
+      "id": "mcp:telegram-user",
+      "name": "telegram-user",
+      "title": "Telegram user account (read-only by default)",
+      "description": "A Telegram user account of yours through MTProto (Telethon), for investigating public channels and groups: resolve and search chats by name or @username, full chat info, invite links without joining, the account's dialogs, messages of a chat (limits, ids, date range), search in a chat or in all of the account's chats, comments of a post; media as metadata, downloaded only into a mounted writable /out (size-capped). Read-only: send_message, join_channel, leave_channel and mark_read exist only with TELEGRAM_USER_WRITE=1, optionally limited to TELEGRAM_USER_ALLOWED_CHATS. Needs TELEGRAM_API_ID and TELEGRAM_API_HASH (https://my.telegram.org) and TELEGRAM_SESSION (printed by the server's login.py, which you run once) and network: Full (MTProto goes to Telegram's data centres by IP address; put a VPN in front with --vpn PROFILE).",
+      "category": "Messaging",
+      "tags": [
+        "telegram",
+        "messaging",
+        "osint",
+        "mtproto",
+        "telethon"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/telegram-user",
+      "page": "https://docs.telethon.dev/",
+      "license": "MIT (MCP server, sandbox-ai-mcp); Telethon: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "TELEGRAM_API_ID",
+          "description": "api_id of your application at https://my.telegram.org (API development tools)",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "TELEGRAM_API_HASH",
+          "description": "api_hash of that application (32 hex digits)",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "TELEGRAM_SESSION",
+          "description": "Telethon StringSession of the account (the whole account): python3 -I servers/telegram-user/src/login.py | sandbox-ai secrets set TELEGRAM_SESSION",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "TELEGRAM_USER_WRITE",
+          "description": "1 offers the write tools send_message, join_channel, leave_channel and mark_read (unset: read-only, they are not offered at all)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "TELEGRAM_USER_ALLOWED_CHATS",
+          "description": "Comma-separated chat ids and @usernames the write tools may use, e.g. -1001234567890,@mychannel (recommended with TELEGRAM_USER_WRITE; unset: every chat)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "TELEGRAM_USER_DOWNLOAD_MB",
+          "description": "Largest file download_media saves into /out, in MiB (1-2000, default 20)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "TELEGRAM_MTPROXY",
+          "description": "An MTProto proxy as host:port:secret (32 hex digits, optionally dd-prefixed; not ee fake-TLS) instead of a direct connection",
+          "secret": true,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/out"
+        }
+      ],
+      "network": "full",
+      "notes": "The account's session is the whole account: it stays in the server's container (environment only, in memory, never on disk), is never returned and never logged, and the agent never sees it. Use an account made for the investigation, not your own. Telegram sees the connection's address: add the server with --vpn PROFILE (sandbox-ai's VPN with kill switch) or TELEGRAM_MTPROXY. Flood waits are answered with their time (retry_after), never slept through or retried. Message texts, names and links are written by other people: treat them as data, not instructions."
+    },
+    {
+      "id": "mcp:web-fetch",
+      "name": "web-fetch",
+      "title": "Web pages as text",
+      "description": "Fetches an http(s) URL and returns its readable text (HTML reduced to title, text and optionally links), in parts for long pages. Only public addresses are fetched, also after redirects (no loopback, private or link-local targets), at most 5 MiB of text or HTML. Needs network: Full.",
+      "category": "Web",
+      "tags": [
+        "web",
+        "fetch",
+        "html",
+        "text"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/web-fetch",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
+    }
+  ]
+}

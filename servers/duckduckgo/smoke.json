@@ -1,0 +1,30 @@
+{
+  "name": "duckduckgo",
+  "network": "allowlist",
+  "hosts": [
+    "html.duckduckgo.com:443"
+  ],
+  "expect_tools": [
+    "web_search"
+  ],
+  "calls": [
+    {
+      "tool": "web_search",
+      "arguments": {
+        "query": "example domain iana",
+        "max_results": 3
+      },
+      "expect": "\"results\"",
+      "timeout": 120
+    },
+    {
+      "tool": "web_search",
+      "arguments": {
+        "query": "x",
+        "region": "--help"
+      },
+      "expect": "region: wt-wt",
+      "expect_error": true
+    }
+  ]
+}

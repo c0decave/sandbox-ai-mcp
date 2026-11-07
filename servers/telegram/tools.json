@@ -1,0 +1,9 @@
+{
+  "tools": [
+    "edit_message_text",
+    "get_chat",
+    "get_me",
+    "get_updates",
+    "send_message"
+  ]
+}

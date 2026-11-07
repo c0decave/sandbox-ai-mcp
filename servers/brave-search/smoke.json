@@ -1,0 +1,25 @@
+{
+  "name": "brave-search",
+  "network": "allowlist",
+  "hosts": [
+    "api.search.brave.com:443"
+  ],
+  "expect_tools": [
+    "news_search",
+    "web_search"
+  ],
+  "env": {
+    "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+  },
+  "calls": [
+    {
+      "tool": "web_search",
+      "arguments": {
+        "query": "x",
+        "count": 0
+      },
+      "expect": "count: an integer",
+      "expect_error": true
+    }
+  ]
+}

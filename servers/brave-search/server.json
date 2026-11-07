@@ -1,0 +1,32 @@
+{
+  "id": "mcp:brave-search",
+  "name": "brave-search",
+  "title": "Brave Search",
+  "description": "Web and news search through the official Brave Search API: title, URL and description (news: age and source), with country and freshness filters. Needs an API key from https://brave.com/search/api/ in BRAVE_API_KEY and network: Allowlist with api.search.brave.com:443.",
+  "category": "Search",
+  "tags": [
+    "search",
+    "web",
+    "news",
+    "brave"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/brave-search",
+  "page": "https://brave.com/search/api/",
+  "license": "MIT (MCP server, sandbox-ai-mcp)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "BRAVE_API_KEY",
+      "description": "Brave Search API key",
+      "secret": true,
+      "required": true
+    }
+  ],
+  "network": "allowlist",
+  "hosts": [
+    "api.search.brave.com:443"
+  ],
+  "notes": "The key is passed as an environment variable and never returned or logged by the server."
+}

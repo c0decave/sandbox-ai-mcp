@@ -1,0 +1,29 @@
+{
+  "id": "mcp:searxng",
+  "name": "searxng",
+  "title": "SearXNG search",
+  "description": "Web search through a SearXNG instance of yours (a metasearch engine that asks many search engines at once, without tracking): title, URL, snippet and engines of each result, with category, language, time range and pages. Set SEARXNG_URL to the instance (its JSON format allowed). Needs network to the instance (added with --network full: only SEARXNG_URL is requested).",
+  "category": "Search",
+  "tags": [
+    "search",
+    "web",
+    "searxng",
+    "metasearch"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/searxng",
+  "page": "https://github.com/searxng/searxng",
+  "license": "MIT (MCP server, sandbox-ai-mcp); SearXNG itself: AGPL-3.0-or-later",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "SEARXNG_URL",
+      "description": "Your SearXNG instance, e.g. https://search.example.org or http://192.168.1.20:8888",
+      "secret": false,
+      "required": true
+    }
+  ],
+  "network": "full",
+  "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format."
+}

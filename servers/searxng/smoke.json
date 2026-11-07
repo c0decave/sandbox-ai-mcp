@@ -1,0 +1,29 @@
+{
+  "name": "searxng",
+  "network": "none",
+  "env": {
+    "SEARXNG_URL": "http://127.0.0.1:9"
+  },
+  "expect_tools": [
+    "web_search"
+  ],
+  "calls": [
+    {
+      "tool": "web_search",
+      "arguments": {
+        "query": "example domain"
+      },
+      "expect": "SearXNG not reachable",
+      "expect_error": true
+    },
+    {
+      "tool": "web_search",
+      "arguments": {
+        "query": "x",
+        "category": "--help"
+      },
+      "expect": "category: one of",
+      "expect_error": true
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "name": "telegram",
+  "network": "allowlist",
+  "hosts": [
+    "api.telegram.org:443"
+  ],
+  "expect_tools": [
+    "edit_message_text",
+    "get_chat",
+    "get_me",
+    "get_updates",
+    "send_message"
+  ],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": "",
+    "TELEGRAM_ALLOWED_CHATS": "123456789"
+  },
+  "calls": [
+    {
+      "tool": "get_me",
+      "arguments": {},
+      "expect": "no Telegram bot token",
+      "expect_error": true
+    },
+    {
+      "tool": "send_message",
+      "arguments": {
+        "chat_id": 42,
+        "text": "x"
+      },
+      "expect": "is not in TELEGRAM_ALLOWED_CHATS",
+      "expect_error": true
+    },
+    {
+      "tool": "send_message",
+      "arguments": {
+        "chat_id": 123456789,
+        "text": "x",
+        "parse_mode": "Markdown"
+      },
+      "expect": "parse_mode: HTML, MarkdownV2",
+      "expect_error": true
+    },
+    {
+      "tool": "get_updates",
+      "arguments": {
+        "limit": 0
+      },
+      "expect": "limit: an integer",
+      "expect_error": true
+    }
+  ]
+}

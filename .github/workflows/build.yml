@@ -1,0 +1,277 @@
+name: build
+
+# Builds every server image, starts it with the hardened run line sandbox-ai and axross use
+# (initialize + tools/list must offer exactly servers/<name>/tools.json), runs its smoke spec
+# (servers/<name>/smoke.json: real calls and refused calls), scans it with Trivy (CRITICAL with a
+# fix available fails the job), pushes it to ghcr.io/c0decave/sandbox-ai-mcp-<name> and reports
+# the pushed digest. Then the pushed image runs again as sandbox-ai runs it: under Podman with
+# sandbox-ai's own run line, and its rootfs (scripts/rootfs.py, published as a release asset)
+# under Bubblewrap with sandbox-ai's mcp_rootfs; both reports are kept. The catalog job turns
+# digests and rootfs into catalog.json and rootfs.json (an artifact, with the reports). Sign them
+# on your machine with scripts/sign_catalog.py, which refuses unless both reports of every server
+# passed, then commit catalog.json, rootfs.json and their .sig files (docs/SIGNING.md).
+# The smoke runs need a sandbox-ai with signed catalogs and Bubblewrap servers (sandbox/mcp_rootfs.py):
+# the repository variable SANDBOX_AI_REF picks its branch, tag or commit (default main).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    # The commit of a signed catalog (catalog.json, rootfs.json, digests.json, *.sig) builds nothing:
+    # a rebuild would only push new digests the signed catalog does not pin.
+    paths-ignore:
+      - catalog.json
+      - catalog.json.sig
+      - rootfs.json
+      - rootfs.json.sig
+      - digests.json
+      - docs/**
+      - "*.md"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # the rootfs archives are release assets
+  packages: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/c0decave/sandbox-ai-mcp-
+  SOURCE_LABEL: org.opencontainers.image.source=https://github.com/c0decave/sandbox-ai-mcp
+  TRIVY_VERSION: "0.76.1"
+  TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
+  SANDBOX_AI_REPOSITORY: c0decave/sandbox-ai
+  SANDBOX_AI_REF: ${{ vars.SANDBOX_AI_REF || 'main' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The servers' own tests need their requirements; the image job covers them with the smoke spec.
+      - name: repository tests (catalog)
+        run: python3 -m unittest discover -s tests -v
+      - name: catalog.json matches the metadata (pending digests allowed)
+        run: python3 scripts/make_catalog.py --check --allow-pending
+
+  image:
+    needs: test
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        server: [brave-search, duckduckgo, searxng, telegram, telegram-user, web-fetch]   # candidates/ join once their pins are set
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build (loaded locally for the checks)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: servers/${{ matrix.server }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
+          labels: ${{ env.SOURCE_LABEL }}
+
+      - name: Start with the hardened run line (initialize, tools/list)
+        run: |
+          python3 scripts/smoke_test.py --engine docker --list-only \
+            --image local/sandbox-ai-mcp-${{ matrix.server }}:ci \
+            --spec servers/${{ matrix.server }}/smoke.json \
+            --tools-file servers/${{ matrix.server }}/tools.json
+
+      - name: Smoke spec (real and refused calls)
+        env:
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+        # brave-search's live call needs the repository secret BRAVE_API_KEY; without it only the
+        # refused call runs.
+        run: |
+          python3 scripts/smoke_test.py --engine docker \
+            --image local/sandbox-ai-mcp-${{ matrix.server }}:ci \
+            --spec servers/${{ matrix.server }}/smoke.json \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures"
+
+      - name: Install Trivy ${{ env.TRIVY_VERSION }} (checksum pinned)
+        run: |
+          curl -fsSL -o /tmp/trivy.tar.gz \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  /tmp/trivy.tar.gz" | sha256sum -c -
+          mkdir -p /tmp/trivy && tar -xzf /tmp/trivy.tar.gz -C /tmp/trivy trivy
+          /tmp/trivy/trivy --version
+
+      - name: Trivy scan (fails on CRITICAL with a fix available)
+        run: |
+          /tmp/trivy/trivy image --scanners vuln --severity CRITICAL --ignore-unfixed \
+            --exit-code 1 --no-progress local/sandbox-ai-mcp-${{ matrix.server }}:ci
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags
+        id: tags
+        if: github.event_name != 'pull_request'
+        run: |
+          image="${IMAGE_PREFIX}${{ matrix.server }}"
+          tags="${image}:sha-${GITHUB_SHA::12}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tags="${tags},${image}:${GITHUB_REF_NAME}"; fi
+          if [ "${GITHUB_REF}" = "refs/heads/main" ] || [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tags="${tags},${image}:latest"
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - name: Push
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: servers/${{ matrix.server }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: ${{ env.SOURCE_LABEL }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Digest
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE: ${{ steps.tags.outputs.image }}
+        run: |
+          echo "${DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          printf '{"name": "%s", "image": "%s", "digest": "%s"}\n' \
+            "${{ matrix.server }}" "${IMAGE}" "${DIGEST}" > "digest-${{ matrix.server }}.json"
+          echo "${IMAGE}@${DIGEST}"
+          echo "| ${{ matrix.server }} | \`${IMAGE}@${DIGEST}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+      # --- as sandbox-ai runs it: Podman with its run line, Bubblewrap with the rootfs -----------------
+      - name: sandbox-ai (its run lines)
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SANDBOX_AI_REPOSITORY }}
+          ref: ${{ env.SANDBOX_AI_REF }}
+          path: sandbox-ai
+          persist-credentials: false
+
+      - name: sandbox-ai has signed catalogs and Bubblewrap servers
+        if: github.event_name != 'pull_request'
+        run: |
+          for file in sandbox/mcp.py sandbox/mcp_rootfs.py sandbox/mcp-signers sandbox/release_keys.py; do
+            if [ ! -f "sandbox-ai/${file}" ]; then
+              echo "::error::${SANDBOX_AI_REPOSITORY}@${SANDBOX_AI_REF} has no ${file}: publish a sandbox-ai with signed MCP catalogs first, or set the repository variable SANDBOX_AI_REF"
+              exit 1
+            fi
+          done
+          grep -q '^def image_command' sandbox-ai/sandbox/mcp.py
+          git -C sandbox-ai log -1 --format='sandbox-ai %H %s'
+
+      - name: Bubblewrap, slirp4netns, pasta
+        if: github.event_name != 'pull_request'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap slirp4netns passt
+          # Ubuntu 24.04 keeps unprivileged user namespaces from bwrap unless this is off.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Smoke with sandbox-ai under Podman
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+        run: |
+          podman pull -q "${IMAGE}"
+          python3 scripts/smoke_test.py --runner sandbox-ai-podman --sandbox-ai sandbox-ai --image "${IMAGE}" \
+            --spec servers/${{ matrix.server }}/smoke.json --tools-file servers/${{ matrix.server }}/tools.json \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --report "smoke-${{ matrix.server }}-sandbox-ai-podman.json"
+
+      - name: Rootfs of the pushed image
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
+        run: python3 scripts/rootfs.py --engine podman --image "${IMAGE}" --name ${{ matrix.server }} --out rootfs-out
+
+      - name: Smoke with sandbox-ai under Bubblewrap
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+        run: |
+          python3 scripts/smoke_test.py --runner sandbox-ai-bwrap --sandbox-ai sandbox-ai --image "${IMAGE}" \
+            --rootfs rootfs-out/rootfs-${{ matrix.server }}.tar.gz \
+            --rootfs-meta rootfs-out/rootfs-${{ matrix.server }}.json \
+            --spec servers/${{ matrix.server }}/smoke.json --tools-file servers/${{ matrix.server }}/tools.json \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --report "smoke-${{ matrix.server }}-sandbox-ai-bwrap.json"
+
+      - name: Publish the rootfs (a release named after its hash)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['sha256'][:12])" \
+                rootfs-out/rootfs-${{ matrix.server }}.json)
+          tag="rootfs-${{ matrix.server }}-${sha}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
+            --notes "The rootfs of ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }} for Bubblewrap (sandbox-ai mcp add --backend bwrap)." \
+            --target "${GITHUB_SHA}"
+          gh release upload "$tag" rootfs-out/rootfs-${{ matrix.server }}.tar.gz --clobber
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'pull_request'
+        with:
+          name: ci-${{ matrix.server }}
+          path: |
+            digest-${{ matrix.server }}.json
+            rootfs-out/rootfs-${{ matrix.server }}.json
+            smoke-${{ matrix.server }}-sandbox-ai-podman.json
+            smoke-${{ matrix.server }}-sandbox-ai-bwrap.json
+          if-no-files-found: error
+
+  catalog:
+    needs: image
+    # Only main publishes the rootfs archives rootfs.json points to: sign the catalog of a main run.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ci-*
+          path: ci-digests
+          merge-multiple: true
+      - name: catalog.json and rootfs.json with the pushed digests and rootfs
+        run: |
+          python3 scripts/make_catalog.py --ci-digests ci-digests --write-digests
+          python3 scripts/make_catalog.py --check
+          cat ci-digests/digest-*.json
+          { echo '### digests.json'; echo '```json'; cat digests.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: catalog
+          path: |
+            catalog.json
+            rootfs.json
+            digests.json
+            ci-digests/**/smoke-*.json
+          if-no-files-found: error

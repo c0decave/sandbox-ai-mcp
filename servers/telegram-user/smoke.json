@@ -1,0 +1,56 @@
+{
+  "name": "telegram-user",
+  "network": "full",
+  "expect_tools": [
+    "check_invite",
+    "get_chat_info",
+    "get_me",
+    "get_messages",
+    "get_replies",
+    "list_dialogs",
+    "resolve_chat",
+    "search_chats",
+    "search_global",
+    "search_messages"
+  ],
+  "env": {
+    "TELEGRAM_API_ID": "",
+    "TELEGRAM_API_HASH": "",
+    "TELEGRAM_SESSION": ""
+  },
+  "calls": [
+    {
+      "tool": "get_me",
+      "arguments": {},
+      "expect": "no Telegram account: set TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION",
+      "expect_error": true
+    },
+    {
+      "tool": "get_messages",
+      "arguments": {
+        "chat": "durov",
+        "limit": 201
+      },
+      "expect": "limit: an integer from 1 to 200",
+      "expect_error": true
+    },
+    {
+      "tool": "resolve_chat",
+      "arguments": {
+        "chat": "https://example.org/durov"
+      },
+      "expect": "chat: @username, a t.me link or a numeric chat id",
+      "expect_error": true
+    },
+    {
+      "tool": "search_messages",
+      "arguments": {
+        "chat": "durov",
+        "query": "x",
+        "since": "yesterday"
+      },
+      "expect": "since: a date like 2026-01-31",
+      "expect_error": true
+    }
+  ]
+}

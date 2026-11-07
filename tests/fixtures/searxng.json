@@ -1,0 +1,11 @@
+{"query": "example domain", "number_of_results": 0,
+ "results": [
+  {"url": "https://example.com/", "title": " Example   Domain ", "content": "This domain is for use in\n illustrative examples.", "engines": ["duckduckgo", "brave"], "score": 3.0},
+  {"url": "javascript:alert(1)", "title": "Evil", "content": "x", "engines": ["x"]},
+  {"url": "https://www.iana.org/help/example-domains", "title": "Example Domains", "content": "", "engines": ["google"]},
+  {"url": "https://no-title.example/", "title": "", "content": "dropped"},
+  "not an object"
+ ],
+ "answers": ["An answer", {"answer": "From an infobox", "url": "https://example.org"}],
+ "suggestions": ["example domain names", 5],
+ "infoboxes": []}

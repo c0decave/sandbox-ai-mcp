@@ -1,0 +1,23 @@
+{
+  "id": "mcp:duckduckgo",
+  "name": "duckduckgo",
+  "title": "DuckDuckGo search",
+  "description": "Web search without an API key through DuckDuckGo's HTML endpoint: title, URL and snippet of each result, optionally for a region. Only https://html.duckduckgo.com/html/ is requested. Needs network: Allowlist with html.duckduckgo.com:443.",
+  "category": "Search",
+  "tags": [
+    "search",
+    "web",
+    "duckduckgo"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/duckduckgo",
+  "page": "https://duckduckgo.com/",
+  "license": "MIT (MCP server, sandbox-ai-mcp)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
+  "tag": "latest",
+  "network": "allowlist",
+  "hosts": [
+    "html.duckduckgo.com:443"
+  ],
+  "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "mcp:web-fetch",
+  "name": "web-fetch",
+  "title": "Web pages as text",
+  "description": "Fetches an http(s) URL and returns its readable text (HTML reduced to title, text and optionally links), in parts for long pages. Only public addresses are fetched, also after redirects (no loopback, private or link-local targets), at most 5 MiB of text or HTML. Needs network: Full.",
+  "category": "Web",
+  "tags": [
+    "web",
+    "fetch",
+    "html",
+    "text"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/web-fetch",
+  "license": "MIT (MCP server, sandbox-ai-mcp)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
+  "tag": "latest",
+  "network": "full",
+  "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
+}

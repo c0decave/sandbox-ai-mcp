@@ -1,0 +1,25 @@
+{
+  "name": "web-fetch",
+  "network": "full",
+  "expect_tools": [
+    "fetch_page"
+  ],
+  "calls": [
+    {
+      "tool": "fetch_page",
+      "arguments": {
+        "url": "https://example.com/"
+      },
+      "expect": "Example Domain",
+      "timeout": 120
+    },
+    {
+      "tool": "fetch_page",
+      "arguments": {
+        "url": "http://169.254.169.254/latest/"
+      },
+      "expect": "not a public address",
+      "expect_error": true
+    }
+  ]
+}

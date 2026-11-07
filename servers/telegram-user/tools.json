@@ -1,0 +1,14 @@
+{
+  "tools": [
+    "check_invite",
+    "get_chat_info",
+    "get_me",
+    "get_messages",
+    "get_replies",
+    "list_dialogs",
+    "resolve_chat",
+    "search_chats",
+    "search_global",
+    "search_messages"
+  ]
+}
