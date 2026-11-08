@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-06.
+State: 2026-11-08 (file-analysis servers added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -39,6 +39,23 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | telegram | a Telegram bot through the official Bot API (no user account) | allowlist `api.telegram.org:443`, `TELEGRAM_BOT_TOKEN`, optional `TELEGRAM_ALLOWED_CHATS` | natively, with a local stand-in for the Bot API (requests, errors, the token in no answer or log line); no live call (that would need a bot and a chat) |
 | telegram-user | a Telegram user account through MTProto (Telethon 1.45.0, MIT): read public channels and groups (resolve, search, info, invite links, messages, search, comments, media metadata; downloads only into a mounted `/out`); write tools only with `TELEGRAM_USER_WRITE=1` | full (data centres by IP; `--vpn PROFILE`), `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` (login.py), optional `TELEGRAM_USER_ALLOWED_CHATS`, `TELEGRAM_MTPROXY` | natively, with a fake Telethon client (tools read-only and opt-in, limits, refused arguments, flood waits, allowed chats, downloads, login.py, the secrets in no answer or log line); not built yet; no live call (that would need an account) |
 | web-fetch | a public web page as text | full, public addresses only | natively, including the address checks |
+| radare2 | static analysis of a binary: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (`pdc`), xrefs; upstream r2mcp 1.9.0 with radare2 6.2.4, both built from source at their release commits, started with `-s /work -g none` | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests (entry, pins, mounts, fixtures) and the smoke spec in CI |
+| capa | what a binary can do: Mandiant capa 10.0.0 with capa-rules 10.0.0 and capa's FLIRT signatures in the image, mapped to ATT&CK and MBC; FuzzingLabs wrapper, patched (paths under `/work`, ranges, bounded results) | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
+| binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
+
+### The three file-analysis servers, and the cooldown rule
+
+Their pins are old enough on 2026-11-08: radare2 6.2.4 and r2mcp 1.9.0 (release commits of
+2026-10-15 and earlier), capa 10.0.0 and capa-rules 10.0.0 (release commits), the FuzzingLabs
+wrapper commit `0409a543` (2026-01-27), binwalk and its extractors from the pinned trixie archive
+(exempt). `flare-capa==10.0.0`, `pydantic==2.14.1` and `pydantic-settings==2.16.1` come from the
+hub's hash-locked `requirements.txt`; `starlette` (1.10.0 -> 1.9.0) and `sse-starlette`
+(3.5.1 -> 3.5.0) were set to the versions the other servers here pin, both too new in the hub's
+lock and unused by a stdio server. Re-lock all `servers/*/requirements.txt` together with
+`scripts/lock.sh` at the next re-lock date.
+
+The hub's remaining servers are **not** ported: they scan, probe or crack (network scanners,
+fuzzers, SQL injection, password cracking) or capture network traffic. They stay in the hub.
 
 ## Prepared (`candidates/`): audited, pins missing
 

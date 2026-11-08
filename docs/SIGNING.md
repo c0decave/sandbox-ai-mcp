@@ -45,7 +45,24 @@ The `catalog` job (only for `main`) turns the digests and rootfs files into `cat
 
 `sign_catalog.py` refuses unless `catalog.json` and `rootfs.json` are what `servers/*/server.json` and
 `digests.json` give (`make_catalog.py --check`) and every entry with a digest has both reports, passed, of the
-right runner, with `tools.json` matched, for the pinned `IMAGE@DIGEST` and the `rootfs.json` SHA-256.
+right runner, with `tools.json` matched, for the pinned `IMAGE@DIGEST` and the `rootfs.json` SHA-256. It also
+refuses when
+
+- a report made no tool call at all (`tools/call ...`): a handshake and a tool list say nothing about the tool,
+  so every server's `smoke.json` must call it;
+- a report ran the server with **more** network than its entry declares - an entry with `network: none`
+  (radare2, capa, binwalk) is never vouched for by a run that had a network. Less is fine: searxng's smoke
+  runs without one. An `allowlist` entry counts as `full`, because that is what sandbox-ai gives it;
+- `rootfs.json` pins a rootfs for a server the catalog does not publish.
+
+Before signing, it is worth reading the catalog with sandbox-ai's own code:
+
+```bash
+python3 scripts/make_catalog.py --check --sandbox-ai "$SANDBOX_AI"
+```
+
+which turns every entry into the definition `sandbox-ai mcp add` would write (`definition_from_entry`,
+`validated_image`) and checks every rootfs with `mcp_rootfs.validated`, without pulling or fetching anything.
 
 ## Before the first run
 
@@ -57,6 +74,9 @@ right runner, with `tools.json` matched, for the pinned `IMAGE@DIGEST` and the `
 - `sandbox/mcp-signers` of the published sandbox-ai must carry the line of the signing key's `.pub`, or users'
   sandbox-ai will not trust the signature.
 - Optional: the repository secret `BRAVE_API_KEY` (without it brave-search's smoke runs only the refused call).
+- Nothing else is needed for the file-analysis servers: their smoke inputs are written by
+  `scripts/fixtures.py` from `tests/fixtures/analysis-files.json` (base64, pinned by SHA-256) and mounted
+  read-only at `/work`; radare2 is built from source, so its matrix job takes the longest.
 
 ## The steps
 
@@ -112,7 +132,7 @@ git push github public:main
 git checkout main && git cherry-pick public && git push origin main
 ```
 
-Then make the six packages `ghcr.io/c0decave/sandbox-ai-mcp-*` public if they are not
+Then make the nine packages `ghcr.io/c0decave/sandbox-ai-mcp-*` public if they are not
 (github.com/c0decave?tab=packages, package settings, "Change visibility"): sandbox-ai pulls them without a login.
 
 Check what users get:

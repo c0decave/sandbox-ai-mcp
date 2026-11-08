@@ -59,14 +59,41 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: catalog.json matches the metadata (pending digests allowed)
         run: python3 scripts/make_catalog.py --check --allow-pending
+      # The binary smoke inputs of the file-analysis servers live as base64 in
+      # tests/fixtures/analysis-files.json, pinned by SHA-256.
+      - name: the binary smoke fixtures match their SHA-256
+        run: python3 scripts/fixtures.py --check
+
+      # The catalog is only worth as much as sandbox-ai's own reader makes of it: check every entry
+      # with sandbox-ai's code before anything is built (no pull, no fetch).
+      - name: sandbox-ai (its catalog reader)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SANDBOX_AI_REPOSITORY }}
+          ref: ${{ env.SANDBOX_AI_REF }}
+          path: sandbox-ai
+          persist-credentials: false
+      - name: every entry as sandbox-ai reads it
+        run: |
+          for file in sandbox/mcp.py sandbox/mcp_rootfs.py; do
+            if [ ! -f "sandbox-ai/${file}" ]; then
+              echo "::error::${SANDBOX_AI_REPOSITORY}@${SANDBOX_AI_REF} has no ${file}: publish a sandbox-ai with signed MCP catalogs first, or set the repository variable SANDBOX_AI_REF"
+              exit 1
+            fi
+          done
+          python3 scripts/make_catalog.py --check --allow-pending --sandbox-ai sandbox-ai
+          SANDBOX_AI_CHECKOUT="${GITHUB_WORKSPACE}/sandbox-ai" python3 -m unittest discover -s tests
 
   image:
     needs: test
     runs-on: ubuntu-24.04
+    # radare2 and its MCP server are built from source (meson, ninja); the others are minutes.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        server: [brave-search, duckduckgo, searxng, telegram, telegram-user, web-fetch]   # candidates/ join once their pins are set
+        server: [binwalk, brave-search, capa, duckduckgo, radare2, searxng, telegram, telegram-user,
+                 web-fetch]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -83,6 +110,10 @@ jobs:
           push: false
           tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
           labels: ${{ env.SOURCE_LABEL }}
+
+      # radare2, capa and binwalk read a file: the fixtures their smoke specs mount at /work.
+      - name: Smoke fixtures (checked against their SHA-256)
+        run: python3 scripts/fixtures.py --out "${GITHUB_WORKSPACE}/tests/fixtures"
 
       - name: Start with the hardened run line (initialize, tools/list)
         run: |

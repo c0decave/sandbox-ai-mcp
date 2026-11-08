@@ -13,15 +13,22 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 ## Scope
 
 - the MCP servers in `servers/*/src`: argument validation, address and path checks, anything
-  that lets a tool call or an answer escape the intended behaviour;
+  that lets a tool call or an answer escape the intended behaviour. radare2 has no `src`: its MCP
+  server is upstream's r2mcp, built from the pinned commit and started with radare2's own sandbox
+  (`-s /work -g none`); the packaging and those flags are in scope, r2mcp's own code upstream;
+- the file-analysis servers (radare2, capa, binwalk): a path that escapes the folder mounted at
+  `/work`, a write outside `/out` and the container's `/tmp`, anything a crafted input file makes
+  the server do beyond reporting about it;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull
   an image other than the one reviewed).
 
 Vulnerabilities of upstream components (Playwright MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
-the Python packages) belong upstream, unless the packaging here makes them reachable in a way
-upstream does not.
+radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong upstream, unless the
+packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
+crafted file is such an upstream matter; it happens inside a container with no network, no
+capabilities and a read-only root.
 
 ## The model behind these images
 

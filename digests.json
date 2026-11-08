@@ -1,7 +1,10 @@
 {
   "images": {
+    "binwalk": null,
     "brave-search": null,
+    "capa": null,
     "duckduckgo": null,
+    "radare2": null,
     "searxng": null,
     "telegram": null,
     "telegram-user": null,

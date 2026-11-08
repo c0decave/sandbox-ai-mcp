@@ -44,7 +44,8 @@ class SignCatalog(unittest.TestCase):
         import tempfile
         self.tmp = Path(tempfile.mkdtemp())
         self.root = self.tmp / "hub"
-        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns(".git", "__pycache__", "candidates"))
+        shutil.copytree(ROOT, self.root, ignore=shutil.ignore_patterns(
+            ".git", "__pycache__", "candidates", "sandbox-ai"))  # CI checks sandbox-ai out beside us
         digests = json.loads((self.root / "digests.json").read_text())
         # Only duckduckgo is published here, whatever the real digests.json pins.
         digests["images"] = {name: None for name in digests["images"]}
@@ -77,7 +78,8 @@ class SignCatalog(unittest.TestCase):
     def report(self, runner, folder=None, **changes):
         """A report as scripts/smoke_test.py --report writes it."""
         report = {"name": "duckduckgo", "image": IMAGE, "network": "full", "runner": runner, "ok": True,
-                  "checks": [{"check": "tools/list", "ok": True}, {"check": "tools.json", "ok": True}]}
+                  "checks": [{"check": "tools/list", "ok": True}, {"check": "tools.json", "ok": True},
+                             {"check": "tools/call web_search", "ok": True}]}
         if runner.endswith("bwrap"):
             report["rootfs_sha256"] = SHA
         report.update(changes)
@@ -108,8 +110,38 @@ class SignCatalog(unittest.TestCase):
         self.assertEqual(self.run_sign(), 1, "the report of the other runner under the podman name")
         self.report("sandbox-ai-podman", checks=[{"check": "tools/list", "ok": True}])
         self.assertEqual(self.run_sign(), 1, "tools.json was not compared")
+        self.report("sandbox-ai-podman", checks=[{"check": "tools/list", "ok": True},
+                                                 {"check": "tools.json", "ok": True}])
+        self.assertEqual(self.run_sign(), 1, "no tool call was made")
         self.assertFalse((self.root / "catalog.json.sig").exists())
         self.assertFalse((self.root / "rootfs.json.sig").exists())
+
+    def test_no_signature_with_more_network_than_the_entry_declares(self):
+        """duckduckgo is an allowlist entry: a run with the full network is what sandbox-ai gives it (it
+        has no egress proxy), so that report is taken; a server with network none is never vouched for
+        with any network."""
+        self.report("sandbox-ai-podman")
+        self.report("sandbox-ai-bwrap")
+        self.assertEqual(self.run_sign(), 0)
+        (self.root / "catalog.json.sig").unlink()
+        catalog = json.loads((self.root / "catalog.json").read_text())
+        for entry in catalog["entries"]:
+            if entry["name"] == "duckduckgo":
+                entry["network"] = "none"
+                entry.pop("hosts", None)
+        (self.root / "catalog.json").write_text(json.dumps(catalog, indent=2) + "\n")
+        problems = sign.problems_of(self.root, self.reports)
+        self.assertTrue(any("more network than it declares" in p for p in problems), problems)
+
+    def test_no_signature_for_a_rootfs_the_catalog_does_not_publish(self):
+        self.report("sandbox-ai-podman")
+        self.report("sandbox-ai-bwrap")
+        document = json.loads((self.root / "rootfs.json").read_text())
+        document["rootfs"]["web-fetch"] = dict(document["rootfs"]["duckduckgo"])
+        (self.root / "rootfs.json").write_text(json.dumps(document, indent=2) + "\n")
+        problems = sign.problems_of(self.root, self.reports)
+        self.assertTrue(any("web-fetch" in p and "does not" in p for p in problems), problems)
+        self.assertEqual(self.run_sign(), 1)
 
     def test_no_reports_folder_no_signature(self):
         self.assertEqual(sign.main(["--root", str(self.root), "--key", str(self.key),

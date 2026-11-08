@@ -16,7 +16,7 @@ the spec (``servers/<name>/smoke.json``), each checked for an expected text. Wit
 ``--tools-file servers/<name>/tools.json`` the offered tools must be exactly the recorded
 ones, so a changed tool list fails.
 
-    scripts/smoke_test.py --image IMAGE --spec servers/yara/smoke.json --var FIXTURES=/abs/dir
+    scripts/smoke_test.py --image IMAGE --spec servers/radare2/smoke.json --var FIXTURES=/abs/dir
 
 ``${NAME}`` in the spec is replaced by ``--var NAME=VALUE``. Exit status 0 when every
 check passed. Standard library only.

@@ -8,8 +8,11 @@ grants it, only the folders you mount), and agents reach it through sandbox-ai's
 
 The catalog uses the schema of
 [axross-mcp-hub](https://github.com/c0decave/axross-mcp-hub) (`axross-mcp-catalog`, version 1):
-sandbox-ai reads both catalogs, and axross can read this one too. The security tools of the hub
-(radare2, capa, binwalk, YARA, Nmap, ...) stay there and are not duplicated here.
+sandbox-ai reads both catalogs, and axross can read this one too. Three of the hub's file-analysis
+servers are built here as well, to this repository's standards and tested with sandbox-ai's own run
+lines: **radare2**, **capa** and **binwalk** - each with `network: none` and the files to look at
+mounted read-only. The hub's network and password tools stay there; nothing here reaches out to a
+network it was not given, and nothing here probes anyone.
 
 ## Servers
 
@@ -21,6 +24,9 @@ sandbox-ai reads both catalogs, and axross can read this one too. The security t
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
+| [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
+| [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
+| [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
@@ -45,8 +51,11 @@ sandbox-ai mcp add duckduckgo --network full    # pull by digest, write the defi
 sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
-sandbox-ai mcp add hub:binwalk --mount /work=~/firmware:ro
+sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
+sandbox-ai mcp add capa --mount /work=~/samples:ro
+sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
+sandbox-ai claude --mcp radare2 --mcp capa
 ```
 
 sandbox-ai starts each server with the run line below, one container per agent connection,
@@ -61,6 +70,13 @@ podman run --rm -i --init --pull=never --log-driver=none --cap-drop=ALL \
 
 An **allowlist** entry gets the full network in sandbox-ai only when it is added with
 `--network full` (the hosts it needs are shown); sandbox-ai has no per-server egress proxy yet.
+
+**The file-analysis servers (radare2, capa, binwalk)** are `network: none`: their container has no
+network namespace at all, so the files they read reach nobody. Mount the folder with the files
+**read-only** (`--mount /work=DIR:ro`, the default mode); the only server that writes anything to a
+folder of yours is binwalk, into `/out`, and only when you mount one writable. Everything they
+report - strings, symbols, rule names, file names - comes from a file somebody else made: it is
+data for the agent, never instructions.
 
 **telegram-user** is a Telegram *user account*: its session is the whole account, so it lives
 only in the server's container (environment, memory; never on disk, never in an answer or a log
@@ -128,13 +144,17 @@ server passed both smoke runs (Podman and Bubblewrap, `tools/list` matching
 ## Repository layout
 
 ```
-servers/<name>/       Dockerfile, server.json (catalog entry), src/server.py, requirements.*,
+servers/<name>/       Dockerfile, server.json (catalog entry), src/server.py (none for radare2:
+                      its MCP server is upstream's, built from source), requirements.*,
                       PROVENANCE.md, LICENSES/, smoke.json, tools.json
 candidates/<name>/    prepared servers: Dockerfile with open pins, PROVENANCE.md, LICENSES/
 catalog.json          generated by scripts/make_catalog.py from server.json + digests.json
+rootfs.json           the Bubblewrap form of each published server (archive URL and SHA-256)
 digests.json          digests of the last published build (null = not yet published)
-scripts/              make_catalog.py, smoke_test.py, lock.sh
-tests/                catalog tests; tests of the own servers (natively, with recorded answers)
+scripts/              make_catalog.py, smoke_test.py, rootfs.py, sign_catalog.py, fixtures.py, lock.sh
+tests/                catalog tests; tests of the own servers (natively, with recorded answers);
+                      fixtures/ (recorded answers, and analysis-files.json: the binary smoke
+                      inputs as base64, pinned by SHA-256)
 ```
 
 ## Maintenance
@@ -142,10 +162,17 @@ tests/                catalog tests; tests of the own servers (natively, with re
 ```
 python3 -m unittest discover -s tests            # catalog tests (server tests skip without mcp)
 pip install --require-hashes -r servers/duckduckgo/requirements.txt && python3 -m unittest discover -s tests
+SANDBOX_AI_CHECKOUT=/path/to/sandbox-ai python3 -m unittest discover -s tests   # also against sandbox-ai itself
 python3 scripts/make_catalog.py --check          # catalog current and fully pinned?
+python3 scripts/make_catalog.py --check --allow-pending --sandbox-ai /path/to/sandbox-ai
+                                                 # every entry as sandbox-ai's own reader takes it
+python3 scripts/fixtures.py                      # write the binary smoke fixtures into tests/fixtures
 scripts/lock.sh                                  # re-lock requirements.txt (in podman)
 podman build -t local/sandbox-ai-mcp-duckduckgo servers/duckduckgo
 python3 scripts/smoke_test.py --image local/sandbox-ai-mcp-duckduckgo --spec servers/duckduckgo/smoke.json
+podman build -t local/sandbox-ai-mcp-radare2 servers/radare2
+python3 scripts/smoke_test.py --image local/sandbox-ai-mcp-radare2 --spec servers/radare2/smoke.json \
+  --var FIXTURES="$PWD/tests/fixtures"           # after scripts/fixtures.py
 ```
 
 After a CI run on `main`, take its digests into the catalog:
@@ -157,6 +184,10 @@ scripts/make_catalog.py --ci-digests <downloaded digest-*.json> --write-digests
 ## Licence
 
 MIT ([LICENSE](LICENSE)). telegram-user bundles Telethon (MIT) and its dependencies
-(`servers/telegram-user/LICENSES`). Prepared servers bundle upstream software under its own licence
+(`servers/telegram-user/LICENSES`). The file-analysis images bundle third-party software under its
+own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Apache-2.0, BSD, MIT,
+Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
+(MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
+(MIT). See each server's `LICENSES/` and `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Playwright MCP, Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).

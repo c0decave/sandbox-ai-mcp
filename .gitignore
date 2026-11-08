@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 /ci-digests/
+/tests/fixtures/hello
+/tests/fixtures/caps
+/tests/fixtures/firmware.bin

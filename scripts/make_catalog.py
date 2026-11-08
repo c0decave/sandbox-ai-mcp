@@ -13,6 +13,7 @@ the catalog says ``"state": "pending-digests"``, and axross refuses that entry
     scripts/make_catalog.py --ci-digests DIR --write-digests   # take a CI run's digests
     scripts/make_catalog.py --check               # catalog.json up to date and pinned?
     scripts/make_catalog.py --check --allow-pending --axross /path/to/axross
+    scripts/make_catalog.py --check --allow-pending --sandbox-ai /path/to/sandbox-ai
 
 rootfs.json beside it has the Bubblewrap form of each published server (the ``rootfs-<name>.json``
 files the build workflow uploads, kept in digests.json's ``"rootfs"``): the archive's URL and SHA-256,
@@ -24,7 +25,10 @@ entry is invalid, or when digests are pending (unless ``--allow-pending``). With
 ``--axross DIR`` it also loads the catalog with axross's own validator
 (``core.mcp_catalog``, run it with axross's Python) and requires every pinned entry to be
 accepted unchanged and every pending entry to be refused for its missing digest.
-Standard library only.
+``--sandbox-ai DIR`` does the same with sandbox-ai's own reader (``sandbox/mcp.py``:
+``read_catalog``, ``definition_from_entry``, ``validated_image``, and ``mcp_rootfs.validated``
+for rootfs.json), so an entry this repository writes and an entry ``sandbox-ai mcp add`` accepts
+are the same thing. Nothing is pulled or fetched by either check. Standard library only.
 """
 
 from __future__ import annotations
@@ -63,7 +67,10 @@ _IMAGE = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*(?::[0-9]{1,5})?"
 _TAG = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
-_TARGET = re.compile(r"^/(?:[A-Za-z0-9._-]+|\{name\})(?:/(?:[A-Za-z0-9._-]+|\{name\}))*$")
+# sandbox-ai's own MOUNT_TARGET (sandbox/mcp.py): a plain absolute path. axross allows a {name}
+# placeholder too, but a target with one would be refused by sandbox-ai's validated_image when the
+# server is added, so this catalog does not write one.
+_TARGET = re.compile(r"^/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 _HOST = re.compile(r"^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$")
 
 ENTRY_KEYS = ("id", "name", "title", "description", "category", "tags", "repository", "page",
@@ -71,6 +78,13 @@ ENTRY_KEYS = ("id", "name", "title", "description", "category", "tags", "reposit
               "hosts", "notes")
 REQUIRED_KEYS = ("id", "name", "title", "description", "category", "repository", "license",
                  "kind", "image", "tag", "network")
+#: Keys of a mount and of an environment variable. sandbox-ai reads "target" and "required" of a
+#: mount and "name" and "required" of a variable (sandbox/mcp.py definition_from_entry); a key it
+#: does not know would be ignored silently, so only these are allowed here.
+MOUNT_KEYS = ("target", "description", "required")
+ENV_KEYS = ("name", "description", "secret", "required")
+#: sandbox-ai refuses a rootfs archive larger than this (sandbox/mcp_rootfs.py ROOTFS_LIMIT).
+ROOTFS_LIMIT = 2 << 30
 
 
 class CatalogProblem(ValueError):
@@ -146,6 +160,14 @@ def validate_entry(entry, *, where: str = "entry") -> None:
     for var in env:
         if not isinstance(var, dict) or not _ENV_NAME.match(str(var.get("name") or "")):
             raise CatalogProblem(f"{where}: an env variable needs a name of letters, digits and _")
+        unknown = sorted(set(var) - set(ENV_KEYS))
+        if unknown:
+            raise CatalogProblem(f"{where}: env {var['name']}: unknown keys {', '.join(unknown)} "
+                                 f"(a variable is {{{', '.join(ENV_KEYS)}}})")
+        _text(var, "description", MAX_SHORT, f"{where}: env {var['name']}")
+        for flag in ("secret", "required"):
+            if flag in var and not isinstance(var[flag], bool):
+                raise CatalogProblem(f"{where}: env {var['name']}: {flag} must be true or false")
     mounts = entry.get("mounts", [])
     if not isinstance(mounts, list) or len(mounts) > MAX_MOUNTS:
         raise CatalogProblem(f"{where}: mounts must be a list of at most {MAX_MOUNTS} folders")
@@ -159,6 +181,13 @@ def validate_entry(entry, *, where: str = "entry") -> None:
         if target in seen:
             raise CatalogProblem(f"{where}: mount target {target} is there twice")
         seen.add(target)
+        unknown = sorted(set(mount) - set(MOUNT_KEYS))
+        if unknown:
+            raise CatalogProblem(f"{where}: mount {target}: unknown keys {', '.join(unknown)} "
+                                 f"(a mount is {{{', '.join(MOUNT_KEYS)}}})")
+        _text(mount, "description", MAX_SHORT, f"{where}: mount {target}")
+        if "required" in mount and not isinstance(mount["required"], bool):
+            raise CatalogProblem(f"{where}: mount {target}: required must be true or false")
     hosts = entry.get("hosts", [])
     if not isinstance(hosts, list) or len(hosts) > MAX_HOSTS or not all(
             isinstance(h, str) and _HOST.match(h) for h in hosts):
@@ -242,19 +271,29 @@ def validate_rootfs(name: str, meta, digest: str | None) -> dict:
         raise CatalogProblem(f"{where}: url must be a release asset of this repository")
     if not isinstance(meta.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", meta["sha256"]):
         raise CatalogProblem(f"{where}: sha256 must be 64 hex digits")
+    # The same rules as sandbox-ai's mcp_rootfs.validated and its ROOTFS_LIMIT: a rootfs this
+    # catalog pins must be one sandbox-ai can fetch, check and run, not one it refuses later.
+    size = meta.get("size")
+    if isinstance(size, bool) or not isinstance(size, int) or not 0 < size <= ROOTFS_LIMIT:
+        raise CatalogProblem(f"{where}: size must be the archive's size in bytes, at most "
+                             f"{ROOTFS_LIMIT >> 30} GiB (sandbox-ai refuses a larger one)")
     entrypoint = meta.get("entrypoint")
-    if not isinstance(entrypoint, list) or not entrypoint or not all(isinstance(v, str) for v in entrypoint) \
+    if not isinstance(entrypoint, list) or not entrypoint or len(entrypoint) > 32 or not all(
+            isinstance(v, str) and v and "\0" not in v and len(v) < 4096 for v in entrypoint) \
             or not entrypoint[0].startswith("/"):
-        raise CatalogProblem(f"{where}: entrypoint must be an absolute program and its arguments")
+        raise CatalogProblem(f"{where}: entrypoint must be an absolute program and its arguments "
+                             "(at most 32 non-empty texts)")
     user = meta.get("user")
     if isinstance(user, bool) or not isinstance(user, int) or not 1 <= user <= 65535:
         raise CatalogProblem(f"{where}: user must be a UID other than root")
-    if not isinstance(meta.get("workdir", "/tmp"), str) or not meta.get("workdir", "/tmp").startswith("/"):
+    workdir = meta.get("workdir", "/tmp")
+    if not isinstance(workdir, str) or not workdir.startswith("/") or ".." in workdir.split("/"):
         raise CatalogProblem(f"{where}: workdir must be an absolute path")
     env = meta.get("env", {})
-    if not isinstance(env, dict) or not all(isinstance(k, str) and _ENV_NAME.match(k) and isinstance(v, str)
-                                            for k, v in env.items()):
-        raise CatalogProblem(f"{where}: env must map variable names to text")
+    if not isinstance(env, dict) or len(env) > 32 or not all(
+            isinstance(k, str) and _ENV_NAME.match(k) and isinstance(v, str) and "\0" not in v and len(v) < 4096
+            for k, v in env.items()):
+        raise CatalogProblem(f"{where}: env must map at most 32 variable names to text")
     return {k: meta[k] for k in ROOTFS_KEYS if k in meta}
 
 
@@ -349,6 +388,81 @@ def axross_check(catalog_path: Path, catalog: dict, axross_dir: Path) -> list[st
     return problems
 
 
+def _load_module(path: Path, name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def sandbox_ai_check(catalog_path: Path, catalog: dict, rootfs: dict, sandbox_ai_dir: Path) -> list[str]:
+    """Problems found when sandbox-ai's own reader takes *catalog_path*: every pinned entry must become a
+    definition its `mcp add` accepts (``read_catalog``, ``definition_from_entry``, ``validated_image``),
+    every pending entry must be refused for its missing digest, and every rootfs must pass
+    ``mcp_rootfs.validated``. Nothing is pulled and nothing is fetched."""
+    import tempfile
+
+    try:
+        mcp = _load_module(sandbox_ai_dir / "sandbox/mcp.py", "sandbox_ai_mcp_for_catalog")
+    except (ImportError, OSError) as exc:
+        return [f"cannot load sandbox-ai's sandbox/mcp.py from {sandbox_ai_dir}: {exc}"]
+    problems: list[str] = []
+    try:
+        entries = mcp.read_catalog(str(catalog_path))
+    except ValueError as exc:
+        return [f"sandbox-ai refuses the whole catalog: {exc}"]
+    by_id = {entry.get("id"): entry for entry in entries}
+    accepted = 0
+    with tempfile.TemporaryDirectory() as folder:
+        for entry in catalog["entries"]:
+            name = entry["name"]
+            got = by_id.get(entry["id"])
+            if got is None:
+                problems.append(f"sandbox-ai did not read the entry {name} ({entry['id']}) at all")
+                continue
+            mounts = [f"{mount['target']}={folder}:ro" for mount in entry.get("mounts", [])]
+            env = [var["name"] for var in entry.get("env", [])]
+            network = "full" if entry["network"] in ("full", "allowlist") else None
+            try:
+                definition = mcp.definition_from_entry(got, mounts=mounts, env=env, network=network)
+            except ValueError as exc:
+                if "digest" in entry:
+                    problems.append(f"sandbox-ai refused the pinned entry {name}: {exc}")
+                elif "digest" not in str(exc):
+                    problems.append(f"sandbox-ai refused {name} for another reason than the missing "
+                                    f"digest: {exc}")
+                continue
+            if "digest" not in entry:
+                problems.append(f"sandbox-ai accepted {name} although the catalog has no digest for it")
+                continue
+            accepted += 1
+            if definition["image"] != f"{entry['image']}@{entry['digest']}":
+                problems.append(f"sandbox-ai would run {definition['image']} for {name}, not "
+                                f"{entry['image']}@{entry['digest']}")
+            if [m["target"] for m in definition["mounts"]] != [m["target"] for m in entry.get("mounts", [])]:
+                problems.append(f"sandbox-ai read the folders of {name} differently: "
+                                f"{[m['target'] for m in definition['mounts']]}")
+            if definition["env"] != env:
+                problems.append(f"sandbox-ai read the variables of {name} differently: {definition['env']}")
+            if entry["network"] == "none" and definition["network"] != "none":
+                problems.append(f"{name}: the catalog says network none, sandbox-ai would give it "
+                                f"{definition['network']}")
+        module = mcp.rootfs_module()
+        for name, meta in sorted(rootfs.get("rootfs", {}).items()):
+            try:
+                module.validated({"path": str(module.rootfs_dir(meta["sha256"])), "sha256": meta["sha256"],
+                                  "entrypoint": meta.get("entrypoint"), "user": meta.get("user", 65534),
+                                  "workdir": meta.get("workdir", "/tmp"), "env": meta.get("env", {})}, name)
+            except (ValueError, KeyError) as exc:
+                problems.append(f"sandbox-ai refuses the rootfs of {name}: {exc}")
+    print(f"sandbox-ai reader: {accepted} pinned entries accepted, "
+          f"{len(catalog['entries']) - accepted} refused for a missing digest, "
+          f"{len(rootfs.get('rootfs', {}))} rootfs checked")
+    return problems
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--root", type=Path, default=ROOT, help="the hub repository")
@@ -363,6 +477,8 @@ def main(argv=None) -> int:
     parser.add_argument("--allow-pending", action="store_true",
                         help="with --check: entries without digest are not a failure")
     parser.add_argument("--axross", type=Path, help="an axross checkout: also run its validator")
+    parser.add_argument("--sandbox-ai", type=Path, dest="sandbox_ai",
+                        help="a sandbox-ai checkout: also read the catalog with its own reader")
     opts = parser.parse_args(argv)
     root = opts.root.resolve()
     digests_path = opts.digests or root / "digests.json"
@@ -409,6 +525,9 @@ def main(argv=None) -> int:
         problems.append(f"digests pending for: {', '.join(pending)}")
     if opts.axross and out.exists():
         problems.extend(axross_check(out, json.loads(current or text), opts.axross.resolve()))
+    if opts.sandbox_ai and out.exists():
+        problems.extend(sandbox_ai_check(out, json.loads(current or text), rootfs_document,
+                                         opts.sandbox_ai.resolve()))
     for problem in problems:
         print(f"FAIL: {problem}", file=sys.stderr)
     if not problems:

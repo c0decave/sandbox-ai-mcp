@@ -12,7 +12,9 @@ of the build workflow keeps them in ci-digests/; `gh run download RUN -n catalog
   smoke-<name>-sandbox-ai-bwrap.json    ok, runner sandbox-ai-bwrap, image IMAGE@DIGEST of the catalog,
                                         rootfs_sha256 of rootfs.json
 
-each with tools.json matched, and catalog.json and rootfs.json current (scripts/make_catalog.py --check). Then it
+each with tools.json matched, with at least one passed tool call (a handshake and a tool list say nothing about
+the tool), run with no more network than the entry declares, and with catalog.json and rootfs.json current
+(scripts/make_catalog.py --check; no rootfs for a server the catalog does not publish). Then it
 writes catalog.json.sig and rootfs.json.sig: SSH signatures (ssh-keygen -Y sign) in the namespace
 sandbox-ai-mcp, which sandbox-ai checks against sandbox/mcp-signers before `sandbox-ai mcp add` takes an entry.
 The key never leaves your machine: sign after the CI run, then commit catalog.json, rootfs.json and both .sig.
@@ -32,6 +34,10 @@ ROOT = Path(__file__).resolve().parent.parent
 NAMESPACE = "sandbox-ai-mcp"
 PRINCIPAL = "mcp@sandbox-ai"
 RUNNERS = ("sandbox-ai-podman", "sandbox-ai-bwrap")
+#: How much network a run had. A report may have had less than the entry declares (searxng's smoke
+#: runs without network), never more. "allowlist" counts as "full": sandbox-ai has no per-server
+#: egress proxy, so it gives an allowlist entry the full network, which is what CI tests it with.
+NETWORK_ORDER = {"none": 0, "allowlist": 1, "full": 1}
 
 
 def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[str]:
@@ -69,6 +75,17 @@ def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[s
                 problems.append(f"{name}: {runner} failed ({', '.join(map(str, failed)) or report.get('exception')})")
             elif not any(c.get("check") == "tools.json" and c.get("ok") for c in report.get("checks", [])):
                 problems.append(f"{name}: {runner} did not compare tools/list with tools.json")
+            elif not any(str(c.get("check", "")).startswith("tools/call ") and c.get("ok")
+                         for c in report.get("checks", [])):
+                # A handshake and a tool list say nothing about the tool: the signature vouches for
+                # a server that ran at least one call of its smoke spec.
+                problems.append(f"{name}: {runner} made no tool call (only initialize and tools/list): "
+                                f"servers/{name}/smoke.json must call the tool")
+            elif NETWORK_ORDER.get(str(report.get("network")), len(NETWORK_ORDER)) > \
+                    NETWORK_ORDER.get(entry.get("network"), 0):
+                problems.append(f"{name}: the {runner} report ran it with network {report.get('network')}, "
+                                f"the entry says {entry.get('network')}: a server is never vouched for with "
+                                "more network than it declares")
             elif report.get("image") != image:
                 problems.append(f"{name}: the {runner} report is of {report.get('image')}, the catalog pins {image}")
             elif runner == "sandbox-ai-bwrap":
@@ -78,6 +95,10 @@ def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[s
                 elif report.get("rootfs_sha256") != wanted:
                     problems.append(f"{name}: the bwrap report is of rootfs {report.get('rootfs_sha256')}, "
                                     f"rootfs.json says {wanted}")
+    stale = sorted(set(rootfs) - {e["name"] for e in published})
+    if stale:
+        problems.append(f"rootfs.json pins a rootfs for {', '.join(stale)}, which the catalog does not "
+                        "publish: run scripts/make_catalog.py")
     return problems
 
 
