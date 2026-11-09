@@ -41,7 +41,8 @@ NETWORK_ORDER = {"none": 0, "allowlist": 1, "full": 1}
 
 
 def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[str]:
-    """What stands in the way of signing: a stale catalog, a server without both passed reports."""
+    """What stands in the way of signing: a stale catalog, a server without its passed reports (Podman always,
+    Bubblewrap where rootfs.json has its rootfs)."""
     problems = []
     check = subprocess.run([sys.executable, str(root / "scripts/make_catalog.py"), "--root", str(root), "--check",
                             *(["--allow-pending"] if allow_pending else [])], capture_output=True, text=True)
@@ -57,7 +58,9 @@ def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[s
         return problems
     for entry in published:
         name, image = entry["name"], f"{entry['image']}@{entry['digest']}"
-        for runner in RUNNERS:
+        # Bubblewrap is vouched for only where rootfs.json offers that form: a server whose Bubblewrap smoke test
+        # failed is published for Podman alone (its rootfs left out by the build), never signed for Bubblewrap.
+        for runner in (r for r in RUNNERS if r != "sandbox-ai-bwrap" or name in rootfs):
             wanted_name = f"smoke-{name}-{runner}.json"
             found = sorted(reports.rglob(wanted_name))
             if len(found) > 1:

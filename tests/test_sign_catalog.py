@@ -116,6 +116,22 @@ class SignCatalog(unittest.TestCase):
         self.assertFalse((self.root / "catalog.json.sig").exists())
         self.assertFalse((self.root / "rootfs.json.sig").exists())
 
+    def test_a_server_without_rootfs_is_signed_for_podman_alone(self):
+        """A server whose Bubblewrap smoke test failed is published without a rootfs: its Podman report is enough,
+        and rootfs.json vouches for no Bubblewrap form of it."""
+        digests = json.loads((self.root / "digests.json").read_text())
+        digests["rootfs"] = {}
+        (self.root / "digests.json").write_text(json.dumps(digests, indent=2) + "\n")
+        made = subprocess.run([sys.executable, str(self.root / "scripts/make_catalog.py"), "--root", str(self.root)],
+                              capture_output=True, text=True)
+        self.assertEqual(made.returncode, 0, made.stderr)
+        self.assertEqual(self.run_sign(), 1, "no Podman report yet")
+        self.report("sandbox-ai-bwrap", ok=False, checks=[{"check": "tools/call web_search", "ok": False}])
+        self.report("sandbox-ai-podman")
+        self.assertEqual(self.run_sign(), 0, "a failed Bubblewrap report does not matter without a rootfs")
+        rootfs = json.loads((self.root / "rootfs.json").read_text())
+        self.assertNotIn("duckduckgo", rootfs.get("rootfs", {}))
+
     def test_no_signature_with_more_network_than_the_entry_declares(self):
         """duckduckgo is an allowlist entry: a run with the full network is what sandbox-ai gives it (it
         has no egress proxy), so that report is taken; a server with network none is never vouched for
