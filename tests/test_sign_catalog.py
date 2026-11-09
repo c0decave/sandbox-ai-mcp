@@ -260,6 +260,21 @@ class RootfsFacts(unittest.TestCase):
 class SmokeWithSandboxAi(unittest.TestCase):
     """smoke_test.py's sandbox-ai runners start a server with sandbox-ai's own run lines."""
 
+    def test_the_podman_runner_keeps_podmans_image_store(self):
+        """Rootless podman keeps its images below XDG_DATA_HOME: the Podman runner must not point it at a fresh
+        folder, or the image the workflow pulled is "not known" there."""
+        smoke = load("smoke_test")
+        before = os.environ.pop("XDG_DATA_HOME", None)
+        try:
+            image = f"ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo@{DIGEST}"
+            _, env, _ = smoke.sandbox_ai_argv("sandbox-ai-podman", os.environ["SANDBOX_AI_CHECKOUT"], image,
+                                              "allowlist", [], {})
+            self.assertNotIn("XDG_DATA_HOME", os.environ)
+            self.assertNotIn("XDG_DATA_HOME", env)
+        finally:
+            if before is not None:
+                os.environ["XDG_DATA_HOME"] = before
+
     def test_the_run_lines_are_sandbox_ais(self):
         import hashlib
         import io

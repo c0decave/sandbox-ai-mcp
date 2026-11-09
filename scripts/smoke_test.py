@@ -130,7 +130,11 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     run line (mcp.image_command), or the rootfs archive checked, unpacked and run with bwrap (mcp_rootfs)."""
     import tempfile
     state = tempfile.mkdtemp(prefix="smoke-sandbox-ai-")
-    os.environ.setdefault("XDG_DATA_HOME", os.path.join(state, "data"))
+    if runner != "sandbox-ai-podman":
+        # the rootfs store of the bwrap runner lives below XDG_DATA_HOME: a fresh one per smoke run. Never for
+        # Podman: rootless podman keeps its images below XDG_DATA_HOME too, and a fresh one would not hold the image
+        # the workflow has just pulled ("image not known").
+        os.environ.setdefault("XDG_DATA_HOME", os.path.join(state, "data"))
     mcp = load_module(os.path.join(checkout, "sandbox", "mcp.py"), "sandbox_ai_mcp_for_smoke")
     definition = {"network": "full" if network in ("full", "allowlist") else "none", "env": sorted(env),
                   "mounts": [{"target": target, "host": host, "mode": "rw" if writable else "ro"}
