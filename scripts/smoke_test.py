@@ -124,6 +124,24 @@ def load_module(path, name):
     return module
 
 
+def annotation(report: dict) -> str:
+    """A GitHub Actions error annotation for a failed smoke run: the exception, the failed checks and the end of
+    stderr, so the reason can be read from the check run without the job log."""
+    lines = [f"runner {report.get('runner')}, image {report.get('image')}"]
+    if report.get("exception"):
+        lines.append(f"exception: {report['exception']}")
+    for check in report.get("checks", []):
+        if not check.get("ok"):
+            lines.append(f"failed: {check.get('check')} expected {check.get('expect', check.get('missing'))!r}, "
+                         f"got {str(check.get('text', ''))[:300]!r}")
+    tail = str(report.get("stderr_tail") or "").strip()
+    if tail:
+        lines.append("stderr: " + tail[-1500:])
+    text = "\n".join(lines)
+    escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return f"::error title=smoke {report.get('name')} ({report.get('runner')})::{escaped}"
+
+
 def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts, env: dict,
                     rootfs: str | None = None, meta: dict | None = None) -> tuple[list[str], dict, dict]:
     """(argv, environment, facts) of a server started as sandbox-ai starts it: the image with sandbox-ai's own
@@ -339,6 +357,8 @@ def main(argv=None) -> int:
             proxy.close()
     report["ok"] = bool(ok)
     print(json.dumps(report, indent=2))
+    if not ok and os.environ.get("GITHUB_ACTIONS") == "true":
+        print(annotation(report))
     if opts.report:
         with open(opts.report, "w", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)

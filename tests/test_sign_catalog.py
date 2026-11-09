@@ -256,6 +256,22 @@ class RootfsFacts(unittest.TestCase):
                 rootfs.run_facts(config)
 
 
+class SmokeAnnotation(unittest.TestCase):
+    """A failed smoke run says why in an error annotation (job logs are not always readable)."""
+
+    def test_the_annotation_names_the_reason_on_one_escaped_line(self):
+        smoke = load("smoke_test")
+        line = smoke.annotation({"name": "telegram", "runner": "sandbox-ai-bwrap", "image": "i@sha256:1",
+                                 "exception": "RuntimeError: 50% gone", "stderr_tail": "a\nb",
+                                 "checks": [{"check": "tools/list", "ok": False, "missing": ["send"]},
+                                            {"check": "tools/call x", "ok": True}]})
+        self.assertTrue(line.startswith("::error title=smoke telegram (sandbox-ai-bwrap)::"))
+        self.assertEqual(line.count("\n"), 0)
+        for part in ("RuntimeError: 50%25 gone", "failed: tools/list", "send", "stderr: a%0Ab"):
+            self.assertIn(part, line)
+        self.assertNotIn("tools/call x", line)
+
+
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
 class SmokeWithSandboxAi(unittest.TestCase):
     """smoke_test.py's sandbox-ai runners start a server with sandbox-ai's own run lines."""
