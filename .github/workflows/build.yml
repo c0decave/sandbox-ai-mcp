@@ -250,7 +250,11 @@ jobs:
         run: python3 scripts/rootfs.py --engine podman --image "${IMAGE}" --name ${{ matrix.server }} --out rootfs-out
 
       - name: Smoke with sandbox-ai under Bubblewrap
+        id: bwrap
         if: github.event_name != 'pull_request'
+        # A server that fails only here is still published for Podman: its rootfs is left out (next step) and the
+        # failure stays visible as a warning and in the smoke report, instead of holding back every digest.
+        continue-on-error: true
         env:
           IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
@@ -262,8 +266,14 @@ jobs:
             --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             --report "smoke-${{ matrix.server }}-sandbox-ai-bwrap.json"
 
+      - name: Leave out a rootfs that failed under Bubblewrap
+        if: github.event_name != 'pull_request' && steps.bwrap.outcome == 'failure'
+        run: |
+          rm -f rootfs-out/rootfs-${{ matrix.server }}.json rootfs-out/rootfs-${{ matrix.server }}.tar.gz
+          echo "::warning title=${{ matrix.server }} without Bubblewrap::the smoke test under Bubblewrap failed (see its annotation); the image is published for Podman only, rootfs.json leaves ${{ matrix.server }} out"
+
       - name: Publish the rootfs (a release named after its hash)
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.bwrap.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
