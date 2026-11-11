@@ -246,8 +246,18 @@ jobs:
       - name: Bubblewrap, slirp4netns, pasta
         if: github.event_name != 'pull_request'
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q bubblewrap slirp4netns passt
+          # Three tries; what apt said goes into an annotation (readable through the API, unlike the logs).
+          ok=0
+          for attempt in 1 2 3; do
+            if sudo apt-get update -q >apt.log 2>&1 && \
+               sudo apt-get install -y -q bubblewrap slirp4netns passt >>apt.log 2>&1; then ok=1; break; fi
+            sleep 30
+          done
+          if [ "$ok" != 1 ]; then
+            text=$(grep -E '^(E|W|Err):' apt.log | tail -n 15 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=apt failed::$text"
+            exit 1
+          fi
           # Ubuntu 24.04 keeps unprivileged user namespaces from bwrap unless this is off.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --version
