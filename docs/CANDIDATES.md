@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-11 (playwright moved to `servers/`; openosint and osint-mcp added).
+State: 2026-11-11 (playwright moved to `servers/`; openosint, osint-mcp and signal added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -32,6 +32,11 @@ commit `99849732`); 2.37.0 (2026-11-02), 2.37.1 and 2.38.0 (2026-11-05) are too 
 `requirements.txt` was locked with `--exclude-newer 2026-10-29T00:00:00Z` (newest files of
 2026-10-28: `pydantic-settings` 2.16.2, `tzdata` 2026.6).
 
+signal (2026-11-11, cut-off 2026-10-28): signal-mcp **1.43.3** (2026-10-21, commit `d3b1945c`; 1.43.4
+of 2026-11-09 is too new and only fixes `edit_message`, not offered here), signal-cli **0.14.9**
+(2026-10-07; 0.14.10 of 2026-11-07 too new), Eclipse Temurin JRE **25.0.5+8** (2026-10-22), the
+Python lock of duckduckgo.
+
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
 (1.12.0, 2026-10-22), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
@@ -57,6 +62,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | osint-mcp | domain and website OSINT from public sources, no key: robyroro/osint-mcp 0.3.0 (MIT; PyPI `osint-mcp-server`, the wheel identical to commit `815276a9`), 15 read-only tools (RDAP, DNS, crt.sh, Wayback, RIPEstat, Shodan InternetDB, email security, TLS, HTTP headers, batch recon, shared infrastructure, site investigation); all 2025 lines read; started through `src/server.py`, which adds web-fetch's NAT64/6to4 check to upstream's address check; cache in memory | full | natively (handshake, tools, refused calls, the address check, parsers, upstream's 99 tests); `test_osint_mcp` inside the image and the smoke spec in CI (example.com DNS and TLS, RIPEstat; four local targets refused); not built here (no container engine) |
 | playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
 | openosint | passive OSINT lookups with 26 reviewed modules of OpenOSINT 2.36.1 (MIT, commit `99849732`, each file pinned by SHA-256) behind an own server: dork URLs, RDAP, WHOIS, DNS, ipinfo.io, GitHub, psbdmp.ws, GDELT news; with keys HIBP, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Bright Data SERP. Passive only (active mode cannot be enabled); OpenOSINT's active tools, LLM agent, graph, web UI and Shodan/Censys tools are not in the image | full (WHOIS referrals and RDAP servers come from the registries); seven optional keys | natively against the reviewed modules (tools, refused arguments, passive mode, key redaction); the smoke spec in CI (offline dork URLs, a live RDAP lookup, four refused calls); not built here (no container engine) |
+| signal | a Signal account of yours as a linked device: signal-cli 0.14.9 (JVM release, GPL-3.0; by SHA-256 and its maintainer's signature) on Temurin JRE 25.0.5+8, with six reviewed modules of signal-mcp 1.43.3 (googlarz/signal-mcp, MIT: client and SQLite message history; not its MCP server, CLI, Desktop import or webhook) behind an own server: 8 read tools (fetch, unread, conversations, search, contacts, groups without invite links); `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optional `SIGNAL_ALLOWED_RECIPIENTS`; no file, receipt or account change | full; `/data` writable (required: the account, linked once with `--link`); `--memory 1g --pids 256` | natively with a stand-in for signal-cli's JSON-RPC daemon (`tests/test_signal.py`); in the image: signal-cli runs and libsignal loads under the hardened flags; smoke spec without an account; not built here, no live account |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 
 ### The three file-analysis servers, and the cooldown rule

@@ -1,0 +1,27 @@
+Sources of the third-party software in the image sandbox-ai-mcp-signal (unmodified; see
+servers/signal/PROVENANCE.md in https://github.com/c0decave/sandbox-ai-mcp for how each is fetched
+and checked).
+
+signal-mcp 1.43.3 (MIT, signal-mcp-MIT.txt): six modules of src/signal_mcp at
+  https://github.com/googlarz/signal-mcp/tree/d3b1945c972340b72f8086da33f96f71b82f792c
+  in /opt/venv/lib/python3.13/site-packages/signal_mcp
+
+signal-cli 0.14.9 (GPL-3.0-only, signal-cli-GPL-3.0.txt): the jars of its JVM release
+  https://github.com/AsamK/signal-cli/releases/tag/v0.14.9 (source: the tag v0.14.9 of
+  https://github.com/AsamK/signal-cli), in /opt/signal-cli/lib. Its dependencies are the jars named
+  there, each under its own licence (Apache-2.0, MIT, BSD, EPL-2.0 and others; see the licence
+  files inside each jar).
+
+libsignal-client 0.103.0 (AGPL-3.0-only, libsignal-AGPL-3.0.txt): /opt/signal-cli/lib/libsignal-client-0.103.0.jar
+  and its native library /opt/signal-cli/native/libsignal_jni.so, taken out of that jar unchanged
+  (source: the tag v0.103.0 of https://github.com/signalapp/libsignal).
+
+sqlite-jdbc 3.53.4.0 (Apache-2.0): /opt/signal-cli/lib/sqlite-jdbc-3.53.4.0.jar and its native
+  library /opt/signal-cli/native/libsqlitejdbc.so, taken out of that jar unchanged (source: the tag
+  3.53.4.0 of https://github.com/xerial/sqlite-jdbc).
+
+Eclipse Temurin JRE 25.0.5+8 (GPL-2.0-only WITH Classpath-exception-2.0): /opt/java, with its own
+  /opt/java/NOTICE and /opt/java/legal (source: https://github.com/adoptium/jdk25u, the tag
+  jdk-25.0.5+8).
+
+The MCP server itself (/opt/mcp/server.py) is sandbox-ai-mcp's (MIT, sandbox-ai-mcp-MIT.txt).

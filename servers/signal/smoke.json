@@ -1,0 +1,60 @@
+{
+  "name": "signal",
+  "network": "full",
+  "memory": "1g",
+  "pids": 256,
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/data"
+    }
+  ],
+  "expect_tools": [
+    "get_conversation",
+    "get_status",
+    "get_unread",
+    "list_contacts",
+    "list_conversations",
+    "list_groups",
+    "receive_messages",
+    "search_messages"
+  ],
+  "calls": [
+    {
+      "tool": "get_status",
+      "arguments": {},
+      "expect": "/data is not writable: mount it with --mount /data=DIR:rw"
+    },
+    {
+      "tool": "receive_messages",
+      "arguments": {},
+      "expect": "no Signal account: /data is not writable",
+      "expect_error": true
+    },
+    {
+      "tool": "get_unread",
+      "arguments": {
+        "limit": 201
+      },
+      "expect": "limit: an integer from 1 to 200",
+      "expect_error": true
+    },
+    {
+      "tool": "get_conversation",
+      "arguments": {
+        "conversation": "+49 151 1234"
+      },
+      "expect": "conversation: a phone number in E.164 form",
+      "expect_error": true
+    },
+    {
+      "tool": "search_messages",
+      "arguments": {
+        "query": "x",
+        "since": "yesterday"
+      },
+      "expect": "since: a date like 2026-01-31",
+      "expect_error": true
+    }
+  ]
+}
