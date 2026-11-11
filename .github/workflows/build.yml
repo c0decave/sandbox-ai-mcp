@@ -364,3 +364,20 @@ jobs:
             digests.json
             ci-digests/**/smoke-*.json
           if-no-files-found: error
+      # The same files as a pre-release (ci-catalog-RUN, kept only for the newest run): a release asset is reachable
+      # from where the catalog is signed when the artifact's storage is not (a sandbox's allow-list has GitHub but not
+      # its blob storage). Nothing in them is secret: they go into the repository once signed.
+      - name: The catalog as a pre-release for signing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          tar -czf ci-digests.tar.gz ci-digests
+          tag="ci-catalog-$RUN_ID"
+          gh release create "$tag" --prerelease --title "$tag" --target "$GITHUB_SHA" \
+            --notes "Unsigned catalog of CI run $RUN_ID, for scripts/sign_catalog.py (docs/SIGNING.md)." \
+            catalog.json rootfs.json digests.json ci-digests.tar.gz
+          # older ones go (only the newest run is signed)
+          gh release list --limit 100 --json tagName -q '.[].tagName' | grep '^ci-catalog-' | grep -vx "$tag" \
+            | while read -r old; do gh release delete "$old" --yes --cleanup-tag || true; done

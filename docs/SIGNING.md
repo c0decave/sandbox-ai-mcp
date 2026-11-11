@@ -134,6 +134,9 @@ RUN=$(gh run list -R c0decave/sandbox-ai-mcp --workflow build.yml --branch main 
 gh run watch "$RUN" -R c0decave/sandbox-ai-mcp --exit-status
 
 # 5. Its catalog, rootfs.json, digests.json and the smoke reports.
+#    The same files are the pre-release ci-catalog-RUN (reachable where the artifact's storage is not, e.g. from a
+#    sandbox whose allow-list has GitHub): gh release download "ci-catalog-$RUN" -R c0decave/sandbox-ai-mcp -D "$CI",
+#    then tar -xzf "$CI/ci-digests.tar.gz" -C "$CI" and --reports "$CI/ci-digests" below.
 CI=$(mktemp -d)
 gh run download "$RUN" -R c0decave/sandbox-ai-mcp -n catalog -D "$CI"
 cp "$CI/catalog.json" "$CI/rootfs.json" "$CI/digests.json" .
