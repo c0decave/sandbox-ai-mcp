@@ -22,6 +22,10 @@ ones, so a changed tool list fails.
 given is empty: the server must start and list its tools without its secrets). Exit status 0 when
 every check passed. Standard library only.
 
+A mount may be ``{"target": "/data", "fresh": true, "writable": true}`` instead of naming a host folder: the run then
+gets a new empty folder of its own (removed afterwards), for a server that keeps its data in a folder the user mounts
+writable (a note, a memory) and must write, search and read it back in its smoke run without touching anything else.
+
 A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, what the
 server's catalog notes tell users to add with ``sandbox-ai mcp add --memory --pids``): the run line then
 has these instead of 512m and 128, and the sandbox-ai runners put them into the definition, as
@@ -53,8 +57,10 @@ import os
 import re
 import secrets
 import selectors
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 #: Mirrors axross core/mcp_install.py RUN_FLAGS (checked against it when axross is at hand).
@@ -167,6 +173,24 @@ def limits(spec: dict) -> dict:
             raise ValueError("pids must be 16-4096")
         found["pids"] = pids
     return found
+
+
+def spec_mounts(spec: dict, variables: dict[str, str], fresh: list[str]) -> list[tuple[str, str, bool]]:
+    """(host, target, writable) of the spec's mounts; a ``"fresh": true`` mount gets a new empty folder, appended to
+    *fresh* (the caller removes them). ValueError for a mount that names both or neither."""
+    mounts = []
+    for mount in spec.get("mounts", []):
+        if mount.get("fresh"):
+            if "host" in mount or not mount.get("writable"):
+                raise ValueError(f"mount {mount.get('target')}: a fresh folder has no host and is writable")
+            host = tempfile.mkdtemp(prefix=f"smoke-{spec.get('name', 'server')}-")
+            fresh.append(host)
+        elif "host" in mount:
+            host = substitute(mount["host"], variables)
+        else:
+            raise ValueError(f"mount {mount.get('target')}: give a host folder or fresh: true")
+        mounts.append((host, mount["target"], bool(mount.get("writable"))))
+    return mounts
 
 
 def failure_hint(runner: str, stderr: str) -> str | None:
@@ -353,10 +377,8 @@ def main(argv=None) -> int:
     resources = limits(spec)
     name = spec["name"]
     network = spec.get("network", "none")
-    mounts = [] if opts.list_only else [
-        (substitute(m["host"], variables), m["target"], bool(m.get("writable")))
-        for m in spec.get("mounts", [])
-    ]
+    fresh: list[str] = []  # the empty folders of "fresh" mounts, removed at the end
+    mounts = [] if opts.list_only else spec_mounts(spec, variables, fresh)
     if opts.list_only and network == "allowlist":
         network = "none"  # tools/list needs no network (and CI has no axross proxy)
     proxy = None
@@ -454,6 +476,9 @@ def main(argv=None) -> int:
         report["stderr_tail"] = stderr[-3000:]
         if proxy is not None:
             proxy.close()
+        for folder in fresh:
+            # a root-run container (docker) may leave files the runner cannot remove: CI's runner is thrown away
+            shutil.rmtree(folder, ignore_errors=True)
     report["ok"] = bool(ok)
     hint = None if ok else failure_hint(opts.runner, stderr)  # all of it: bwrap's usage is longer than the tail
     if hint:

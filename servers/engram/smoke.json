@@ -1,0 +1,108 @@
+{
+  "name": "engram",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/data",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "mem_save",
+    "mem_search",
+    "mem_get_observation",
+    "mem_context",
+    "mem_current_project",
+    "mem_session_start"
+  ],
+  "calls": [
+    {
+      "tool": "mem_current_project",
+      "arguments": {},
+      "expect": "\"project\":\"brain\""
+    },
+    {
+      "tool": "mem_save",
+      "arguments": {
+        "title": "Smoke test storage choice",
+        "type": "decision",
+        "content": "**What**: kept the memory in SQLite with FTS5\n**Why**: the container has no network\n**Where**: /data\n**Learned**: full-text search works offline"
+      },
+      "expect": "Memory saved: "
+    },
+    {
+      "tool": "mem_search",
+      "arguments": {
+        "query": "offline"
+      },
+      "expect": "Smoke test storage choice"
+    },
+    {
+      "tool": "mem_get_observation",
+      "arguments": {
+        "id": 1
+      },
+      "expect": "full-text search works offline"
+    },
+    {
+      "tool": "mem_list_projects",
+      "arguments": {},
+      "expect": "brain"
+    },
+    {
+      "tool": "mem_session_start",
+      "arguments": {
+        "id": "case-1",
+        "directory": "/etc"
+      },
+      "expect": "directory: not offered here",
+      "expect_error": true
+    },
+    {
+      "tool": "mem_current_project",
+      "arguments": {
+        "cwd": "/"
+      },
+      "expect": "cwd: not offered here",
+      "expect_error": true
+    },
+    {
+      "tool": "mem_search",
+      "arguments": {
+        "query": "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
+      },
+      "expect": "query: at most 1024 bytes",
+      "expect_error": true
+    },
+    {
+      "tool": "mem_search_prompts",
+      "arguments": {
+        "query": "anything",
+        "limit": 100000
+      },
+      "expect": "limit: 0 to 100",
+      "expect_error": true
+    },
+    {
+      "tool": "mem_merge_projects",
+      "arguments": {
+        "from": "a",
+        "to": "b"
+      },
+      "expect": "tool 'mem_merge_projects' not found",
+      "expect_error": true,
+      "absent": true
+    },
+    {
+      "tool": "mem_delete",
+      "arguments": {
+        "id": 1,
+        "hard_delete": true
+      },
+      "expect": "tool 'mem_delete' not found",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

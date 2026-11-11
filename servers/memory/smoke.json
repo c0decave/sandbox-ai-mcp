@@ -1,0 +1,134 @@
+{
+  "name": "memory",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/data",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "add_observations",
+    "create_entities",
+    "create_relations",
+    "delete_entities",
+    "delete_observations",
+    "delete_relations",
+    "open_nodes",
+    "read_graph",
+    "search_nodes"
+  ],
+  "calls": [
+    {
+      "tool": "create_entities",
+      "arguments": {
+        "entities": [
+          {
+            "name": "Example Shipping Ltd",
+            "entityType": "organization",
+            "observations": [
+              "registered in Tallinn in 2019"
+            ]
+          },
+          {
+            "name": "J. Example",
+            "entityType": "person",
+            "observations": [
+              "uses the handle jexample on forums"
+            ]
+          }
+        ]
+      },
+      "expect": "\"name\": \"Example Shipping Ltd\""
+    },
+    {
+      "tool": "create_relations",
+      "arguments": {
+        "relations": [
+          {
+            "from": "J. Example",
+            "to": "Example Shipping Ltd",
+            "relationType": "directs"
+          }
+        ]
+      },
+      "expect": "\"relationType\": \"directs\""
+    },
+    {
+      "tool": "add_observations",
+      "arguments": {
+        "observations": [
+          {
+            "entityName": "Example Shipping Ltd",
+            "contents": [
+              "VAT number seen on an invoice dated 2024-03-01"
+            ]
+          }
+        ]
+      },
+      "expect": "VAT number seen on an invoice dated 2024-03-01"
+    },
+    {
+      "tool": "search_nodes",
+      "arguments": {
+        "query": "tallinn"
+      },
+      "expect": "\"name\": \"Example Shipping Ltd\""
+    },
+    {
+      "tool": "open_nodes",
+      "arguments": {
+        "names": [
+          "J. Example"
+        ]
+      },
+      "expect": "\"relationType\": \"directs\""
+    },
+    {
+      "tool": "read_graph",
+      "arguments": {},
+      "expect": "VAT number seen on an invoice dated 2024-03-01"
+    },
+    {
+      "tool": "create_relations",
+      "arguments": {
+        "relations": [
+          {
+            "from": "J. Example",
+            "to": "Nobody Known",
+            "relationType": "knows"
+          }
+        ]
+      },
+      "expect": "Entity with name Nobody Known not found",
+      "expect_error": true
+    },
+    {
+      "tool": "search_nodes",
+      "arguments": {
+        "query": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "expect": "query: Too big: expected string to have <=2048 characters",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "Tool read_file not found",
+      "expect_error": true,
+      "absent": true
+    },
+    {
+      "tool": "delete_project",
+      "arguments": {
+        "project": "case"
+      },
+      "expect": "Tool delete_project not found",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

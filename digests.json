@@ -4,6 +4,8 @@
     "brave-search": "sha256:7f773e9475780b3875b80f5daf07aa10f340fb782245028186d5513f905b1bf5",
     "capa": "sha256:29885b77ae25f3e4667bc550dacfb974396a0a6f65bd197a327d051edad96de0",
     "duckduckgo": "sha256:5aef6ad8a4d5c53f7404a357d08dffe6fc68d0a08ccfc7bd7d686175813a9cab",
+    "engram": null,
+    "memory": null,
     "openosint": "sha256:40cb723fc4f8189be46f66549d1c75597512161e4e935398ef05d199f473102a",
     "osint-mcp": "sha256:ea7916fa19c9f0bbfa98f9cb38636e7982a5dccff35cef41ed880a7731a83de1",
     "playwright": "sha256:b19a4ba4756c4716764473535c36eaca3e0dc8724cfccd5c9d17e276ec03b10a",

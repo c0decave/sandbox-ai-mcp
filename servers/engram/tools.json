@@ -1,0 +1,27 @@
+{
+  "tools": [
+    "mem_capture_passive",
+    "mem_compare",
+    "mem_consolidate",
+    "mem_context",
+    "mem_current_project",
+    "mem_doctor",
+    "mem_get_observation",
+    "mem_judge",
+    "mem_judge_many",
+    "mem_list_projects",
+    "mem_pin",
+    "mem_review",
+    "mem_save",
+    "mem_save_prompt",
+    "mem_search",
+    "mem_search_prompts",
+    "mem_session_end",
+    "mem_session_finalize",
+    "mem_session_start",
+    "mem_session_summary",
+    "mem_suggest_topic_key",
+    "mem_unpin",
+    "mem_update"
+  ]
+}

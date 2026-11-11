@@ -227,6 +227,41 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(status, 0, report)
         self.assertEqual(sorted(report["tools"]), ["news_search", "web_search"])
 
+    def test_a_fresh_mount_is_an_empty_writable_folder_of_its_own(self):
+        """A server that keeps its data in a mounted folder (a note, a memory) writes into a new empty folder in its
+        smoke run, never into the repository's fixtures; the folder is gone afterwards."""
+        import contextlib
+        import io
+        import re
+        spec = self.spec(mounts=[{"target": "/data", "fresh": True, "writable": True}])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status, report = self.run_smoke(spec, "--print-argv")
+        self.assertEqual(status, 0, report)
+        argv = json.loads(re.search(r"^argv: (.*)$", out.getvalue(), re.M).group(1))
+        volumes = [a for a in argv if a.startswith("--volume=")]
+        self.assertEqual(len(volumes), 1, argv)
+        host, target, mode = volumes[0].removeprefix("--volume=").rsplit(":", 2)
+        self.assertEqual((target, mode), ("/data", "rw"))
+        self.assertIn("--user=0:0", argv)
+        self.assertTrue(os.path.basename(host).startswith("smoke-duckduckgo-"), host)
+        self.assertFalse(os.path.exists(host), "the fresh folder is removed after the run")
+        for bad in ({"target": "/data", "fresh": True},  # never read-only: it starts empty
+                    {"target": "/data", "fresh": True, "writable": True, "host": "/srv"}, {"target": "/data"}):
+            with self.subTest(mount=bad), self.assertRaises(ValueError):
+                smoke.spec_mounts({"name": "x", "mounts": [bad]}, {}, [])
+        fresh = []
+        self.assertEqual(smoke.spec_mounts({"name": "x", "mounts": [{"target": "/work", "host": "${FIXTURES}"}]},
+                                           {"FIXTURES": "/f"}, fresh), [("/f", "/work", False)])
+        self.assertEqual(fresh, [])
+
+    def test_list_only_mounts_no_fresh_folder(self):
+        spec = self.spec(mounts=[{"target": "/data", "fresh": True, "writable": True}])
+        before = set(Path(tempfile.gettempdir()).glob("smoke-duckduckgo-*"))
+        status, report = self.run_smoke(spec, "--list-only")
+        self.assertEqual(status, 0, report)
+        self.assertEqual(set(Path(tempfile.gettempdir()).glob("smoke-duckduckgo-*")), before)
+
     def test_the_bwrap_usage_is_explained(self):
         hint = smoke.failure_hint("sandbox-ai-bwrap", "usage: bwrap [OPTIONS...] [--] COMMAND [ARGS...]\n")
         self.assertIn("--args", hint)

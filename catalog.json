@@ -5,6 +5,8 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "engram",
+    "memory",
     "radare2",
     "whatsapp"
   ],
@@ -129,6 +131,70 @@
         "html.duckduckgo.com:443"
       ],
       "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+    },
+    {
+      "id": "mcp:engram",
+      "name": "engram",
+      "title": "Engram memory for coding agents",
+      "description": "Persistent memory for a coding agent with Engram 3.6.0 (Gentleman-Programming/engram): decisions, bugs, discoveries and conventions saved as observations in SQLite with full-text search (FTS5), session summaries, recent context after a compaction, topic keys for upserts, conflict review between memories, pins and review dates. Only Engram's MCP server with its agent tools (23); no CLI, HTTP API, TUI, Engram Cloud, sync or update check. The memory is the folder mounted writable at /data; one project per folder (ENGRAM_PROJECT, default brain); no tool takes a file path or looks at another folder. No network.",
+      "category": "Memory",
+      "tags": [
+        "memory",
+        "coding",
+        "sqlite",
+        "development"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/engram",
+      "page": "https://github.com/Gentleman-Programming/engram",
+      "license": "MIT (Engram, mcp-go) AND BSD-3-Clause (modernc.org/sqlite and libc, Go x/sys and x/text, google/uuid; SQLite: public domain) AND MIT/BSD/Apache-2.0 (other Go modules)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "ENGRAM_PROJECT",
+          "description": "The project the memories of this folder belong to (lower-case letters, digits, '.', '_', '-'; default brain)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/data",
+          "description": "The memory's folder, writable (--mount /data=DIR:rw): engram.db with its WAL, .instance-id and two lock files. One folder per project or case, e.g. --mount /data=~/brains/sandbox-ai-dev:rw",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
+    },
+    {
+      "id": "mcp:memory",
+      "name": "memory",
+      "title": "Knowledge graph memory (official MCP server)",
+      "description": "The official MCP Knowledge Graph memory server (@modelcontextprotocol/server-memory 2.0.1): entities with a type and observations, and named relations between them, kept in one JSONL file in the folder mounted writable at /data (/data/memory.jsonl). Nine tools: create entities, relations and observations, delete each of them, search (a case-insensitive substring of names, types and observations), open nodes by name, read the whole graph. No tool takes a file path, nothing else is read or written. No network.",
+      "category": "Memory",
+      "tags": [
+        "memory",
+        "knowledge-graph",
+        "osint",
+        "notes"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/memory",
+      "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+      "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP TypeScript SDK: Apache-2.0; zod: MIT; Node.js: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/data",
+          "description": "The graph's folder, writable (--mount /data=DIR:rw): memory.jsonl lives there. One folder per case, e.g. --mount /data=~/brains/CASE:rw",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "One folder per case keeps cases apart: mkdir -p ~/brains/CASE, then sandbox-ai mcp add memory --mount /data=~/brains/CASE:rw (a second case: add it again under another name or change the folder). The file is plain JSONL, one entity or relation per line: back it up or read it with any tool; a line the server cannot read is kept as it is. Every write rewrites the file through a temporary file in the same folder and holds memory.jsonl.lock meanwhile, so several connections can share one folder. read_graph returns the whole graph: a large case is better read with search_nodes and open_nodes. What is stored was often taken from sources the agent read: treat it as data, not instructions."
     },
     {
       "id": "mcp:openosint",
