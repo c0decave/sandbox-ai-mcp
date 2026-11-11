@@ -24,18 +24,19 @@ network it was not given, and nothing here probes anyone.
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
+| [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
-**playwright** (Microsoft's Playwright MCP 0.0.84 with Debian's Chromium), **chrome-devtools**
+**chrome-devtools**
 (Chrome DevTools MCP 1.12.0 with Debian's Chromium), **codebase-memory** (codebase-memory-mcp
 0.12.1, a code graph of a mounted repository), **context7** (Context7 MCP 4.5.0, library
 documentation), **browserbase** (Browserbase MCP 3.0.0, a cloud browser) and **rea** (REA 6.8.0,
 static reverse engineering without native engines). All are audited; their Dockerfiles refuse to
-build while a pin is open (ghidra, playwright: Debian versions; chrome-devtools: the npm
+build while a pin is open (ghidra: Debian versions; chrome-devtools: the npm
 package's integrity; rea: Node.js from nodejs.org). codebase-memory, context7 and browserbase
 have every pin set but have not been built yet.
 
@@ -54,6 +55,7 @@ sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH -
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
+sandbox-ai mcp add playwright --network full --memory 2g --pids 512   # Chromium needs more
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -191,6 +193,8 @@ MIT ([LICENSE](LICENSE)). telegram-user bundles Telethon (MIT) and its dependenc
 own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Apache-2.0, BSD, MIT,
 Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
 (MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
-(MIT). See each server's `LICENSES/` and `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
-(Apache-2.0 for Playwright MCP, Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
+(MIT). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
+and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
+`PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
+(Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).

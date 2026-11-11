@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-08 (file-analysis servers added).
+State: 2026-11-11 (playwright moved to `servers/`).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -14,10 +14,14 @@ Checked on 2026-11-06 (cut-off: published on or before 2026-10-23). Too new:
 
 | Where | Pin | Published | Old enough on |
 |---|---|---|---|
-| candidates/playwright | `@playwright/mcp` 0.0.84 (commit `be26c080`) | 2026-10-31 | 2026-11-14 |
 | candidates/context7 | `@upstash/context7-mcp` 4.5.0 (commit `a138857c`); pnpm 10.34.9 | 2026-11-03; 2026-10-25 | 2026-11-17; 2026-11-08 |
 | candidates/rea | `rea-agents` 6.8.0 (commit `160d821a`) | 2026-10-25 | 2026-11-08 |
 | candidates/ghidra | `pyghidra-mcp` 0.3.0, and 24 of its hash-locked dependencies (pydantic 2.14.2, onnxruntime 1.31.1, opentelemetry 1.45.2, huggingface-hub 2.4.0, grpcio 1.85.1, ...) | 2026-11-02; 2026-10-24 to 2026-11-02 | 2026-11-16 at the latest |
+
+playwright was re-pinned on 2026-11-11 (cut-off 2026-10-28) from 0.0.84 (2026-10-31; 0.0.85 of
+2026-11-09 is newer still) to **0.0.83** (2026-09-28, commit `f183dad4`), whose lockfile pins
+`playwright`/`playwright-core` 1.64.0-alpha-1790635538000 of the same day; what 0.0.84 adds is in
+`servers/playwright/PROVENANCE.md`.
 
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
@@ -41,6 +45,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | web-fetch | a public web page as text | full, public addresses only | natively, including the address checks |
 | radare2 | static analysis of a binary: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (`pdc`), xrefs; upstream r2mcp 1.9.0 with radare2 6.2.4, both built from source at their release commits, started with `-s /work -g none` | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests (entry, pins, mounts, fixtures) and the smoke spec in CI |
 | capa | what a binary can do: Mandiant capa 10.0.0 with capa-rules 10.0.0 and capa's FLIRT signatures in the image, mapped to ATT&CK and MBC; FuzzingLabs wrapper, patched (paths under `/work`, ranges, bounded results) | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
+| playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 
 ### The three file-analysis servers, and the cooldown rule
@@ -62,7 +67,6 @@ fuzzers, SQL injection, password cracking) or capture network traffic. They stay
 | Server | Upstream | Why not built yet |
 |---|---|---|
 | ghidra | pyghidra-mcp 0.3.0 + Ghidra 12.2 (Apache-2.0) | Re-pin before building: 2026-11-16 or an older release (pyghidra-mcp 0.3.0 and 24 locked dependencies too new); Debian versions of the JDK, unzip and python3 to pin; memory (needs about 4 GiB); chromadb's embedding model offline |
-| playwright | microsoft/playwright-mcp 0.0.84 (Apache-2.0) + Debian Chromium | Re-pin before building: 2026-11-14 or an older release (0.0.84 of 2026-10-31); Debian versions of nodejs, npm, git, chromium to pin; Chromium's limits; the channel name for Debian's Chromium |
 | codebase-memory | DeusData/codebase-memory-mcp 0.12.1 (MIT), static release binary | all pins set (release SHA-256, Debian git); not built or smoke-tested; memory for large repositories; needs `/out` writable |
 | chrome-devtools | ChromeDevTools/chrome-devtools-mcp 1.12.0 (Apache-2.0) + Debian Chromium | npm package integrity to pin (npm not reachable when prepared); Chromium's limits; upstream supports Chrome only |
 | context7 | upstash/context7-mcp 4.5.0 (MIT) | Re-pin before building: 2026-11-17 or an older release (4.5.0 of 2026-11-03, pnpm 10.34.9 of 2026-10-25); all pins set (pnpm by SHA-256, Debian versions); build not run; allowlist `context7.com:443`, optional `CONTEXT7_API_KEY` |
@@ -75,9 +79,8 @@ Each has a `PROVENANCE.md` with the audit notes and a Dockerfile that refuses to
 pins are set (codebase-memory, context7, browserbase, agentql and reddit have all pins set but were
 not built yet).
 The Debian versions of the new candidates were read from the trixie, trixie-updates and
-trixie-security indexes of 2026-11-05 (for playwright these are nodejs `20.19.2+dfsg-1+deb13u3`,
-npm `9.2.0~ds1-3`, git `1:2.47.3-0+deb13u1`, chromium `156.0.8078.79-1~deb13u1`; 0.0.84 is still
-playwright-mcp's latest release). To finish one: fill the pins (its Dockerfile names the
+trixie-security indexes of 2026-11-05 (nodejs `20.19.2+dfsg-1+deb13u3`, npm `9.2.0~ds1-3`, git
+`1:2.47.3-0+deb13u1`, chromium `156.0.8078.79-1~deb13u1`). To finish one: fill the pins (its Dockerfile names the
 command), build it, run `scripts/smoke_test.py` with a `smoke.json`, write `tools.json` from the tools/list, move the
 folder to `servers/` and add it to the CI matrix.
 

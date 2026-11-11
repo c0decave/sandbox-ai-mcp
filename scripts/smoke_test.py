@@ -22,6 +22,11 @@ ones, so a changed tool list fails.
 given is empty: the server must start and list its tools without its secrets). Exit status 0 when
 every check passed. Standard library only.
 
+A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, what the
+server's catalog notes tell users to add with ``sandbox-ai mcp add --memory --pids``): the run line then
+has these instead of 512m and 128, and the sandbox-ai runners put them into the definition, as
+``mcp add`` does.
+
 A call may name the answers of an upstream service that refuses for its own reasons, a rate limit
 (``"upstream_limited": ["DuckDuckGo answered HTTP 202", ...]``, texts the server only writes when the
 service did answer, with that status). Such a call is retried ``--upstream-retries`` times with
@@ -62,17 +67,21 @@ RUN_FLAGS = (
 ALLOWLIST_NETWORK = ("--network=pasta:--no-map-gw,--no-udp,--no-icmp,--ipv4-only,"
                      "-o,127.0.0.1,-T,AXROSS_EGRESS_PORT")
 PROTOCOL_VERSION = "2025-06-18"
+#: sandbox-ai's own patterns for a definition's limits (sandbox/mcp.py validated_image).
+MEMORY = re.compile(r"^[1-9][0-9]{0,5}[mg]$")
 
 
 def run_command(name: str, image: str, *, network: str = "none", mounts=(), args=(),
                 program: str = "podman", env_fd: int | str = "AXROSS_ENV_FD",
-                run_id: str = "AXROSS_RUN_ID", egress_port: int | str = "AXROSS_EGRESS_PORT") -> list[str]:
-    """The ``podman run`` line axross builds for a container server."""
-    flags = RUN_FLAGS
+                run_id: str = "AXROSS_RUN_ID", egress_port: int | str = "AXROSS_EGRESS_PORT",
+                memory: str | None = None, pids: int | None = None) -> list[str]:
+    """The ``podman run`` line axross builds for a container server (*memory* and *pids* replace its limits)."""
+    flags = tuple(f"--memory={memory}" if memory and f.startswith("--memory=") else
+                  f"--pids-limit={pids}" if pids and f.startswith("--pids-limit=") else f for f in RUN_FLAGS)
     if os.path.basename(program) == "docker":
         # notmpcopyup is podman's: docker refuses it ("invalid tmpfs option"),
         # and its tmpfs never copies the image's /tmp up anyway - same /tmp.
-        flags = tuple(f.replace(",notmpcopyup", "") for f in RUN_FLAGS)
+        flags = tuple(f.replace(",notmpcopyup", "") for f in flags)
     argv = [program, "run", *flags, f"--name=sandbox-ai-mcp-{name}-{run_id}",
             f"--label=io.axross.mcp={name}", f"--env-file=/dev/fd/{env_fd}"]
     if network == "none":
@@ -144,6 +153,22 @@ def upstream_limits(spec: dict) -> None:
             raise ValueError(f"{call.get('tool')}: a call with expect_error cannot be upstream_limited")
 
 
+def limits(spec: dict) -> dict:
+    """``{"memory": ..., "pids": ...}`` of the spec (only those it sets), ValueError unless sandbox-ai would take
+    them in a definition."""
+    found = {}
+    if "memory" in spec:
+        if not isinstance(spec["memory"], str) or not MEMORY.match(spec["memory"]):
+            raise ValueError("memory must be like 512m or 2g")
+        found["memory"] = spec["memory"]
+    if "pids" in spec:
+        pids = spec["pids"]
+        if isinstance(pids, bool) or not isinstance(pids, int) or not 16 <= pids <= 4096:
+            raise ValueError("pids must be 16-4096")
+        found["pids"] = pids
+    return found
+
+
 def failure_hint(runner: str, stderr: str) -> str | None:
     """What a known failure of the run line means."""
     if runner == "sandbox-ai-bwrap" and "usage: bwrap" in stderr:
@@ -192,7 +217,8 @@ def annotation(report: dict) -> str:
 
 
 def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts, env: dict,
-                    rootfs: str | None = None, meta: dict | None = None) -> tuple[list[str], dict, dict]:
+                    rootfs: str | None = None, meta: dict | None = None,
+                    resources: dict | None = None) -> tuple[list[str], dict, dict]:
     """(argv, environment, facts) of a server started as sandbox-ai starts it: the image with sandbox-ai's own
     run line (mcp.image_command), or the rootfs archive checked, unpacked and run with bwrap (mcp_rootfs)."""
     import tempfile
@@ -205,7 +231,7 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     mcp = load_module(os.path.join(checkout, "sandbox", "mcp.py"), "sandbox_ai_mcp_for_smoke")
     definition = {"network": "full" if network in ("full", "allowlist") else "none", "env": sorted(env),
                   "mounts": [{"target": target, "host": host, "mode": "rw" if writable else "ro"}
-                             for host, target, writable in mounts]}
+                             for host, target, writable in mounts], **(resources or {})}
     environment = {**os.environ, **env}
     if runner == "sandbox-ai-podman":
         definition = mcp.validated_image({**definition, "image": image}, "smoke")
@@ -324,6 +350,7 @@ def main(argv=None) -> int:
     with open(opts.spec, encoding="utf-8") as handle:
         spec = json.load(handle)
     upstream_limits(spec)
+    resources = limits(spec)
     name = spec["name"]
     network = spec.get("network", "none")
     mounts = [] if opts.list_only else [
@@ -349,7 +376,7 @@ def main(argv=None) -> int:
         os.close(write_fd)
         argv = run_command(f"smoke-{name}", opts.image, network=network, mounts=mounts,
                            args=spec.get("args", []), program=opts.engine, env_fd=read_fd,
-                           run_id=secrets.token_hex(4), egress_port=proxy.port if proxy else "")
+                           run_id=secrets.token_hex(4), egress_port=proxy.port if proxy else "", **resources)
         environment = None
     else:
         if not opts.sandbox_ai:
@@ -363,13 +390,13 @@ def main(argv=None) -> int:
         read_fd = None
         argv, environment, facts = sandbox_ai_argv(opts.runner, opts.sandbox_ai, opts.image, network, mounts,
                                                    substitute(spec.get("env", {}), variables, missing),
-                                                   opts.rootfs, meta)
+                                                   opts.rootfs, meta, resources)
     if opts.print_argv:
         print("argv:", json.dumps(argv))
     session = Session(argv, read_fd, environment)
     if read_fd is not None:
         os.close(read_fd)
-    report = {"name": name, "image": opts.image, "network": network, "runner": opts.runner, **facts,
+    report = {"name": name, "image": opts.image, "network": network, "runner": opts.runner, **resources, **facts,
               "checks": [], "skipped": []}
     ok = True
     try:

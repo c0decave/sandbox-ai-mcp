@@ -1,0 +1,22 @@
+{
+  "id": "mcp:playwright",
+  "name": "playwright",
+  "title": "Browser (Playwright MCP, Chromium)",
+  "description": "A headless Chromium driven through Microsoft's Playwright MCP: open pages, read them as accessibility snapshots, click, type, fill forms, select, drag, press keys, handle dialogs, manage tabs, wait for text, run JavaScript in the page, take screenshots, and read the page's console messages and network requests. Debian's Chromium, a fresh in-memory profile per connection; file: URLs and files outside the server's own /tmp are refused; a page cannot add tools (WebMCP off). Needs network: Full and more than the default limits (--memory 2g --pids 512).",
+  "category": "Web",
+  "tags": [
+    "web",
+    "browser",
+    "playwright",
+    "chromium",
+    "automation"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/playwright",
+  "page": "https://github.com/microsoft/playwright-mcp",
+  "license": "Apache-2.0 (Playwright MCP, Playwright); Chromium: BSD-3-Clause and others (Debian)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-playwright",
+  "tag": "latest",
+  "network": "full",
+  "notes": "Add it with --network full --memory 2g --pids 512: Chromium does not start reliably within the default 512 MiB and 128 processes. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+}
