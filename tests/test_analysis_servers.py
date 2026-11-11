@@ -198,6 +198,65 @@ class FileAnalysisServers(unittest.TestCase):
                     self.assertIn(commit, text, f"{name}: {commit} is built but not in PROVENANCE.md")
 
 
+class Playwright(unittest.TestCase):
+    """Playwright MCP with Debian's Chromium: the browser's limits, its flags and its pinned release."""
+
+    def setUp(self):
+        self.entry = read_json("servers", "playwright", "server.json")
+        self.spec = read_json("servers", "playwright", "smoke.json")
+        self.dockerfile = (ROOT / "servers" / "playwright" / "Dockerfile").read_text()
+        self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
+                                               re.M | re.S).group(1))
+
+    def test_the_smoke_run_has_the_limits_the_entry_tells_users_to_add(self):
+        self.assertEqual(self.entry["network"], "full")
+        self.assertEqual(self.spec["network"], "full")
+        self.assertEqual((self.spec["memory"], self.spec["pids"]), ("2g", 512))
+        limits = f"--memory {self.spec['memory']} --pids {self.spec['pids']}"
+        self.assertIn(limits, self.entry["description"])
+        self.assertIn(limits, self.entry["notes"])
+        self.assertIn(limits, (ROOT / "servers" / "playwright" / "PROVENANCE.md").read_text())
+
+    def test_the_browser_runs_isolated_headless_and_offers_no_page_tools(self):
+        for flag in ("--headless", "--isolated", "--no-sandbox", "--no-webmcp"):
+            self.assertIn(flag, self.entrypoint)
+        self.assertEqual(self.entrypoint[self.entrypoint.index("--executable-path") + 1], "/usr/bin/chromium")
+        self.assertEqual(self.entrypoint[:3], ["/usr/bin/tini", "-s", "--"])
+        for flag in ("--caps", "--allow-unrestricted-file-access", "--vision", "--port", "--host", "--extension",
+                     "--cdp-endpoint", "--user-data-dir", "--shared-browser-context"):
+            self.assertNotIn(flag, self.entrypoint, f"{flag} widens what the server offers")
+        self.assertNotIn("--caps", self.dockerfile)
+
+    def test_only_the_default_tools_are_recorded(self):
+        tools = read_json("servers", "playwright", "tools.json")["tools"]
+        self.assertEqual(len(tools), 25)
+        self.assertEqual(tools, sorted(tools))
+        for name in tools:
+            self.assertRegex(name, r"^browser_[a-z_]+$")
+        # behind --caps (storage, network, pdf, vision, devtools, testing, config): not offered here
+        for name in ("browser_cookie_list", "browser_route", "browser_pdf_save", "browser_mouse_click_xy",
+                     "browser_start_tracing", "browser_verify_value", "browser_get_config"):
+            self.assertNotIn(name, tools)
+
+    def test_the_smoke_spec_refuses_files_without_the_network(self):
+        refused = [call for call in self.spec["calls"] if call.get("expect_error")]
+        self.assertEqual([call["tool"] for call in refused], ["browser_navigate", "browser_evaluate"])
+        for call in self.spec["calls"]:
+            url = call["arguments"].get("url", "data:")
+            self.assertTrue(url.startswith(("data:", "file:")), f"{url}: the smoke run needs no outside host")
+
+    def test_the_release_is_pinned_and_in_the_provenance(self):
+        provenance = (ROOT / "servers" / "playwright" / "PROVENANCE.md").read_text()
+        commit = re.search(r"^ARG PLAYWRIGHT_MCP_COMMIT=([0-9a-f]{40})$", self.dockerfile, re.M).group(1)
+        self.assertIn(commit, provenance)
+        version = re.search(r"^ARG PLAYWRIGHT_VERSION=(\S+)$", self.dockerfile, re.M).group(1)
+        self.assertIn(version, provenance)
+        for arg in ("NODEJS_VERSION", "NPM_VERSION", "GIT_VERSION", "CHROMIUM_VERSION"):
+            value = re.search(rf"^ARG {arg}=(\S+)$", self.dockerfile, re.M)
+            self.assertTrue(value, f"{arg} is not pinned")
+            self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
+
+
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
 class SandboxAiAgrees(unittest.TestCase):
     """What this repository writes and what `sandbox-ai mcp add` accepts must be the same thing."""
@@ -242,6 +301,19 @@ class SandboxAiAgrees(unittest.TestCase):
             self.assertIn("--read-only", command)
             with self.assertRaises(ValueError):  # the folder is required: no server without it
                 mcp.definition_from_entry(entry)
+
+    def test_the_smoke_limits_are_a_definition_sandbox_ai_takes(self):
+        """A spec's memory and pids go into the definition as `mcp add --memory --pids` puts them there."""
+        smoke = load("smoke_test")
+        mcp = self.sandbox_ai_mcp()
+        for name in servers():
+            with self.subTest(server=name):
+                resources = smoke.limits(read_json("servers", name, "smoke.json"))
+                definition = mcp.validated_image({"image": f"{make_catalog.IMAGE_PREFIX}{name}@sha256:{'ab' * 32}",
+                                                  "network": "full", **resources}, name)
+                command = mcp.image_command(definition)
+                self.assertIn(f"--memory={resources.get('memory', '512m')}", command)
+                self.assertIn(f"--pids-limit={resources.get('pids', 128)}", command)
 
     def test_the_smoke_run_line_is_sandbox_ais(self):
         smoke = load("smoke_test")
