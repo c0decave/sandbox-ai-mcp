@@ -259,6 +259,51 @@ class Playwright(unittest.TestCase):
             self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
 
 
+class OsintMcp(unittest.TestCase):
+    """robyroro/osint-mcp from its hash-pinned wheel, started through src/server.py (the tightened address check)."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "osint-mcp"
+        self.entry = read_json("servers", "osint-mcp", "server.json")
+        self.spec = read_json("servers", "osint-mcp", "smoke.json")
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+
+    def test_the_release_and_its_sdk_are_pinned_by_hash(self):
+        lock = (self.folder / "requirements.txt").read_text()
+        for pin in ("osint-mcp-server==0.3.0", "mcp==2.3.0"):
+            self.assertIn(pin, (self.folder / "requirements.in").read_text())
+            self.assertRegex(lock, rf"(?m)^{re.escape(pin)} \\\n    --hash=sha256:[0-9a-f]{{64}}")
+            self.assertIn(pin.replace("==", " "), self.provenance.replace("==", " "))
+        # the wheel's hash and the tag's commit, as reviewed
+        self.assertIn("299a0c3f26c39bdf506a4493b48e033f8a83c6d68edfb48b3c92b9eeffd9c71b", lock)
+        self.assertIn("299a0c3f26c39bdf506a4493b48e033f8a83c6d68edfb48b3c92b9eeffd9c71b", self.provenance)
+        self.assertIn("815276a9edc554fc6aa529ee5c1f9916c204e7bf", self.provenance)
+        self.assertIn("--require-hashes", self.dockerfile)
+        self.assertIn("--only-binary=:all:", self.dockerfile)
+
+    def test_it_starts_through_the_wrapper_with_the_cache_in_memory(self):
+        entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*\])$", self.dockerfile, re.M).group(1))
+        self.assertEqual(entrypoint, ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"])
+        self.assertIn("COPY src/server.py /opt/mcp/server.py", self.dockerfile)
+        self.assertRegex(self.dockerfile, r"(?m)^\s+OSINT_MCP_CACHE_PATH=:memory:$")
+        wrapper = (self.folder / "src/server.py").read_text()
+        self.assertIn("network.public_ip = public_ip", wrapper)
+
+    def test_full_network_no_secrets_and_the_smoke_refuses_local_targets(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("full", "full"))
+        self.assertEqual(self.entry.get("env", []), [], "osint-mcp needs no key")
+        self.assertEqual(self.entry.get("mounts", []), [], "osint-mcp reads no files of yours")
+        refused = [call for call in self.spec["calls"] if call.get("expect_error")]
+        targets = json.dumps([call["arguments"] for call in refused])
+        for local in ("169.254.169.254", "127.0.0.1", "10.0.0.1", ".local"):
+            self.assertIn(local, targets)
+        real = [call for call in self.spec["calls"] if not call.get("expect_error")]
+        self.assertTrue(real, "the smoke spec must make real calls")
+        for call in real:  # no API key and no target but example.com and RIPEstat's public data
+            self.assertNotIn("${", json.dumps(call))
+
+
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
 class SandboxAiAgrees(unittest.TestCase):
     """What this repository writes and what `sandbox-ai mcp add` accepts must be the same thing."""

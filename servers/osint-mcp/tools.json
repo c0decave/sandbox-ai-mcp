@@ -1,0 +1,19 @@
+{
+  "tools": [
+    "asn_lookup",
+    "certificate_history",
+    "compare_domains",
+    "dns_lookup",
+    "domain_whois",
+    "email_security",
+    "http_headers",
+    "investigate_site",
+    "ip_whois",
+    "recon_batch",
+    "recon_domain",
+    "shodan_internetdb",
+    "subdomains",
+    "tls_certificate",
+    "wayback"
+  ]
+}

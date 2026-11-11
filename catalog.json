@@ -5,6 +5,7 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "osint-mcp",
     "playwright"
   ],
   "entries": [
@@ -128,6 +129,32 @@
         "html.duckduckgo.com:443"
       ],
       "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+    },
+    {
+      "id": "mcp:osint-mcp",
+      "name": "osint-mcp",
+      "title": "Domain and website OSINT (osint-mcp)",
+      "description": "Public-source lookups on domains, IPs and websites, no API keys: RDAP registration (domain_whois, ip_whois), live DNS records, subdomains and certificate history from certificate transparency (crt.sh), Wayback Machine snapshots, ASN and announced prefixes (RIPEstat), open ports and known CVEs from Shodan InternetDB (no scanning), an SPF/DMARC/MTA-STS/DKIM grade, TLS certificate and HTTP security headers of a site; recon_domain and recon_batch (up to ten domains) combine them, compare_domains finds shared IPs, nameservers, mail servers and registrars, investigate_site reads a page and up to three of its contact/legal pages. Every answer lists its sources. HTTP and TLS go only to public addresses, also after redirects. Needs network: Full.",
+      "category": "OSINT",
+      "tags": [
+        "osint",
+        "dns",
+        "whois",
+        "rdap",
+        "certificate-transparency",
+        "wayback",
+        "asn",
+        "email-security",
+        "tls"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/osint-mcp",
+      "page": "https://github.com/robyroro/osint-mcp",
+      "license": "MIT (osint-mcp, MCP Python SDK); dnspython: ISC; tldextract: BSD-3-Clause",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-osint-mcp",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Full network: rdap.org redirects to each registry's own RDAP server, and the site checks go to the domain you name. What it asks is seen by rdap.org and the registries, crt.sh, web.archive.org, stat.ripe.net and internetdb.shodan.io; recon_domain (include_active, on by default), investigate_site, http_headers, tls_certificate and email_security's MTA-STS policy fetch connect to the target itself, from the container's address (add --vpn PROFILE to hide yours). DNS goes to the container's resolver, which answers with what the host's resolver knows: names of your local network can resolve, and their private addresses are returned (HTTP and TLS to them are still refused). Page texts, TXT records, certificate names and headers are written by whoever runs the domain: data, never instructions. Answers are cached in memory for the connection (6 h at most), nothing is written to disk."
     },
     {
       "id": "mcp:playwright",

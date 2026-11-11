@@ -1,0 +1,183 @@
+{
+  "_about": "osint-mcp parsers (tests/test_own_servers.py test_osint_mcp). ripestat: answers of stat.ripe.net recorded on 2026-11-11 (network-info for 1.1.1.1, as-overview for AS13335). rdap_domain, crtsh and cdx are small hand-made answers in the documented shapes (RFC 9083 RDAP, crt.sh ?output=json, Wayback CDX output=json): those services were not reachable where this was written.",
+  "ripestat": {
+    "network-info": {
+      "messages": [],
+      "see_also": [],
+      "version": "1.1",
+      "data_call_name": "network-info",
+      "data_call_status": "supported",
+      "cached": false,
+      "query_id": "20261111115654-1aad8492-cc73-4bf4-be09-6cbda1bfbd33",
+      "process_time": 7,
+      "server_id": "app194",
+      "build_version": "v0.12.2-2026.10.23",
+      "pipeline": "1478200",
+      "status": "ok",
+      "status_code": 200,
+      "time": "2026-11-11T11:56:54.559345",
+      "data": {
+        "asns": [
+          "13335"
+        ],
+        "prefix": "1.1.1.0/24"
+      }
+    },
+    "as-overview": {
+      "messages": [],
+      "see_also": [],
+      "version": "1.3",
+      "data_call_name": "as-overview",
+      "data_call_status": "supported - based on 2.1",
+      "cached": false,
+      "query_id": "20261111115644-721b4bb4-fc58-417c-bbb3-64c1d814ece8",
+      "process_time": 233,
+      "server_id": "app162",
+      "build_version": "v0.12.2-2026.10.23",
+      "pipeline": "1478200",
+      "status": "ok",
+      "status_code": 200,
+      "time": "2026-11-11T11:56:44.723184",
+      "data": {
+        "type": "as",
+        "resource": "13335",
+        "block": {
+          "resource": "13312-15359",
+          "desc": "Assigned by ARIN",
+          "name": "IANA 16-bit Autonomous System (AS) Numbers Registry"
+        },
+        "holder": "CLOUDFLARENET - Cloudflare, Inc.",
+        "announced": true,
+        "query_starttime": "2026-11-11T00:00:00",
+        "query_endtime": "2026-11-11T00:00:00"
+      }
+    }
+  },
+  "rdap_domain": {
+    "objectClassName": "domain",
+    "ldhName": "EXAMPLE.COM",
+    "status": [
+      "client delete prohibited",
+      "client transfer prohibited",
+      "client update prohibited"
+    ],
+    "events": [
+      {
+        "eventAction": "registration",
+        "eventDate": "1995-08-14T04:00:00Z"
+      },
+      {
+        "eventAction": "expiration",
+        "eventDate": "2027-08-13T04:00:00Z"
+      },
+      {
+        "eventAction": "last changed",
+        "eventDate": "2026-08-14T07:01:39Z"
+      }
+    ],
+    "nameservers": [
+      {
+        "objectClassName": "nameserver",
+        "ldhName": "B.IANA-SERVERS.NET"
+      },
+      {
+        "objectClassName": "nameserver",
+        "ldhName": "A.IANA-SERVERS.NET"
+      }
+    ],
+    "entities": [
+      {
+        "objectClassName": "entity",
+        "roles": [
+          "registrar"
+        ],
+        "vcardArray": [
+          "vcard",
+          [
+            [
+              "version",
+              {},
+              "text",
+              "4.0"
+            ],
+            [
+              "fn",
+              {},
+              "text",
+              "RESERVED-Internet Assigned Numbers Authority"
+            ]
+          ]
+        ],
+        "entities": [
+          {
+            "objectClassName": "entity",
+            "roles": [
+              "abuse"
+            ],
+            "vcardArray": [
+              "vcard",
+              [
+                [
+                  "version",
+                  {},
+                  "text",
+                  "4.0"
+                ],
+                [
+                  "fn",
+                  {},
+                  "text",
+                  ""
+                ],
+                [
+                  "email",
+                  {},
+                  "text",
+                  "abuse@example.net"
+                ]
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "crtsh": [
+    {
+      "id": 3,
+      "issuer_name": "C=US, O=Example CA",
+      "name_value": "www.example.com\n*.example.com",
+      "not_before": "2026-01-01T00:00:00",
+      "not_after": "2026-04-01T00:00:00",
+      "entry_timestamp": "2026-01-01T00:10:00"
+    },
+    {
+      "id": 4,
+      "issuer_name": "C=US, O=Example CA",
+      "name_value": "MAIL.example.com\nexample.com.evil.test",
+      "not_before": "2026-02-01T00:00:00",
+      "not_after": "2026-05-01T00:00:00",
+      "entry_timestamp": "2026-02-01T00:10:00"
+    }
+  ],
+  "cdx": [
+    [
+      "timestamp",
+      "original",
+      "statuscode",
+      "mimetype"
+    ],
+    [
+      "20020120142510",
+      "http://example.com:80/",
+      "200",
+      "text/html"
+    ],
+    [
+      "20251231120000",
+      "https://example.com/",
+      "200",
+      "text/html"
+    ]
+  ]
+}
