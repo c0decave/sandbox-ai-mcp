@@ -184,6 +184,9 @@ def spec_mounts(spec: dict, variables: dict[str, str], fresh: list[str]) -> list
             if "host" in mount or not mount.get("writable"):
                 raise ValueError(f"mount {mount.get('target')}: a fresh folder has no host and is writable")
             host = tempfile.mkdtemp(prefix=f"smoke-{spec.get('name', 'server')}-")
+            # A throwaway folder: whoever the container's user is (root without CAP_DAC_OVERRIDE under Docker, the
+            # image's user, a subordinate ID of rootless Podman) may write it, as the user's own folder is theirs.
+            os.chmod(host, 0o777)
             fresh.append(host)
         elif "host" in mount:
             host = substitute(mount["host"], variables)
