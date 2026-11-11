@@ -1,4 +1,176 @@
 {
   "version": 1,
-  "rootfs": {}
+  "rootfs": {
+    "binwalk": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-binwalk-1353517b10e7/rootfs-binwalk.tar.gz",
+      "sha256": "1353517b10e7c88ad1040146ab01d06303bda20963c6c100d9513e3aa37c334e",
+      "size": 58873750,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp",
+        "BINWALK_OUTPUT_DIR": "/tmp/binwalk-mcp"
+      }
+    },
+    "brave-search": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-brave-search-826c7cc6752c/rootfs-brave-search.tar.gz",
+      "sha256": "826c7cc6752c10cbad1c852191298ece24d2f0be21928a1f5de1bd689f82bd82",
+      "size": 54833652,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "capa": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-capa-5a554d8ffca4/rootfs-capa.tar.gz",
+      "sha256": "5a554d8ffca4bbd7d966e8c3984561c03dbd01d6a2f4202242ed6e818a2876b5",
+      "size": 102865629,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp",
+        "CAPA_RULES_DIR": "/opt/capa/rules",
+        "CAPA_SIGS_DIR": "/opt/capa/sigs",
+        "CAPA_OUTPUT_DIR": "/tmp/capa-mcp"
+      }
+    },
+    "playwright": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-playwright-f660564aa274/rootfs-playwright.tar.gz",
+      "sha256": "f660564aa2740c5ecd1b2d7392ab577f240476ee81b25ca7825d38b2b8058eb5",
+      "size": 341944382,
+      "entrypoint": [
+        "/usr/bin/tini",
+        "-s",
+        "--",
+        "/usr/bin/node",
+        "/opt/playwright-mcp/cli.js",
+        "--headless",
+        "--isolated",
+        "--no-sandbox",
+        "--browser",
+        "chromium",
+        "--executable-path",
+        "/usr/bin/chromium",
+        "--output-dir",
+        "/tmp/playwright-output",
+        "--no-webmcp"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "searxng": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-searxng-15f8b6495178/rootfs-searxng.tar.gz",
+      "sha256": "15f8b6495178abae9b72ed5127cee1b9438bd135e7f1a394ec1f1489a8dfbed8",
+      "size": 54836072,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "signal": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-signal-c1f0f5544424/rootfs-signal.tar.gz",
+      "sha256": "c1f0f55444241cb6ae08ca054451e920e26e3dbaa9534eefe4011005a8acf7e6",
+      "size": 202451868,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/data"
+      }
+    },
+    "telegram": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-telegram-9758cd1529e4/rootfs-telegram.tar.gz",
+      "sha256": "9758cd1529e47c925def38fe64ffe02720b60666e48a9adcb1af60d566a99ec0",
+      "size": 54836886,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "telegram-user": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-telegram-user-0e487e33ac3e/rootfs-telegram-user.tar.gz",
+      "sha256": "0e487e33ac3e384a155de9ffa3dfdf26957a8f91da06503f168c1b990e524c28",
+      "size": 57817242,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "whatsapp": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-whatsapp-8de4caeefaab/rootfs-whatsapp.tar.gz",
+      "sha256": "8de4caeefaab88d6724e35cd067089e15367a4bb647e8a8a6f8f537e8a936ed3",
+      "size": 41641535,
+      "entrypoint": [
+        "/usr/local/bin/wa-mcp",
+        "serve"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp",
+        "WA_DATA_DIR": "/data",
+        "WA_BRIDGE": "/usr/local/bin/wa-bridge",
+        "WA_SEND_DIR": "/send",
+        "GOMAXPROCS": "2",
+        "TOKIO_WORKER_THREADS": "2"
+      }
+    }
+  }
 }
