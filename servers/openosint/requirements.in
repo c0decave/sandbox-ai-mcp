@@ -1,0 +1,6 @@
+mcp==1.30.0
+aiohttp==3.14.5
+dnspython==2.9.0
+python-dotenv==1.2.4
+python-whois==0.9.6
+requests==2.34.2

@@ -1,0 +1,18 @@
+{
+  "tools": [
+    "generate_dorks",
+    "search_abuseipdb",
+    "search_breach",
+    "search_dns",
+    "search_dorks_live",
+    "search_footprint",
+    "search_gdelt_geo",
+    "search_github",
+    "search_ip",
+    "search_ip2location",
+    "search_paste",
+    "search_rdap",
+    "search_virustotal",
+    "search_whois"
+  ]
+}

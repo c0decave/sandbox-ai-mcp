@@ -257,6 +257,57 @@ class Playwright(unittest.TestCase):
             self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
 
 
+class OpenOsint(unittest.TestCase):
+    """OpenOSINT's reviewed modules only, each pinned by SHA-256 at the pinned commit; passive tools only."""
+
+    ACTIVE = ("search_username", "search_email", "search_domain", "search_phone", "scrape_url",
+              "investigate_multi", "graph_export", "graph_neighbors", "graph_review_candidates")
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "openosint"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.manifest = [line.split("  ", 1) for line in
+                         (self.folder / "openosint-files.sha256").read_text().splitlines()]
+
+    def test_only_the_reviewed_modules_go_into_the_image(self):
+        self.assertEqual(len(self.manifest), 26)
+        for digest, path in self.manifest:
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertRegex(path, r"^openosint/(?:tools/)?[a-z_0-9]+\.py$")
+            self.assertIn(f"`{path.removeprefix('openosint/')}`", self.provenance, f"{path} is not in PROVENANCE.md")
+        paths = {path for _, path in self.manifest}
+        for left_out in ("mcp_server.py", "env.py", "utils.py", "agent.py", "multi_target.py", "cli.py",
+                         "web_server.py", "tools/search_username.py", "tools/search_email.py",
+                         "tools/search_domain.py", "tools/search_phone.py", "tools/scrape_url.py"):
+            self.assertNotIn(f"openosint/{left_out}", paths)
+        self.assertIn("sha256sum --check --strict", self.dockerfile)
+        self.assertIn("COPY --from=source /opt/openosint/openosint /opt/venv/lib/python3.13/site-packages/openosint",
+                      self.dockerfile)
+        self.assertNotRegex(self.dockerfile, r"pip install[^\n]*openosint")
+
+    def test_the_release_is_pinned_and_in_the_provenance(self):
+        commit = re.search(r"^ARG OPENOSINT_COMMIT=([0-9a-f]{40})$", self.dockerfile, re.M).group(1)
+        self.assertIn(commit, self.provenance)
+        self.assertIn("**2.36.1**", self.provenance)
+        self.assertIn("UPSTREAM_VERSION = \"2.36.1\"", (self.folder / "src" / "server.py").read_text())
+
+    def test_passive_tools_and_optional_keys(self):
+        tools = read_json("servers", "openosint", "tools.json")["tools"]
+        self.assertEqual(tools, sorted(tools))
+        for name in self.ACTIVE + ("search_shodan", "search_censys"):
+            self.assertNotIn(name, tools)
+        entry = read_json("servers", "openosint", "server.json")
+        self.assertEqual(entry["network"], "full")
+        self.assertNotIn("args", entry)
+        for var in entry["env"]:
+            self.assertFalse(var["required"], var["name"])
+            self.assertEqual(var["secret"], var["name"] not in ("BRIGHTDATA_SERP_ZONE",
+                                                                 "OPENOSINT_GDELT_WINDOW_HOURS"), var["name"])
+        self.assertNotIn("OPENOSINT_ALLOW_ACTIVE", json.dumps(entry))
+        self.assertNotIn("--allow-active", self.dockerfile)
+
+
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
 class SandboxAiAgrees(unittest.TestCase):
     """What this repository writes and what `sandbox-ai mcp add` accepts must be the same thing."""

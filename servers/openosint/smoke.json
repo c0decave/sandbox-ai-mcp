@@ -1,0 +1,60 @@
+{
+  "name": "openosint",
+  "network": "full",
+  "expect_tools": [
+    "generate_dorks",
+    "search_rdap",
+    "search_dns",
+    "search_whois",
+    "search_virustotal"
+  ],
+  "calls": [
+    {
+      "tool": "generate_dorks",
+      "arguments": {
+        "target": "example.com"
+      },
+      "expect": "Google dork URLs for 'example.com'"
+    },
+    {
+      "tool": "search_rdap",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "RDAP registration data for 'example.com'",
+      "timeout": 120
+    },
+    {
+      "tool": "search_rdap",
+      "arguments": {
+        "domain": "localhost"
+      },
+      "expect": "a domain name such as example.com",
+      "expect_error": true
+    },
+    {
+      "tool": "search_virustotal",
+      "arguments": {
+        "target": "https://example.com/"
+      },
+      "expect": "URL submission is not offered",
+      "expect_error": true
+    },
+    {
+      "tool": "search_ip",
+      "arguments": {
+        "ip": "169.254.169.254"
+      },
+      "expect": "a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "search_breach",
+      "arguments": {
+        "email": "someone@example.com"
+      },
+      "expect": "[key_required] HIBP_API_KEY",
+      "expect_error": true
+    }
+  ]
+}
