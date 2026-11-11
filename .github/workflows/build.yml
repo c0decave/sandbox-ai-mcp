@@ -313,10 +313,20 @@ jobs:
           sha=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['sha256'][:12])" \
                 rootfs-out/rootfs-${{ matrix.server }}.json)
           tag="rootfs-${{ matrix.server }}-${sha}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
-            --notes "The rootfs of ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }} for Bubblewrap (sandbox-ai mcp add --backend bwrap)." \
-            --target "${GITHUB_SHA}"
-          gh release upload "$tag" rootfs-out/rootfs-${{ matrix.server }}.tar.gz --clobber
+          asset="rootfs-${{ matrix.server }}.tar.gz"
+          # Named after its hash: a release that has the archive already holds these very bytes (published releases
+          # cannot be changed, so it is never uploaded again). What gh says goes into an annotation.
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -qxF "$asset"; then
+            echo "$tag has $asset already"
+            exit 0
+          fi
+          if ! out=$( { gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
+                 --notes "The rootfs of ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }} for Bubblewrap (sandbox-ai mcp add --backend bwrap)." \
+                 --target "${GITHUB_SHA}"; } 2>&1 && gh release upload "$tag" "rootfs-out/$asset" --clobber 2>&1 ); then
+            text=$(printf '%s' "$out" | tail -n 8 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=rootfs of ${{ matrix.server }} not published::$text"
+            exit 1
+          fi
 
       # Written only when every step above passed (the Bubblewrap smoke may fail: then the rootfs is left out):
       # the catalog job takes no server without it.
