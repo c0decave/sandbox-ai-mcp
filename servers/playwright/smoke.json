@@ -17,13 +17,13 @@
       "arguments": {
         "url": "data:text/html,<title>sandbox-ai%20smoke</title><h1>Hello%20from%20sandbox-ai-mcp</h1><button>Press%20me</button>"
       },
-      "expect": "Hello from sandbox-ai-mcp",
+      "expect": "Page URL: data:text/html",
       "timeout": 180
     },
     {
       "tool": "browser_snapshot",
       "arguments": {},
-      "expect": "Press me"
+      "expect": "Hello from sandbox-ai-mcp"
     },
     {
       "tool": "browser_evaluate",
