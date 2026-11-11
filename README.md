@@ -47,6 +47,31 @@ Images: `ghcr.io/c0decave/sandbox-ai-mcp-<name>`, referenced by digest in
 [`catalog.json`](catalog.json). Until the first CI run publishes them, the catalog says
 `"state": "pending-digests"` and sandbox-ai refuses its entries.
 
+## Not in the catalog, and why
+
+We publish and sign only servers whose shipped code we reviewed completely ourselves, built from pinned
+releases at least 14 days old, that run on their own in a container. Servers we looked at and left out:
+
+- **wtfm** (SupportPages-io/wtfm 0.7.3, "Write the F***ing Manual") - no backdoor or malicious code found,
+  but it is not a server that can run on its own, and it does not meet the rules above:
+  - **It runs its own code in the agent's sandbox.** To write an article, the server hands the agent a shell
+    command that starts wtfm's own `node` and engine scripts beside the agent. A catalog server works the
+    other way round: it runs isolated in its container, and the agent only gets its answers. In a container
+    its main feature cannot work.
+  - **It installs and fetches unpinned code** in your project: CSS tools with `npm install` / `npx` without
+    fixed versions, and every CDN stylesheet the project references with `curl`.
+  - **Usage data leaves by default**, without a login: an install ID, versions, OS and CPU, event counts and
+    crash data go to `app.supportpages.io` (off only with `DO_NOT_TRACK=1`); with an account also the
+    articles, screenshots, the project's git state and, for hosted writing, read access to the repository.
+  - **Its instructions steer the agent:** offer an article after every feature, show SupportPages.io offers
+    word for word, and treat "a sandbox restriction" as "not an explicit user denial".
+  - **Parts cannot be reviewed:** its engine is copied in from a private repository, and native installs
+    update themselves daily from `downloads.supportpages.io`.
+
+  It could be reconsidered as an agent-side plugin with its own review of the engine, or if upstream offers a
+  hosted-only mode without usage data and without those instructions. The full review record:
+  [`docs/CANDIDATES.md`](docs/CANDIDATES.md#wtfm-looked-at-on-2026-11-11-not-packaged).
+
 ## Using them in sandbox-ai
 
 ```bash
