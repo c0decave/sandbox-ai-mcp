@@ -7,6 +7,7 @@ FROM ${DEBIAN_IMAGE} AS build
 ARG NODEJS_VERSION=20.19.2+dfsg-1+deb13u3
 ARG NPM_VERSION=9.2.0~ds1-3
 ARG GIT_VERSION=1:2.47.3-0+deb13u1
+# (npm 9 leaves the scope folders of the dev dependencies it omits, empty: removed before the check below.)
 # The commit of the tag v0.0.83 (2026-09-28). npm ci installs exactly what its package-lock.json pins:
 # playwright and playwright-core 1.64.0-alpha-1790635538000 (microsoft/playwright e8149b82), by integrity.
 ARG PLAYWRIGHT_MCP_COMMIT=f183dad4a52965583e3cc1d59b88cdc279e2e57d
@@ -23,6 +24,7 @@ RUN git init --quiet /opt/playwright-mcp \
 RUN cd /opt/playwright-mcp \
  && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --omit=dev --ignore-scripts --no-audit --no-fund --no-update-notifier \
  && node -e 'for (const p of ["playwright", "playwright-core"]) { const v = require(`/opt/playwright-mcp/node_modules/${p}/package.json`).version; if (v !== process.argv[1]) { console.error(`${p} ${v}`); process.exit(1); } }' "${PLAYWRIGHT_VERSION}" \
+ && find node_modules -mindepth 1 -maxdepth 1 -type d -empty -delete \
  && test "$(ls node_modules | sort | tr '\n' ' ')" = "playwright playwright-core " \
  && find . -mindepth 1 -maxdepth 1 ! -name cli.js ! -name package.json ! -name LICENSE ! -name node_modules \
       -exec rm -rf {} +
