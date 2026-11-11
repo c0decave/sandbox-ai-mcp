@@ -2,19 +2,8 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
-  "state": "pending-digests",
-  "pending": [
-    "binwalk",
-    "brave-search",
-    "capa",
-    "duckduckgo",
-    "radare2",
-    "searxng",
-    "telegram",
-    "telegram-user",
-    "web-fetch"
-  ],
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
+  "state": "pinned",
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -35,6 +24,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk",
       "tag": "latest",
+      "digest": "sha256:968c501872b7d01817c51ba6703537ff0b12d0a00380b4ce13f3467a341b9bb3",
       "mounts": [
         {
           "target": "/work",
@@ -67,6 +57,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
       "tag": "latest",
+      "digest": "sha256:9920b83446d26e2a81b87baf5a6a6cf2e367f7ca856d2cd33c81b63494c63be6",
       "env": [
         {
           "name": "BRAVE_API_KEY",
@@ -100,6 +91,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa",
       "tag": "latest",
+      "digest": "sha256:21d572db743be0b6836e2fca664f46344208f3ada6a6e75b34d35fb232580979",
       "mounts": [
         {
           "target": "/work",
@@ -127,6 +119,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
       "tag": "latest",
+      "digest": "sha256:2851aef88bbc3328ca47ef40393d55df07a6312f9971b69b2e3a7811ef5a7642",
       "network": "allowlist",
       "hosts": [
         "html.duckduckgo.com:443"
@@ -152,6 +145,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-radare2",
       "tag": "latest",
+      "digest": "sha256:7203da30ecc11be76ed44ec094b36ce6f5339a261a6df412d07f8b956b215128",
       "mounts": [
         {
           "target": "/work",
@@ -180,6 +174,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
       "tag": "latest",
+      "digest": "sha256:c05013aa018dd20b65d56df2fba4901baf8d69144f81fa10e0b88dbf708f2964",
       "env": [
         {
           "name": "SEARXNG_URL",
@@ -209,6 +204,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram",
       "tag": "latest",
+      "digest": "sha256:acb88f4d964ecf7fd689869a03e507da956e8ddd68689dcec38963704e854aaf",
       "env": [
         {
           "name": "TELEGRAM_BOT_TOKEN",
@@ -248,6 +244,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user",
       "tag": "latest",
+      "digest": "sha256:0371e683b9a8826a5f02a6e161a07b9507355b4618d1de8ae42104ad340173c9",
       "env": [
         {
           "name": "TELEGRAM_API_ID",
@@ -317,6 +314,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
       "tag": "latest",
+      "digest": "sha256:17857011218bc40e856f449b2e85ee97a394e59b2041d7d1c77316a2d4dbc838",
       "network": "full",
       "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
     }
