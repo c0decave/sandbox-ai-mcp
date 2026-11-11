@@ -16,6 +16,8 @@ import unittest
 ROOT = Path(__file__).resolve().parent.parent
 #: Servers that analyse a file the user holds: no network, input mounted read-only.
 FILE_ANALYSIS = ("binwalk", "capa", "radare2")
+#: Servers that keep an agent's memory in a folder the user mounts writable at /data.
+BRAINS = ("engram", "memory")
 
 
 def load(name: str):
@@ -108,8 +110,14 @@ class EveryServer(unittest.TestCase):
                 self.assertEqual(spec["name"], name)
                 self.assertTrue(spec.get("calls"), f"{name}: the smoke spec must call the tool "
                                                    "(sign_catalog.py refuses a run without a call)")
-                for tool in spec.get("expect_tools", []) + [c["tool"] for c in spec.get("calls", [])]:
+                for tool in spec.get("expect_tools", []) + [c["tool"] for c in spec.get("calls", [])
+                                                            if not c.get("absent")]:
                     self.assertIn(tool, tools, f"{name}: {tool} is not in tools.json")
+                # "absent": a refused call of a tool the server must not have (a cloud tool, a file reader)
+                for call in spec.get("calls", []):
+                    if call.get("absent"):
+                        self.assertNotIn(call["tool"], tools, f"{name}: {call['tool']} is offered")
+                        self.assertTrue(call.get("expect_error"), f"{name}: {call['tool']} must be refused")
 
     def test_the_smoke_spec_mounts_only_folders_the_entry_declares(self):
         for name in servers():
@@ -134,7 +142,7 @@ class EveryServer(unittest.TestCase):
         for name in servers():
             with self.subTest(server=name):
                 spec = read_json("servers", name, "smoke.json")
-                mounted = {mount["target"] for mount in spec.get("mounts", []) if mount["host"] == "${FIXTURES}"}
+                mounted = {mount["target"] for mount in spec.get("mounts", []) if mount.get("host") == "${FIXTURES}"}
                 for call in spec.get("calls", []):
                     for value in call.get("arguments", {}).values():
                         if not isinstance(value, str):
@@ -353,6 +361,163 @@ class OsintMcp(unittest.TestCase):
         self.assertTrue(real, "the smoke spec must make real calls")
         for call in real:  # no API key and no target but example.com and RIPEstat's public data
             self.assertNotIn("${", json.dumps(call))
+
+
+class BrainServers(unittest.TestCase):
+    """The memory servers ("brains"): no network, the memory only in a writable /data the user mounts (one folder per
+    case), a smoke run that writes, searches and reads back in a fresh folder of its own."""
+
+    def test_no_network_and_the_memory_folder_is_required_and_writable(self):
+        for name in BRAINS:
+            with self.subTest(server=name):
+                entry = read_json("servers", name, "server.json")
+                spec = read_json("servers", name, "smoke.json")
+                self.assertEqual((entry["network"], spec["network"]), ("none", "none"))
+                self.assertEqual(entry.get("hosts", []), [])
+                self.assertEqual(entry["category"], "Memory")
+                mount, = entry["mounts"]
+                self.assertEqual((mount["target"], mount["required"]), ("/data", True))
+                self.assertIn("--mount /data=", mount["description"])
+                self.assertIn("one folder per", (mount["description"] + entry["notes"]).lower())
+                self.assertFalse(any(v.get("secret") or v.get("required") for v in entry.get("env", [])))
+                self.assertEqual(spec["mounts"], [{"target": "/data", "fresh": True, "writable": True}])
+
+    def test_the_smoke_run_writes_searches_and_reads_back_and_is_refused_the_rest(self):
+        for name in BRAINS:
+            with self.subTest(server=name):
+                calls = read_json("servers", name, "smoke.json")["calls"]
+                real = [c for c in calls if not c.get("expect_error")]
+                refused = [c for c in calls if c.get("expect_error")]
+                self.assertGreaterEqual(len(real), 3, "write, search, read back")
+                self.assertGreaterEqual(len(refused), 3)
+                self.assertTrue([c for c in refused if c.get("absent")], "a tool that must not exist is refused")
+
+    def test_the_final_image_runs_without_a_package_manager_or_network_tools(self):
+        for name in BRAINS:
+            with self.subTest(server=name):
+                text = (ROOT / "servers" / name / "Dockerfile").read_text()
+                final = text[[m.start() for m in re.finditer(r"^FROM ", text, re.M)][-1]:]
+                final = re.sub(r"(?m)^#.*$", "", final)
+                self.assertNotIn("apt-get install", final)
+                self.assertNotRegex(final, r"\b(npm|git|curl|wget)\b(?!-)")
+                self.assertIn("mkdir -m 0755 /data", final)
+
+
+class Memory(unittest.TestCase):
+    """The official Knowledge Graph memory server: the npm release and its three packages by integrity, the graph
+    fixed to /data/memory.jsonl, no code generation from strings."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "memory"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.lock = read_json("servers", "memory", "package-lock.json")
+
+    def test_the_lock_has_the_server_and_its_three_packages_by_integrity(self):
+        packages = {path.removeprefix("node_modules/"): entry for path, entry in self.lock["packages"].items() if path}
+        self.assertEqual({name: entry["version"] for name, entry in packages.items()},
+                         {"@modelcontextprotocol/server-memory": "2.0.1", "@modelcontextprotocol/server": "2.4.0",
+                          "@modelcontextprotocol/core": "2.4.0", "zod": "4.6.7"})
+        for name, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), name)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", name)
+            self.assertIn(entry["integrity"][:15], self.provenance, f"{name}: its integrity is not in PROVENANCE.md")
+        self.assertEqual(read_json("servers", "memory", "package.json")["dependencies"],
+                         {"@modelcontextprotocol/server-memory": "2.0.1"})
+
+    def test_install_runs_no_scripts_and_the_reviewed_files_are_checked(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        for digest in re.findall(r'echo "([0-9a-f]{64})  node_modules/', self.dockerfile):
+            self.assertIn(digest, self.provenance)
+        self.assertEqual(len(re.findall(r'echo "([0-9a-f]{64})  node_modules/', self.dockerfile)), 2)
+        self.assertIn("194cc86e3ae6400958555bd4116849d822d69263", self.provenance)
+        node = re.search(r"^ARG NODE_IMAGE=\S+@(sha256:[0-9a-f]{64})$", self.dockerfile, re.M)
+        self.assertTrue(node)
+        self.assertIn(node.group(1), self.provenance)
+
+    def test_the_graph_is_fixed_to_data_and_no_code_is_generated(self):
+        self.assertRegex(self.dockerfile, r"(?m)^ENV .*MEMORY_FILE_PATH=/data/memory\.jsonl")
+        self.assertIn('"--disallow-code-generation-from-strings"', self.dockerfile)
+        entry = read_json("servers", "memory", "server.json")
+        self.assertNotIn("env", entry, "no variable can move the graph out of /data")
+
+    def test_nine_tools(self):
+        self.assertEqual(read_json("servers", "memory", "tools.json")["tools"],
+                         ["add_observations", "create_entities", "create_relations", "delete_entities",
+                          "delete_observations", "delete_relations", "open_nodes", "read_graph", "search_nodes"])
+
+
+class Engram(unittest.TestCase):
+    """Engram's MCP server only: our entry point inside Engram's module, linking internal/mcp and internal/store,
+    every linked Engram file the reviewed one, one project per memory folder, no folder arguments."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "engram"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.main = (self.folder / "src" / "main.go").read_text()
+        self.main_test = (self.folder / "src" / "main_test.go").read_text()
+
+    def test_the_release_commit_and_every_reviewed_file_are_pinned(self):
+        commit = re.search(r"^ARG ENGRAM_COMMIT=([0-9a-f]{40})$", self.dockerfile, re.M).group(1)
+        self.assertIn(commit, self.provenance)
+        lines = (self.folder / "engram-files.sha256").read_text().splitlines()
+        self.assertGreater(len(lines), 50)
+        for line in lines:
+            digest, path = line.split("  ")
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertRegex(path, r"^(internal/[a-z/]+/[a-z0-9_]+\.go|go\.mod|go\.sum|LICENSE)$")
+            self.assertNotRegex(path, r"_test\.go$|_windows\.go$|_darwin\.go$")
+            self.assertIn(digest, self.provenance, f"{path}: its SHA-256 is not in PROVENANCE.md")
+        packages = {path.rsplit("/", 1)[0] for _, path in (line.split("  ") for line in lines) if "/" in path}
+        self.assertEqual(packages, {"internal/agentops", "internal/cloud/constants", "internal/command",
+                                    "internal/diagnostic", "internal/hostbind", "internal/identityfile",
+                                    "internal/mcp", "internal/project", "internal/store", "internal/timeutil"})
+        for package in packages:  # the build compares the linked packages with this list
+            self.assertIn(package, self.dockerfile)
+        self.assertIn("sha256sum --check --strict --quiet /tmp/engram-files.sha256", self.dockerfile)
+        self.assertIn("go mod verify", self.dockerfile)
+        self.assertIn("go test -count=1 ./cmd/sandbox-ai-mcp", self.dockerfile)
+
+    def test_only_the_mcp_server_of_engram_is_linked(self):
+        imports = re.search(r"^import \((.*?)^\)", self.main, re.M | re.S).group(1)
+        engram = re.findall(r'"github\.com/Gentleman-Programming/engram/v3/([^"]+)"', imports)
+        self.assertEqual(sorted(engram), ["internal/mcp", "internal/store"])
+        for forbidden in ('"os/exec"', '"net"', '"net/http"', '"plugin"', '"unsafe"'):
+            self.assertNotIn(forbidden, imports)
+        self.assertIn('engram.ResolveTools("agent")', self.main)
+        self.assertIn("store.FallbackConfig(dataDir)", self.main, "Engram's limits: an empty Config stores nothing")
+        self.assertIn('dataDir        = "/data"', self.main)
+
+    def test_the_tools_are_the_agent_profile_and_no_tool_takes_a_folder(self):
+        tools = read_json("servers", "engram", "tools.json")["tools"]
+        listed = re.search(r"var agentTools = \[\]string\{(.*?)\}", self.main_test, re.S).group(1)
+        self.assertEqual(tools, sorted(re.findall(r'"([a-z_]+)"', listed)))
+        self.assertEqual(len(tools), 23)
+        for admin in ("mem_delete", "mem_merge_projects", "mem_stats", "mem_timeline"):
+            self.assertNotIn(admin, tools)
+        self.assertIn('"mem_session_start":   {"directory"}', self.main)
+        self.assertIn('"mem_current_project": {"directory", "cwd"}', self.main)
+        refused = {c["tool"]: c["expect"] for c in read_json("servers", "engram", "smoke.json")["calls"]
+                   if c.get("expect_error")}
+        self.assertEqual(refused["mem_session_start"], "directory: not offered here")
+        self.assertEqual(refused["mem_current_project"], "cwd: not offered here")
+
+    def test_no_git_in_the_image_and_a_path_without_writable_folders(self):
+        final = self.dockerfile[[m.start() for m in re.finditer(r"^FROM ", self.dockerfile, re.M)][-1]:]
+        self.assertRegex(final, r"(?m)^ENV .*PATH=/usr/local/bin:/usr/bin:/bin\b")
+        self.assertNotIn("git", re.sub(r"(?m)^#.*$", "", final).replace("github.com", ""))
+        self.assertIn('ENTRYPOINT ["/usr/local/bin/engram-mcp"]', final)
+
+
+class BasicMemoryLeftOut(unittest.TestCase):
+    def test_it_is_not_packaged_and_the_readme_says_why(self):
+        self.assertFalse((ROOT / "servers" / "basic-memory").exists())
+        self.assertFalse((ROOT / "candidates" / "basic-memory").exists())
+        readme = (ROOT / "README.md").read_text()
+        section = readme[readme.index("## Not in the catalog, and why"):readme.index("## Using them in sandbox-ai")]
+        self.assertIn("**Basic Memory**", section)
+        self.assertIn("docs/CANDIDATES.md#basic-memory", section)
 
 
 class Signal(unittest.TestCase):

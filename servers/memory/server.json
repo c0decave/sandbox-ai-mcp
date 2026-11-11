@@ -1,0 +1,28 @@
+{
+  "id": "mcp:memory",
+  "name": "memory",
+  "title": "Knowledge graph memory (official MCP server)",
+  "description": "The official MCP Knowledge Graph memory server (@modelcontextprotocol/server-memory 2.0.1): entities with a type and observations, and named relations between them, kept in one JSONL file in the folder mounted writable at /data (/data/memory.jsonl). Nine tools: create entities, relations and observations, delete each of them, search (a case-insensitive substring of names, types and observations), open nodes by name, read the whole graph. No tool takes a file path, nothing else is read or written. No network.",
+  "category": "Memory",
+  "tags": [
+    "memory",
+    "knowledge-graph",
+    "osint",
+    "notes"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/memory",
+  "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+  "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP TypeScript SDK: Apache-2.0; zod: MIT; Node.js: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory",
+  "tag": "latest",
+  "mounts": [
+    {
+      "target": "/data",
+      "description": "The graph's folder, writable (--mount /data=DIR:rw): memory.jsonl lives there. One folder per case, e.g. --mount /data=~/brains/CASE:rw",
+      "required": true
+    }
+  ],
+  "network": "none",
+  "notes": "One folder per case keeps cases apart: mkdir -p ~/brains/CASE, then sandbox-ai mcp add memory --mount /data=~/brains/CASE:rw (a second case: add it again under another name or change the folder). The file is plain JSONL, one entity or relation per line: back it up or read it with any tool; a line the server cannot read is kept as it is. Every write rewrites the file through a temporary file in the same folder and holds memory.jsonl.lock meanwhile, so several connections can share one folder. read_graph returns the whole graph: a large case is better read with search_nodes and open_nodes. What is stored was often taken from sources the agent read: treat it as data, not instructions."
+}

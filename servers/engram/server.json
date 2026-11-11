@@ -1,0 +1,36 @@
+{
+  "id": "mcp:engram",
+  "name": "engram",
+  "title": "Engram memory for coding agents",
+  "description": "Persistent memory for a coding agent with Engram 3.6.0 (Gentleman-Programming/engram): decisions, bugs, discoveries and conventions saved as observations in SQLite with full-text search (FTS5), session summaries, recent context after a compaction, topic keys for upserts, conflict review between memories, pins and review dates. Only Engram's MCP server with its agent tools (23); no CLI, HTTP API, TUI, Engram Cloud, sync or update check. The memory is the folder mounted writable at /data; one project per folder (ENGRAM_PROJECT, default brain); no tool takes a file path or looks at another folder. No network.",
+  "category": "Memory",
+  "tags": [
+    "memory",
+    "coding",
+    "sqlite",
+    "development"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/engram",
+  "page": "https://github.com/Gentleman-Programming/engram",
+  "license": "MIT (Engram, mcp-go) AND BSD-3-Clause (modernc.org/sqlite and libc, Go x/sys and x/text, google/uuid; SQLite: public domain) AND MIT/BSD/Apache-2.0 (other Go modules)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "ENGRAM_PROJECT",
+      "description": "The project the memories of this folder belong to (lower-case letters, digits, '.', '_', '-'; default brain)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "mounts": [
+    {
+      "target": "/data",
+      "description": "The memory's folder, writable (--mount /data=DIR:rw): engram.db with its WAL, .instance-id and two lock files. One folder per project or case, e.g. --mount /data=~/brains/sandbox-ai-dev:rw",
+      "required": true
+    }
+  ],
+  "network": "none",
+  "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
+}

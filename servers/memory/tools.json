@@ -1,0 +1,13 @@
+{
+  "tools": [
+    "add_observations",
+    "create_entities",
+    "create_relations",
+    "delete_entities",
+    "delete_observations",
+    "delete_relations",
+    "open_nodes",
+    "read_graph",
+    "search_nodes"
+  ]
+}

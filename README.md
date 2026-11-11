@@ -31,6 +31,8 @@ network it was not given, and nothing here probes anyone.
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
+| [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
+| [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
@@ -72,6 +74,24 @@ releases at least 14 days old, that run on their own in a container. Servers we 
   hosted-only mode without usage data and without those instructions. The full review record:
   [`docs/CANDIDATES.md`](docs/CANDIDATES.md#wtfm-looked-at-on-2026-11-11-not-packaged).
 
+- **Basic Memory** (basicmachines-co/basic-memory 0.24.1, AGPL-3.0; Markdown notes with an SQLite index) - no
+  backdoor found in what was read, but it cannot be reviewed completely, and as released it does not run offline
+  without changes:
+  - **Too large to review completely:** `basic-memory mcp` imports 308 of its own modules, 101,481 lines of Python (the
+    MCP tools reach the notes through its FastAPI app in-process), on 43 required packages - among them litellm,
+    openai, logfire (OpenTelemetry), fastembed (onnxruntime, Hugging Face downloads), asyncpg, psycopg, pyright and
+    two pytest plugins, each with dependencies of its own.
+  - **It reaches out by default:** the stdio MCP server starts an automatic update in the background (`auto_update`
+    is on by default: PyPI, then `uv tool upgrade` or `brew upgrade`); CLI promotions send events to
+    `api-gateway.umami.dev` unless `BASIC_MEMORY_NO_PROMOS=1`; since 0.24.0 semantic search is always on and
+    downloads its embedding model on first use (the switch was removed); per-project cloud routing is honoured on
+    stdio.
+  - **Its tools go beyond local notes:** cloud workspaces, project create and delete, an external formatter
+    run as a subprocess.
+
+  It could be reconsidered as an own small server over its note format, or if upstream ships a local-only build. The
+  record: [`docs/CANDIDATES.md`](docs/CANDIDATES.md#basic-memory-looked-at-on-2026-11-11-not-packaged).
+
 ## Using them in sandbox-ai
 
 ```bash
@@ -87,6 +107,8 @@ sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:
 sandbox-ai mcp add playwright --network full --memory 2g --pids 512   # Chromium needs more
 sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn PROFILE hides your address
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
+sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
+sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding agent's memory, no network
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -146,6 +168,13 @@ It is read-only: the write tools exist only with `SIGNAL_WRITE=1` (`--env SIGNAL
 `--env SIGNAL_ALLOWED_RECIPIENTS`); no tool sends a file, a read receipt or changes the account.
 Fetching messages sends Signal's delivery receipts; unread is tracked in the local history only.
 signal-cli locks the account: one connection at a time.
+
+**memory and engram** are an agent's memory: `network: none`, and everything they keep is in the folder mounted
+**writable** at `/data` (required). Give each case or project a folder of its own (`mkdir -p ~/brains/CASE`, then
+`--mount /data=~/brains/CASE:rw`); a second case is the same server added again under another name with another
+folder. No tool of either takes a file path. What a memory returns was written earlier, often from pages or files
+the agent read: data, not instructions. engram's instructions ask the agent to save proactively and to write a
+session summary; its `directory`/`cwd` arguments are not offered (they would scan other folders).
 
 ## Security model
 
@@ -251,4 +280,8 @@ Eclipse Temurin (GPL-2.0 with Classpath Exception); `servers/signal/LICENSES/SOU
 their sources. See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
-MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).
+MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`). memory bundles the official
+Knowledge Graph memory server (Apache-2.0, older parts MIT), the MCP TypeScript SDK (Apache-2.0), zod (MIT) and
+Node.js (MIT and others); engram bundles Engram and mcp-go (MIT) with modernc.org/sqlite and libc (BSD-3-Clause;
+SQLite is public domain) and the other Go modules it links (their licences under
+`/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image).
