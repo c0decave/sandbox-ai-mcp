@@ -27,7 +27,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk",
       "tag": "latest",
-      "digest": "sha256:968c501872b7d01817c51ba6703537ff0b12d0a00380b4ce13f3467a341b9bb3",
+      "digest": "sha256:ef6126e7fc8eb1dad6f7a0f80a7de974d8a91924fdbf9a9ac0c850bd677692cc",
       "mounts": [
         {
           "target": "/work",
@@ -60,7 +60,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
       "tag": "latest",
-      "digest": "sha256:9920b83446d26e2a81b87baf5a6a6cf2e367f7ca856d2cd33c81b63494c63be6",
+      "digest": "sha256:6725626815af849519633600d9e45e77b0c2b1bc63b2158647efb11fde99df85",
       "env": [
         {
           "name": "BRAVE_API_KEY",
@@ -94,7 +94,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa",
       "tag": "latest",
-      "digest": "sha256:21d572db743be0b6836e2fca664f46344208f3ada6a6e75b34d35fb232580979",
+      "digest": "sha256:852531db2c6fcd82d4675e93d08c956d408527cafe547aa40b72c335b8306b39",
       "mounts": [
         {
           "target": "/work",
@@ -122,7 +122,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
       "tag": "latest",
-      "digest": "sha256:2851aef88bbc3328ca47ef40393d55df07a6312f9971b69b2e3a7811ef5a7642",
+      "digest": "sha256:5ea05181ba95a6249c00a05eed93f33e0401bcfd6b8e46a379bab9eed89468cf",
       "network": "allowlist",
       "hosts": [
         "html.duckduckgo.com:443"
@@ -170,7 +170,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-radare2",
       "tag": "latest",
-      "digest": "sha256:7203da30ecc11be76ed44ec094b36ce6f5339a261a6df412d07f8b956b215128",
+      "digest": "sha256:1e2b0164114a026f2e44234243fd5d77e783f931c303919ed7d75e4e66f273b8",
       "mounts": [
         {
           "target": "/work",
@@ -199,7 +199,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
       "tag": "latest",
-      "digest": "sha256:c05013aa018dd20b65d56df2fba4901baf8d69144f81fa10e0b88dbf708f2964",
+      "digest": "sha256:fd5e46537af5cee6686bddb037a021d46a010220e8c18ecbc22a19240713a323",
       "env": [
         {
           "name": "SEARXNG_URL",
@@ -229,7 +229,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram",
       "tag": "latest",
-      "digest": "sha256:acb88f4d964ecf7fd689869a03e507da956e8ddd68689dcec38963704e854aaf",
+      "digest": "sha256:e36f0aefe5ecc406eb22e3244e76acc9422ad47efcebdf659081415e3e710c35",
       "env": [
         {
           "name": "TELEGRAM_BOT_TOKEN",
@@ -269,7 +269,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user",
       "tag": "latest",
-      "digest": "sha256:0371e683b9a8826a5f02a6e161a07b9507355b4618d1de8ae42104ad340173c9",
+      "digest": "sha256:ecd84aa6cf980cad34b587f1f76aea862cfd44351cc5136830d7f5f3b1997ece",
       "env": [
         {
           "name": "TELEGRAM_API_ID",
@@ -339,7 +339,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
       "tag": "latest",
-      "digest": "sha256:17857011218bc40e856f449b2e85ee97a394e59b2041d7d1c77316a2d4dbc838",
+      "digest": "sha256:9287b7db36b69c477f60b95e19cd59b2e4fadacddba5141bc15aa43b44835252",
       "network": "full",
       "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
     }
