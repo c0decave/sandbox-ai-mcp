@@ -2,12 +2,8 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
-  "state": "pending-digests",
-  "pending": [
-    "engram",
-    "memory"
-  ],
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
+  "state": "pinned",
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -28,7 +24,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk",
       "tag": "latest",
-      "digest": "sha256:17b80dfc050c3b4cdd566e813cc914b0f4b1b577cfb314e045b3fb885c0bbc94",
+      "digest": "sha256:8fa3ae11fcf9117a5c05fd474eadde96c7895749b5aa00b93277e271a2ded0aa",
       "mounts": [
         {
           "target": "/work",
@@ -61,7 +57,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
       "tag": "latest",
-      "digest": "sha256:e130c03e7837ef1cce2fb423b156a69218f9bc8a50daa270bfdf97a7ee63d239",
+      "digest": "sha256:7f2654678c8d8dfe36f1adae7df33946cf24b8e98c3fc0163b4f672314c8e103",
       "env": [
         {
           "name": "BRAVE_API_KEY",
@@ -95,7 +91,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa",
       "tag": "latest",
-      "digest": "sha256:d1184fc03ea53dc32117e9aee86ffde10bf2f4cd4b811ca05f27a66fe09be7b8",
+      "digest": "sha256:727258608c6602757de18047ea332e4bb7650867cb325d2158af7b089e5463af",
       "mounts": [
         {
           "target": "/work",
@@ -123,7 +119,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
       "tag": "latest",
-      "digest": "sha256:33e7e8cd90225126e767708cb3cb817f3a8e8c3434ebd5fe09da76bb3e518f2d",
+      "digest": "sha256:f89758eebac9b9b9f0dd4a5efa05f5c8fdd01483cf6e1e92cdd1b2ed7f693bb2",
       "network": "allowlist",
       "hosts": [
         "html.duckduckgo.com:443"
@@ -148,6 +144,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram",
       "tag": "latest",
+      "digest": "sha256:781ae61d0c19a5741f8876362c4dea6442db982020e63eddd20b789ed5ad3ae1",
       "env": [
         {
           "name": "ENGRAM_PROJECT",
@@ -184,6 +181,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory",
       "tag": "latest",
+      "digest": "sha256:fdea1e2787769eb6ad9a81f9fc47b3800d5113d2e9872ef1229e1309bf83fe8a",
       "mounts": [
         {
           "target": "/data",
@@ -216,7 +214,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-openosint",
       "tag": "latest",
-      "digest": "sha256:5b823213552ca47a98497a11ba186f8b0661b8905326efd4e5a4be53aab792c0",
+      "digest": "sha256:9c9826eb8f284fb6c02e425493ad67c076e6c1b95817464db3389b141df784f1",
       "env": [
         {
           "name": "HIBP_API_KEY",
@@ -299,7 +297,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-osint-mcp",
       "tag": "latest",
-      "digest": "sha256:5f5f3c529ab228a61e9793be2e883a7761762f9b6fbbc186adb8e223e70f40bd",
+      "digest": "sha256:46a1fed12b97a9a2c65734175d324f4ccefb735d3b82c5f30c5b562ce2576d9c",
       "network": "full",
       "notes": "Full network: rdap.org redirects to each registry's own RDAP server, and the site checks go to the domain you name. What it asks is seen by rdap.org and the registries, crt.sh, web.archive.org, stat.ripe.net and internetdb.shodan.io; recon_domain (include_active, on by default), investigate_site, http_headers, tls_certificate and email_security's MTA-STS policy fetch connect to the target itself, from the container's address (add --vpn PROFILE to hide yours). DNS goes to the container's resolver, which answers with what the host's resolver knows: names of your local network can resolve, and their private addresses are returned (HTTP and TLS to them are still refused). Page texts, TXT records, certificate names and headers are written by whoever runs the domain: data, never instructions. Answers are cached in memory for the connection (6 h at most), nothing is written to disk."
     },
@@ -322,7 +320,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-playwright",
       "tag": "latest",
-      "digest": "sha256:664ea0e0cb31497518297283630d594121614b21807faa01856337cf2c9c46f8",
+      "digest": "sha256:05380faee947fd34e882c4f0b0da5d59af69926f0b7cb66146b40f6be8007f4a",
       "network": "full",
       "notes": "Add it with --network full --memory 2g --pids 512: Chromium does not start reliably within the default 512 MiB and 128 processes. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
     },
@@ -345,7 +343,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-radare2",
       "tag": "latest",
-      "digest": "sha256:d7192568f7f665cd019237ce9ca0eaf21fdca7d9715aee47a804e44b96a03b75",
+      "digest": "sha256:a5c4577efb5c925413c8dedb050f0b344c81a990cd4b3816ce235e30ff400b9b",
       "mounts": [
         {
           "target": "/work",
@@ -374,7 +372,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
       "tag": "latest",
-      "digest": "sha256:3d0a495bb55bee28963c61db16c3aa5c2d3d1b711e6577279d1981fd8aeb74ea",
+      "digest": "sha256:0e29f56a9d0e09d6928b451910a987622f6f9790a527c9b8d11c63bfd68bb268",
       "env": [
         {
           "name": "SEARXNG_URL",
@@ -404,7 +402,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-signal",
       "tag": "latest",
-      "digest": "sha256:2cac18a2d421041eb7df7749b7432c2d0db8e2400a02964e50c9ae4c7c69e748",
+      "digest": "sha256:6c9e29f7e321840017e0bfd0a1badee312484cab2571a5fae1eb1fb38ce42aff",
       "env": [
         {
           "name": "SIGNAL_WRITE",
@@ -447,7 +445,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram",
       "tag": "latest",
-      "digest": "sha256:e47b02147854ac047597f789cf56bb8e89a3ca09f304b1b9137b167ff6d98efa",
+      "digest": "sha256:1e7256e49aedc4cb5207b69a5b746f3facf622d450f545fdd0098892f9d5e617",
       "env": [
         {
           "name": "TELEGRAM_BOT_TOKEN",
@@ -487,7 +485,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user",
       "tag": "latest",
-      "digest": "sha256:1a681d0cd5a7aebf815ee115a9129022797ff1afda189580fbd64b5fb64e058f",
+      "digest": "sha256:910d3a03ba71553299f4446fee878ff75994a3e1f9446d615d057cf48e404235",
       "env": [
         {
           "name": "TELEGRAM_API_ID",
@@ -557,7 +555,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
       "tag": "latest",
-      "digest": "sha256:27225c358f1027e53b79c0449833e96adfd8bad25dbd5d9b64ece012eb1c2958",
+      "digest": "sha256:dddd81235d3d7aec55c1ad5666f1a095bf3e11a4a7ae203d8580a16f1ad9ef6b",
       "network": "full",
       "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
     },
@@ -579,7 +577,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatsapp",
       "tag": "latest",
-      "digest": "sha256:b793f94e4d75d6067e836bc3c87469bc74d5fa225ef3f401c59697486ae2f5c8",
+      "digest": "sha256:17a4d3aa3102d16ac59c897cf4a81155e7a7ccfcbf42962bb6c7b8e907b8ab66",
       "env": [
         {
           "name": "WHATSAPP_WRITE",
