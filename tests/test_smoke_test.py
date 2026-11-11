@@ -120,6 +120,32 @@ class SmokeTest(unittest.TestCase):
                              "--report", str(report), "--upstream-backoff", "0", *extra])
         return status, json.loads(report.read_text())
 
+    def test_a_spec_raises_the_limits_of_the_run_line(self):
+        argv = smoke.run_command("x", "image", memory="2g", pids=512)
+        self.assertIn("--memory=2g", argv)
+        self.assertIn("--pids-limit=512", argv)
+        self.assertNotIn("--memory=512m", argv)
+        self.assertNotIn("--pids-limit=128", argv)
+        self.assertEqual([f for f in argv if f.startswith("--tmpfs=")], [f for f in smoke.RUN_FLAGS if f.startswith("--tmpfs=")])
+        docker = smoke.run_command("x", "image", program="docker", memory="2g", pids=512)
+        self.assertIn("--memory=2g", docker)
+        self.assertFalse(any("notmpcopyup" in f for f in docker))
+        self.assertEqual(smoke.run_command("x", "image"), smoke.run_command("x", "image", memory=None, pids=None))
+        self.assertIn("--memory=512m", smoke.run_command("x", "image"))
+
+    def test_limits_sandbox_ai_would_refuse_are_refused(self):
+        self.assertEqual(smoke.limits({}), {})
+        self.assertEqual(smoke.limits({"memory": "2g", "pids": 512}), {"memory": "2g", "pids": 512})
+        for bad in ({"memory": "2G"}, {"memory": "0m"}, {"memory": 2048}, {"pids": 8}, {"pids": 5000},
+                    {"pids": True}, {"pids": "512"}):
+            with self.subTest(spec=bad), self.assertRaises(ValueError):
+                smoke.limits(bad)
+
+    def test_the_limits_reach_the_engine_and_the_report(self):
+        status, report = self.run_smoke(self.spec(memory="2g", pids=512), "--print-argv")
+        self.assertEqual(status, 0, report)
+        self.assertEqual((report["memory"], report["pids"]), ("2g", 512))
+
     def test_the_duckduckgo_spec_names_its_rate_limit(self):
         call = json.loads((ROOT / "servers/duckduckgo/smoke.json").read_text())["calls"][0]
         self.assertFalse(call.get("expect_error"))
