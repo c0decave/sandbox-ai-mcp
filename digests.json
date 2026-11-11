@@ -7,7 +7,7 @@
     "openosint": "sha256:40cb723fc4f8189be46f66549d1c75597512161e4e935398ef05d199f473102a",
     "osint-mcp": "sha256:ea7916fa19c9f0bbfa98f9cb38636e7982a5dccff35cef41ed880a7731a83de1",
     "playwright": "sha256:b19a4ba4756c4716764473535c36eaca3e0dc8724cfccd5c9d17e276ec03b10a",
-    "radare2": "sha256:5e6e78e90923e8e2d5aa17cbf913f9f425576b8e7707c386394ba3c9e563f256",
+    "radare2": null,
     "searxng": "sha256:0f8bf5077c55eadb0a3121bfcc4ed4d8eecb26a3ce00159d47e01a88de18a2f1",
     "signal": "sha256:f937c0f5a2c9ac489aa8b5ac077f9eea1c2aa6dc0c01cfee3f6dcd63ef3b7f3e",
     "telegram": "sha256:d0bc04a31cf40d59f9d57525f4d9be9d1fdf428eac873cd2d2b44554bc89e40b",
