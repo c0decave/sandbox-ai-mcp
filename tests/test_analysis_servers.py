@@ -756,7 +756,10 @@ class SandboxAiAgrees(unittest.TestCase):
         digest = "sha256:" + "ab" * 32
         digests = json.loads((root / "digests.json").read_text())
         digests["images"] = {name: digest for name in digests["images"]}
+        # The published rootfs archives were made from the real digests: none fits these made-up ones.
+        digests["rootfs"] = {}
         (root / "digests.json").write_text(json.dumps(digests, indent=2) + "\n")
+        (root / "rootfs.json").write_text(json.dumps({"version": 1, "rootfs": {}}, indent=2) + "\n")
         self.assertEqual(make_catalog.main(["--root", str(root)]), 0)
         self.assertEqual(make_catalog.main(["--root", str(root), "--check", "--sandbox-ai", str(self.checkout)]), 0)
         mcp = self.sandbox_ai_mcp()
