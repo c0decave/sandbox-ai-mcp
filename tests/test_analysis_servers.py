@@ -201,6 +201,51 @@ class FileAnalysisServers(unittest.TestCase):
                     self.assertIn(commit, text, f"{name}: {commit} is built but not in PROVENANCE.md")
 
 
+class Radare2(unittest.TestCase):
+    """r2mcp built from the reviewed commit with this repository's patch: open_file takes no URI under -s, no
+    command it builds has a second line; started with -s /work, -g none, no prompts and exactly tools.json."""
+
+    FOLDER = ROOT / "servers" / "radare2"
+    PATCH = "0001-open-file-refuses-uris-commands-stay-one-line.patch"
+
+    def setUp(self):
+        self.dockerfile = (self.FOLDER / "Dockerfile").read_text()
+        self.provenance = (self.FOLDER / "PROVENANCE.md").read_text()
+        self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
+                                               re.M | re.S).group(1))
+
+    def test_the_patch_changes_only_r2api_and_is_applied_and_checked(self):
+        self.assertEqual(sorted(path.name for path in (self.FOLDER / "patches").iterdir()), [self.PATCH])
+        text = (self.FOLDER / "patches" / self.PATCH).read_text()
+        self.assertEqual(set(re.findall(r"^\+\+\+ b/(\S+)$", text, re.M)), {"src/r2api.inc.c"})
+        self.assertIn("+\tif (is_uri && R_STR_ISNOTEMPTY (ss->sandbox)) {", text)
+        self.assertIn('+\tchar fchars[] = "|>`\\n\\r";', text)
+        digest = hashlib.sha256((self.FOLDER / "patches" / self.PATCH).read_bytes()).hexdigest()
+        self.assertIn(digest, self.provenance, "PROVENANCE.md names another SHA-256")
+        self.assertIn('for p in /patches/*.patch; do patch -p1 --forward --fuzz=0 --no-backup-if-mismatch < "$p" '
+                      '|| exit 1; done', self.dockerfile)
+        patched = re.search(r'echo "([0-9a-f]{64})  src/r2api.inc.c" \| sha256sum --check --strict', self.dockerfile)
+        self.assertTrue(patched, "the patched file is checked by SHA-256")
+        self.assertIn(patched.group(1), self.provenance)
+
+    def test_the_entrypoint_offers_exactly_the_reviewed_tools(self):
+        self.assertEqual(self.entrypoint[:6], ["/opt/radare2/bin/r2mcp", "-s", "/work", "-g", "none", "-N"])
+        rest = self.entrypoint[6:]
+        self.assertEqual(rest[0::2], ["-e"] * (len(rest) // 2))
+        tools = read_json("servers", "radare2", "tools.json")["tools"]
+        self.assertEqual(rest[1::2], tools)
+        self.assertEqual(len(tools), 32, "one page of tools/list (r2mcp lists 32 per page)")
+        for flag in ("-r", "-p", "-H", "-u", "-S", "-L", "-X", "-c", "-l", "-P"):
+            self.assertNotIn(flag, self.entrypoint, f"{flag} widens what the server does")
+        for tool in ("sql", "search", "hexdump", "get_pid", "dump_registers", "run_command"):
+            self.assertNotIn(tool, tools)
+
+    def test_the_smoke_spec_refuses_a_uri(self):
+        refused = [call["arguments"]["file_path"] for call in read_json("servers", "radare2", "smoke.json")["calls"]
+                   if call.get("expect_error")]
+        self.assertEqual(refused, ["/etc/passwd", "nocache:///etc/passwd"])
+
+
 class Playwright(unittest.TestCase):
     """Playwright MCP with Debian's Chromium: the browser's limits, its flags and its pinned release."""
 

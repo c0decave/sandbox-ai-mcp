@@ -53,6 +53,14 @@
       },
       "expect": "Failed to open file",
       "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "file_path": "nocache:///etc/passwd"
+      },
+      "expect": "Failed to open file",
+      "expect_error": true
     }
   ]
 }
