@@ -110,6 +110,78 @@ folder to `servers/` and add it to the CI matrix.
 | Blender Lab MCP (projects.blender.org/lab/blender_mcp, not reachable from here) | add-on inside a running Blender plus a stdio bridge to `localhost:9876` | host-only: needs the Blender GUI on the host and runs arbitrary `bpy` Python there; source, version and licence unverified |
 | screenpipe/screenpipe app-v2.7.138 (Screenpipe Commercial License, not open source) | screen and audio recorder; `screenpipe-mcp` 0.20.4 is a client of its local API `localhost:3030` | host-only: records the host's screen, audio and accessibility tree; licence restricts commercial use |
 | other Reddit MCP servers (2026-11-06): jordanburke/reddit-mcp-server 2.0.1, nite/reddit-readonly-mcp 0.2.0, Hawstein/mcp-server-reddit 0.2.1, eliasbiondo/reddit-mcp-server 0.2.1, Arindam200/reddit-mcp, adhikasp/mcp-reddit, dialog-tools/reddit-research-mcp (all MIT) | Reddit clients | reddit-mcp-buddy (the reddit candidate, 1.1.14) is cleaner: jordanburke always registers create/edit/delete tools (they fail without a login) and also asks the third-party archive `arctic-shift.photon-reddit.com`; reddit-readonly-mcp poses as Reddit's official mobile app (its client id, `gql-fed.reddit.com`); eliasbiondo reads logged-out without an API app (`redd` scraper library); Hawstein (redditwarp, anonymous) last changed 2026-06, adhikasp 2025-05 with 11 open issues; Arindam200 has posting tools with a password login (praw), last changed 2025-12; dialog-tools is a hosted research service (OpenAI agents, Descope login) |
+| SupportPages-io/wtfm 0.7.3 (Apache-2.0; npm `@supportpages.io/wtfm`) | "Write the F***ing Manual": Claude Code/Codex plugin and CLI that writes end-user help articles with screenshots rendered from the project's own markup; its MCP server (`supportpages_*`, 48 tools) coordinates the writing and is the client of the hosted SupportPages.io help centre | a kit plus a hosted-service client, not a container server: the articles are written by a subagent of the user's agent that runs the server's own `node` and engine scripts (and a downloaded Chromium) in the agent's sandbox, so in a container the core feature cannot work; the rest needs a SupportPages.io account. Review record below |
+
+### wtfm: looked at on 2026-11-11, not packaged
+
+**Upstream.** https://github.com/SupportPages-io/wtfm, organisation SupportPages-io (the company behind
+supportpages.io; every commit by one maintainer, Simon Moxon, plus a bot that syncs `engine/` from a private
+upstream repository "RTFM", engine 1.63.0 at its commit `39ab1c9a`). Created 2026-09-25, 124 stars, active
+(last push 2026-11-05). Apache-2.0. JavaScript/TypeScript, Node.js >= 22.12. Tags only, no GitHub releases.
+Newest version old enough (cut-off 2026-10-28): **v0.7.3**, commit `e6c0b52f` of 2026-10-27, npm 0.7.3 of
+2026-10-27 with an npm provenance attestation for that commit; its `package-lock.json` (129 production
+packages) has nothing newer than 2026-10-27 (qs 6.17.0), direct pins @modelcontextprotocol/sdk 1.32.1,
+puppeteer 25.16.0 (2026-10-22, install script downloads Chrome for Testing), zod 4.6.7, marked 17.0.6,
+yauzl 3.4.0, @clack/prompts 1.6.0. Pinning would have been possible.
+
+**What it is.** `wtfm setup` registers the MCP server and a writer subagent with Claude Code or Codex. For an
+article, the agent calls `supportpages_prepare_article`; the server returns a task brief whose entry point is a
+shell command - the server's own `process.execPath` with `dist/writer-entry.js` and the engine directory of
+its installation (`src/writer-entry.ts` 20-29, `src/bridge.ts` 314-345). The user's agent runs it and every
+generation command (`... --exec <command>`) in its own environment: 67 engine scripts (16,687 lines) that
+compile the project's CSS (`npm install --no-save @tailwindcss/cli`, `npx tailwindcss|sass|postcss` in the
+project, unpinned), fetch Bootstrap/Bulma/Foundation and every CDN stylesheet the project references with
+`curl` (`engine/detect-project/scripts/compile_css.sh` 233-235, 355-380, 408-414), render mockups in
+puppeteer's Chromium, and optionally call OpenAI with the user's `OPENAI_API_KEY`. `wtfm init`/`analyse`
+start the agent with `--dangerously-skip-permissions` (Codex: `--dangerously-bypass-approvals-and-sandbox`).
+
+**Why not a container server.** In a container the brief names a `node` and files the agent does not have,
+and the workspace path must be the same on both sides; local writing - the feature that needs no account -
+cannot work. Making it work means running WTFM's engine, npm/npx and Chromium inside the agent's sandbox,
+i.e. a kit to be reviewed as such. What would remain in a container is the SupportPages.io client
+(list/get/update/publish/delete articles, hosted generation, video walkthroughs, sections and
+recommendations): it needs an account, a device credential written to `~/.config/supportpages` (lost with
+each per-connection container unless mounted), the project mounted writable (state in `.rtfm/supportpages`),
+and the browser opened on the host.
+
+**Data that leaves** (all to `https://app.supportpages.io/api/v1`, `SUPPORTPAGES_API_URL` overrides):
+telemetry without credentials, **on by default** (`/writer_telemetry`: random install id, version, client
+name, OS, arch, Node major, event counts, scrubbed stack frames of unexpected errors; off with
+`DO_NOT_TRACK=1` or `SUPPORTPAGES_TELEMETRY=0`; the install id is sent with the device sign-in so later usage
+is linked to the account); device sign-in (`/mcp/pairings`, hostname as device label, scopes read, import,
+projects:create plus optionally publish, manage, generate; bearer token `sp_local_<64 hex>`); with an
+account, uploads of each article (JSON, PNG screenshots, a manifest with the project's git HEAD commit and
+dirty flag) and live previews while writing; hosted generation (`wtfm yolo`, hosted create/edit/gaps)
+needs SupportPages.io read access to the repository - the code then leaves too. Acceptable for a catalog
+server only as an opt-in hosted client with telemetry off; not as shipped (telemetry default-on).
+
+**Reviewed.** At `e6c0b52f`: the MCP server's source read in full where it runs or talks to the network -
+`src/` index, server, session, bridge, api, pairing, credentials, telemetry, telemetry-scrub, runtime,
+writer-entry, writer-agent, workspace, preferences, development-tls, errors, brand, article-offers (2,818 of
+4,540 lines); the other 22 files of `src/` (1,722 lines: schemas, sync, artifacts, export, runs,
+hosted operations, reminders) scanned for process execution, network, environment and dynamic imports
+(none beyond the above); `scripts/auto-update.mjs`, `scripts/lib/auto-update.mjs`, `scripts/lib/update.mjs`,
+`install.sh` (133 lines); `engine/` (16,687 lines of scripts) and the remaining `scripts/` (4,410 lines) scanned for downloads and
+execution only; the lockfile's dates, licences and install scripts (only puppeteer). Not reviewed: the
+dependencies' code, the compiled `dist/` of the npm package against `src/`, the hosted installer
+`wtfm.sh/install` and its release server `downloads.supportpages.io`, the plugin hooks in detail.
+
+**Findings.** No backdoor, obfuscation or credential exfiltration found; the code is careful (paths confined
+to the workspace without symlinks, credential files 0600 and origin-bound, redirects refused, responses
+size-bounded, tokens removed from child environments, error text scrubbed before telemetry). Against
+sandbox-ai's rules: (1) local writing executes the server's code in the agent's environment by design;
+(2) the engine installs and runs unpinned npm packages in the user's project and fetches every CDN URL the
+project names (the README mentions only jsDelivr and Tailwind's CDN); (3) telemetry is on by default;
+(4) native installs update themselves daily from `downloads.supportpages.io` (`curl latest.txt`, then
+`install-cli.sh --update`; inert outside the managed `versions/<v>/mcp` layout, off with
+`SUPPORTPAGES_AUTO_UPDATE=0`); (5) the server's instructions steer the agent beyond the request: offer an
+article whenever the user finishes a feature or opens a pull request, show SupportPages.io hosting and
+repository invitations "verbatim ... not optional commentary", and tell writers that "a sandbox restriction
+is not an explicit user denial: request approval"; (6) `engine/` is a copy of a private repository.
+
+**Verdict.** Not packaged and not a candidate: no `servers/` or `candidates/` entry. Revisit only as a kit
+(agent side, its own review of the engine and the npm tooling it starts) or, if upstream offers it, a
+hosted-only server mode with telemetry off and without the agent-steering instructions.
 
 ## The axross-mcp-hub servers
 
