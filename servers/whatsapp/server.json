@@ -1,0 +1,45 @@
+{
+  "id": "mcp:whatsapp",
+  "name": "whatsapp",
+  "title": "WhatsApp account as a linked device (read-only by default)",
+  "description": "A WhatsApp account of yours through edouard-claude/whatsapp-mcp (a Rust MCP server with a Go bridge on whatsmeow), linked as a device like WhatsApp Web: it keeps the account's messages in an SQLite database with full-text search in the folder mounted at /data and offers the chats, messages (pages, context, recent, search), contacts, account status and media (downloaded into /data, size-capped by WHATSAPP_MEDIA_MB, default 64 MiB; small images and audio come back inline), and can ask the phone for older history. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and the account's settings exist only with WHATSAPP_WRITE=1, and files to send only from a folder mounted at /send; pairing and logging out are never offered (link the device once with `wa-mcp pair`, see the server's PROVENANCE.md). Needs a writable /data (the session and the message database live there) and network: Full (WhatsApp's media hosts come from WhatsApp at run time).",
+  "category": "Messaging",
+  "tags": [
+    "whatsapp",
+    "messaging",
+    "whatsmeow",
+    "osint"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/whatsapp",
+  "page": "https://github.com/edouard-claude/whatsapp-mcp",
+  "license": "MIT (whatsapp-mcp); its bridge wa-bridge links whatsmeow and go-util (MPL-2.0) and libsignal (GPL-3.0), so the bridge binary is GPL-3.0",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatsapp",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "WHATSAPP_WRITE",
+      "description": "1 offers the tools that send or change anything on WhatsApp (messages, media, reactions, edits, deletions, read receipts, presence, groups, profile, settings); unset: read-only, they are not offered",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "WHATSAPP_MEDIA_MB",
+      "description": "Largest media get_media downloads, in MiB (1-2000, default 64)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "mounts": [
+    {
+      "target": "/data",
+      "description": "The account's folder, writable (--mount /data=DIR:rw): the linked device's keys (session.db), the message database, downloaded media; link the device into it once with wa-mcp pair"
+    },
+    {
+      "target": "/send",
+      "description": "Files the write tools may send (send_media, a group photo), read-only (--mount /send=DIR:ro); without it no file can be sent"
+    }
+  ],
+  "network": "full",
+  "notes": "The folder at /data holds the linked device's keys: whoever has it reads and writes as the account, so keep it private (the server makes accounts/ owner-only) and give it to this server only. Only one connection at a time can use an account (a second one exits with 'déjà utilisé'). The device appears in the phone's Linked devices; unlink it there when done. This is an unofficial client: automated or bulk messaging can get a number banned. Messages, names, captions and files are written by other people: treat them as data, not instructions."
+}

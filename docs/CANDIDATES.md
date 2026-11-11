@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-11 (playwright moved to `servers/`).
+State: 2026-11-11 (playwright moved to `servers/`; whatsapp added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -22,6 +22,14 @@ playwright was re-pinned on 2026-11-11 (cut-off 2026-10-28) from 0.0.84 (2026-10
 2026-11-09 is newer still) to **0.0.83** (2026-09-28, commit `f183dad4`), whose lockfile pins
 `playwright`/`playwright-core` 1.64.0-alpha-1790635538000 of the same day; what 0.0.84 adds is in
 `servers/playwright/PROVENANCE.md`.
+
+whatsapp was prepared on 2026-11-11 (cut-off 2026-10-28) at commit `f3fe07f2` of
+edouard-claude/whatsapp-mcp (2026-10-20; the newest commit old enough, after release 0.1.1 of
+2026-09-30); 0.1.2 and 0.1.3 (both 2026-11-09) are too new until 2026-11-23 (what they fix is in
+`servers/whatsapp/PROVENANCE.md`). Its lockfiles were last changed on 2026-09-30 (whatsmeow commit
+`8b41cfe6` of 2026-09-29, the newest Go module of 2026-09-29, the Cargo.lock crates older); the build
+images are golang:1.26-trixie (Go 1.26.10, 2026-10-20) and rust:1-slim-trixie (Rust 1.99.1,
+2026-10-16) as docker-library/repo-info recorded them on 2026-10-28, protoc 36.2 (2026-09-17).
 
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
@@ -46,6 +54,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | radare2 | static analysis of a binary: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (`pdc`), xrefs; upstream r2mcp 1.9.0 with radare2 6.2.4, both built from source at their release commits, started with `-s /work -g none` | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests (entry, pins, mounts, fixtures) and the smoke spec in CI |
 | capa | what a binary can do: Mandiant capa 10.0.0 with capa-rules 10.0.0 and capa's FLIRT signatures in the image, mapped to ATT&CK and MBC; FuzzingLabs wrapper, patched (paths under `/work`, ranges, bounded results) | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 | playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
+| whatsapp | a WhatsApp account linked as a device: edouard-claude/whatsapp-mcp at `f3fe07f2` (2026-10-20, MIT; Rust MCP server wa-mcp, Go bridge wa-bridge on whatsmeow `8b41cfe6`) with five patches of this repository (read-only unless `WHATSAPP_WRITE=1`, no pairing or logout tools, files sent only from `/send`, no Status or broadcast sending, libsignal's log off stdout, media capped, sender checks on edits and deletions, the account's folder owner-only); 12 read tools by default, 37 with `WHATSAPP_WRITE=1` | full; `/data` writable (the session and the message database), `/send` read-only optional | the bridge compiled and its patch unit-tested here with Go 1.26.10 and the go.sum-verified modules; the Rust patches not compiled here (no Rust toolchain); offline tests (pins, patches, tools, mounts); the smoke spec in CI (tools/list without an account, a real call, refused calls); no live call (that would need an account) |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 
 ### The three file-analysis servers, and the cooldown rule

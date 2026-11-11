@@ -23,6 +23,7 @@ network it was not given, and nothing here probes anyone.
 | [searxng](servers/searxng) | web search through a SearXNG instance of yours (many engines at once), JSON API | the instance (`SEARXNG_URL`) | - |
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
+| [whatsapp](servers/whatsapp) | a WhatsApp account linked as a device (edouard-claude/whatsapp-mcp, Rust, with a Go bridge on whatsmeow): chats, messages (pages, context, recent, full-text search), contacts, account status, media (downloaded into `/data`, size-capped), older history from the phone. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and settings only with `WHATSAPP_WRITE=1`, files to send only from a mounted `/send`; no pairing or logout tools | full (WhatsApp's media hosts come from WhatsApp; `--vpn PROFILE` optional) | - (the linked device's keys live in the mounted `/data`) |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
@@ -52,6 +53,7 @@ sandbox-ai mcp add duckduckgo --network full    # pull by digest, write the defi
 sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
+sandbox-ai mcp add whatsapp --network full --mount /data=~/whatsapp-data:rw   # read-only; linked once with wa-mcp pair
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
@@ -97,6 +99,24 @@ It is read-only: `send_message`, `join_channel`, `leave_channel` and `mark_read`
 `--mount /out=DIR:rw`. MTProto goes to Telegram's data centres by IP address, so the entry needs
 the full network; `--vpn PROFILE` puts sandbox-ai's VPN (with kill switch) in front, or
 `TELEGRAM_MTPROXY` an MTProto proxy. Flood waits come back as tool errors with their time.
+
+**whatsapp** is a WhatsApp account linked as a device, like WhatsApp Web. Its keys and its message
+database have to be written as it runs, so they live in a folder of yours mounted writable at `/data`
+(not in a variable): whoever has that folder is the account. Keep it private, give it to this
+server only, and link the device into it once, on the host, with the image's own `wa-mcp pair`
+(the code is entered on the phone under Linked devices; see
+[its PROVENANCE.md](servers/whatsapp/PROVENANCE.md)):
+
+```bash
+mkdir -m 700 ~/whatsapp-data
+podman run --rm -it --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs=/tmp --user=0:0 \
+  --volume ~/whatsapp-data:/data:rw IMAGE@DIGEST pair me --phone 4915123456789   # Ctrl-C once the history is in
+```
+
+It is read-only: the tools that send or change anything on WhatsApp exist only with
+`WHATSAPP_WRITE=1` (`--env WHATSAPP_WRITE`), files to send only from a folder mounted at `/send`
+(`--mount /send=DIR:ro`); pairing and logging out are never offered to the agent. One connection
+at a time can use an account. Message texts, names and files come from other people.
 
 ## Security model
 
@@ -193,7 +213,8 @@ MIT ([LICENSE](LICENSE)). telegram-user bundles Telethon (MIT) and its dependenc
 own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Apache-2.0, BSD, MIT,
 Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
 (MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
-(MIT). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
+(MIT). whatsapp bundles whatsapp-mcp (MIT) and its bridge, which links whatsmeow and go-util (MPL-2.0) and libsignal
+(GPL-3.0): the bridge binary is GPL-3.0 (`servers/whatsapp/LICENSES`). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
 and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;

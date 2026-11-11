@@ -1,0 +1,29 @@
+diff --git a/crates/wa-mcp/src/main.rs b/crates/wa-mcp/src/main.rs
+index 94cee0f..251cd98 100644
+--- a/crates/wa-mcp/src/main.rs
++++ b/crates/wa-mcp/src/main.rs
+@@ -125,6 +125,9 @@ async fn main() -> Result<()> {
+     let mut tasks = JoinSet::new();
+ 
+     if let Cmd::Serve { read_only } = cli.cmd {
++        // sandbox-ai-mcp: read-only unless WHATSAPP_WRITE is exactly "1" (no tool that sends or changes
++        // anything on WhatsApp is offered otherwise); --read-only / WA_READ_ONLY still force it.
++        let read_only = read_only || !matches!(std::env::var("WHATSAPP_WRITE").as_deref(), Ok("1"));
+         let accounts = discover(&data_dir)?;
+         // Nouvelles de chaque discussion, pour les abonnements MCP.
+         let (updates, _) = tokio::sync::broadcast::channel(1024);
+diff --git a/crates/wa-mcp/src/mcp/mod.rs b/crates/wa-mcp/src/mcp/mod.rs
+index 13e9e54..5a36218 100644
+--- a/crates/wa-mcp/src/mcp/mod.rs
++++ b/crates/wa-mcp/src/mcp/mod.rs
+@@ -59,6 +59,10 @@ impl WaServer {
+         let mut tools = Self::read_router() + Self::media_router() + Self::live_router();
+         if !read_only {
+             tools += Self::write_router() + Self::manage_router();
++            // sandbox-ai-mcp: linking and unlinking a device is the human's, with `wa-mcp pair` on the host
++            // (and WhatsApp's Linked devices): an agent neither gets a pairing code nor logs the account out.
++            tools.remove_route("session_pair");
++            tools.remove_route("session_logout");
+         }
+         WaServer {
+             reader: Reader::new(data_dir.clone()),

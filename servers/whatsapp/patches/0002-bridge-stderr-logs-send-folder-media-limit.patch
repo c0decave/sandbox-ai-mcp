@@ -1,0 +1,191 @@
+diff --git a/bridge/main.go b/bridge/main.go
+index 5b71ec6..9f296a4 100644
+--- a/bridge/main.go
++++ b/bridge/main.go
+@@ -18,6 +18,7 @@ import (
+ 	"syscall"
+ 
+ 	"github.com/rs/zerolog"
++	signallog "go.mau.fi/libsignal/logger"
+ 	"google.golang.org/protobuf/proto"
+ 
+ 	"github.com/edouard-claude/whatsapp-mcp/bridge/pb"
+@@ -49,6 +50,11 @@ func main() {
+ 	if *dataDir == "" {
+ 		log.Fatal().Msg("--data-dir est obligatoire")
+ 	}
++	// sandbox-ai-mcp: libsignal's default logger prints to stdout, which carries the frames to wa-mcp (a message
++	// that does not decrypt, which anyone can send, would break the channel): its lines go to stderr instead,
++	// its debug lines (which would name keys) nowhere.
++	var libsignalLog signallog.Loggable = signalLogger{log.With().Str("module", "libsignal").Logger()}
++	signallog.Setup(&libsignalLog)
+ 
+ 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+ 	defer cancel()
+@@ -69,6 +75,15 @@ func main() {
+ 	out.close()
+ }
+ 
++// signalLogger is libsignal's logger on the bridge's stderr (sandbox-ai-mcp).
++type signalLogger struct{ log zerolog.Logger }
++
++func (s signalLogger) Debug(caller, msg string)   {}
++func (s signalLogger) Info(caller, msg string)    { s.log.Debug().Str("caller", caller).Msg(msg) }
++func (s signalLogger) Warning(caller, msg string) { s.log.Warn().Str("caller", caller).Msg(msg) }
++func (s signalLogger) Error(caller, msg string)   { s.log.Error().Str("caller", caller).Msg(msg) }
++func (s signalLogger) Configure(settings string)  {}
++
+ // readCommands lit les trames de stdin jusqu'à EOF et les passe à `handle`.
+ func readCommands(r io.Reader, handle func(*pb.Command)) error {
+ 	br := bufio.NewReader(r)
+diff --git a/bridge/manage.go b/bridge/manage.go
+index 856ff98..4da1b7c 100644
+--- a/bridge/manage.go
++++ b/bridge/manage.go
+@@ -100,7 +100,11 @@ func (b *bridge) group(req *pb.GroupCommand) (*pb.Reply, error) {
+ 	case *pb.GroupCommand_SetEphemeralSeconds:
+ 		return ok, cli.SetDisappearingTimer(ctx, g, time.Duration(op.SetEphemeralSeconds)*time.Second, time.Now())
+ 	case *pb.GroupCommand_SetPhotoPath:
+-		data, err := os.ReadFile(op.SetPhotoPath)
++		path, err := b.sendable(op.SetPhotoPath)
++		if err != nil {
++			return nil, err
++		}
++		data, err := os.ReadFile(path)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/bridge/media.go b/bridge/media.go
+index f622862..9033afe 100644
+--- a/bridge/media.go
++++ b/bridge/media.go
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
++	"strconv"
+ 	"strings"
+ 
+ 	"go.mau.fi/whatsmeow"
+@@ -30,6 +31,15 @@ func (b *bridge) downloadMedia(req *pb.DownloadMedia) (*pb.Reply, error) {
+ 	if err := proto.Unmarshal(req.Message, &msg); err != nil {
+ 		return nil, fmt.Errorf("message illisible : %w", err)
+ 	}
++	// sandbox-ai-mcp: whatsmeow reads a download whole into memory; nothing larger than WHATSAPP_MEDIA_MB
++	// (default 64) is fetched as the message declares it, nor written as it arrives.
++	limit, err := mediaLimit()
++	if err != nil {
++		return nil, err
++	}
++	if declared := declaredLength(&msg); declared > limit {
++		return nil, fmt.Errorf("media of %d bytes, more than WHATSAPP_MEDIA_MB allows (%d bytes)", declared, limit)
++	}
+ 	data, err := a.client.DownloadAny(b.ctx, &msg)
+ 	switch {
+ 	case errors.Is(err, whatsmeow.ErrMediaDownloadFailedWith403),
+@@ -41,6 +51,9 @@ func (b *bridge) downloadMedia(req *pb.DownloadMedia) (*pb.Reply, error) {
+ 	case err != nil:
+ 		return nil, err
+ 	}
++	if uint64(len(data)) > limit {
++		return nil, fmt.Errorf("media of %d bytes, more than WHATSAPP_MEDIA_MB allows (%d bytes)", len(data), limit)
++	}
+ 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+ 		return nil, err
+ 	}
+@@ -70,3 +83,59 @@ func (b *bridge) insideDataDir(p string) (string, error) {
+ 	}
+ 	return abs, nil
+ }
++
++// mediaLimit is WHATSAPP_MEDIA_MB (1-2000, default 64) in bytes (sandbox-ai-mcp).
++func mediaLimit() (uint64, error) {
++	value := os.Getenv("WHATSAPP_MEDIA_MB")
++	if value == "" {
++		return 64 << 20, nil
++	}
++	mb, err := strconv.Atoi(value)
++	if err != nil || mb < 1 || mb > 2000 {
++		return 0, fmt.Errorf("WHATSAPP_MEDIA_MB=%q: a number of MiB from 1 to 2000", value)
++	}
++	return uint64(mb) << 20, nil
++}
++
++// declaredLength is the file size the message gives for the media DownloadAny would fetch (sandbox-ai-mcp).
++func declaredLength(msg *waE2E.Message) uint64 {
++	switch {
++	case msg.ImageMessage != nil:
++		return msg.ImageMessage.GetFileLength()
++	case msg.VideoMessage != nil:
++		return msg.VideoMessage.GetFileLength()
++	case msg.AudioMessage != nil:
++		return msg.AudioMessage.GetFileLength()
++	case msg.DocumentMessage != nil:
++		return msg.DocumentMessage.GetFileLength()
++	case msg.StickerMessage != nil:
++		return msg.StickerMessage.GetFileLength()
++	}
++	return 0
++}
++
++// sendable is the real path of a file the agent asks to send (send_media, a group photo), which must lie under
++// WA_SEND_DIR (the image sets /send, a folder the user mounts read-only) and not under the data folder: the
++// session's keys (session.db) and the message database cannot be sent to anyone (sandbox-ai-mcp).
++func (b *bridge) sendable(p string) (string, error) {
++	root := os.Getenv("WA_SEND_DIR")
++	if root == "" {
++		return "", errors.New("sending files is off (WA_SEND_DIR is not set)")
++	}
++	root, err := filepath.EvalSymlinks(root)
++	if err != nil {
++		return "", err
++	}
++	real, err := filepath.EvalSymlinks(p)
++	if err != nil {
++		return "", err
++	}
++	rel, err := filepath.Rel(root, real)
++	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
++		return "", fmt.Errorf("%s: only files under %s can be sent", p, root)
++	}
++	if _, err := b.insideDataDir(real); err == nil {
++		return "", fmt.Errorf("%s: a file of the data folder cannot be sent", p)
++	}
++	return real, nil
++}
+diff --git a/bridge/send.go b/bridge/send.go
+index a443616..eefe672 100644
+--- a/bridge/send.go
++++ b/bridge/send.go
+@@ -26,6 +26,10 @@ func (b *bridge) sendMessage(req *pb.SendMessage) (*pb.Reply, error) {
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	// sandbox-ai-mcp: no Status (status@broadcast goes to every contact) and no broadcast list.
++	if to.Server == types.BroadcastServer {
++		return nil, fmt.Errorf("%s : pas d'envoi à un statut ni à une liste de diffusion", req.To)
++	}
+ 	var msg waE2E.Message
+ 	if err := proto.Unmarshal(req.Message, &msg); err != nil {
+ 		return nil, fmt.Errorf("message illisible : %w", err)
+@@ -62,14 +66,18 @@ func (b *bridge) uploadMedia(req *pb.UploadMedia) (*pb.Reply, error) {
+ 	default:
+ 		return nil, fmt.Errorf("type de média inconnu : %q", req.MediaType)
+ 	}
+-	info, err := os.Stat(req.Path)
++	path, err := b.sendable(req.Path)
++	if err != nil {
++		return nil, err
++	}
++	info, err := os.Stat(path)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 	if !info.Mode().IsRegular() || info.Size() > maxUpload {
+ 		return nil, fmt.Errorf("%s : fichier absent, spécial ou trop gros", req.Path)
+ 	}
+-	data, err := os.ReadFile(req.Path)
++	data, err := os.ReadFile(path)
+ 	if err != nil {
+ 		return nil, err
+ 	}
