@@ -1,0 +1,34 @@
+{
+  "name": "whatsapp",
+  "network": "none",
+  "expect_tools": [
+    "get_media",
+    "list_accounts",
+    "list_chats",
+    "list_messages",
+    "request_history",
+    "search_messages",
+    "session_status"
+  ],
+  "calls": [
+    {
+      "tool": "list_accounts",
+      "arguments": {},
+      "expect": "{\"accounts\":[]}"
+    },
+    {
+      "tool": "list_chats",
+      "arguments": {},
+      "expect": "aucun compte appairé",
+      "expect_error": true
+    },
+    {
+      "tool": "session_status",
+      "arguments": {
+        "account": "../data"
+      },
+      "expect": "alias de compte invalide \"../data\"",
+      "expect_error": true
+    }
+  ]
+}

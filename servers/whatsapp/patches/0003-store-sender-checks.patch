@@ -1,0 +1,37 @@
+diff --git a/crates/wa-mcp/src/store.rs b/crates/wa-mcp/src/store.rs
+index 45a236d..8dc8718 100644
+--- a/crates/wa-mcp/src/store.rs
++++ b/crates/wa-mcp/src/store.rs
+@@ -567,7 +567,8 @@ fn put_message(tx: &Transaction<'_>, m: &MessageIn) -> rusqlite::Result<()> {
+                      text = CASE WHEN messages.revoked_ms IS NOT NULL THEN NULL
+                                  WHEN messages.edited_ms IS NOT NULL THEN messages.text
+                                  ELSE excluded.text END,
+-                     raw  = CASE WHEN messages.revoked_ms IS NOT NULL THEN x'' ELSE excluded.raw END",
++                     raw  = CASE WHEN messages.revoked_ms IS NOT NULL THEN x'' ELSE excluded.raw END
++                 WHERE messages.sender = excluded.sender",
+                 params![
+                     chat,
+                     i.id,
+@@ -589,8 +590,8 @@ fn put_message(tx: &Transaction<'_>, m: &MessageIn) -> rusqlite::Result<()> {
+         Parsed::Edit { target_id, text } => {
+             tx.execute(
+                 "UPDATE messages SET text = ?1, edited_ms = ?2
+-                 WHERE chat = ?3 AND id = ?4 AND revoked_ms IS NULL",
+-                params![text, ts, chat, target_id],
++                 WHERE chat = ?3 AND id = ?4 AND revoked_ms IS NULL AND sender = ?5",
++                params![text, ts, chat, target_id, sender],
+             )?;
+         }
+         Parsed::Revoke { target_id } => {
+@@ -599,7 +600,10 @@ fn put_message(tx: &Transaction<'_>, m: &MessageIn) -> rusqlite::Result<()> {
+             tx.execute(
+                 "INSERT INTO messages (chat, id, sender, from_me, timestamp_ms, kind, source, raw, revoked_ms)
+                  VALUES (?1, ?2, ?3, ?4, ?5, 'other', ?6, x'', ?5)
+-                 ON CONFLICT (chat, id) DO UPDATE SET revoked_ms = ?5, text = NULL, raw = x''",
++                 ON CONFLICT (chat, id) DO UPDATE SET revoked_ms = ?5, text = NULL, raw = x''
++                 WHERE messages.sender = excluded.sender
++                    OR EXISTS (SELECT 1 FROM group_participants WHERE group_jid = ?1 AND jid = ?3
++                               AND role IN ('admin', 'superadmin'))",
+                 params![chat, target_id, sender, i.from_me, ts, m.source.as_str()],
+             )?;
+         }

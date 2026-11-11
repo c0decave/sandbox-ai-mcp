@@ -25,6 +25,7 @@ network it was not given, and nothing here probes anyone.
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
 | [openosint](servers/openosint) | passive OSINT lookups with OpenOSINT 2.36.1's tool code: Google dork URLs, RDAP, WHOIS and DNS of a domain (SPF/DMARC posture), IP geolocation and ASN, GitHub profiles and commit e-mails, Pastebin dumps, geolocated GDELT news; with your keys Have I Been Pwned, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Google results through Bright Data. Nothing touches the target; OpenOSINT's active tools, LLM agent and web UI are not in the image | full (registries' WHOIS and RDAP servers) | optional: `HIBP_API_KEY`, `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `IP2LOCATION_API_KEY`, `IPINFO_TOKEN`, `GITHUB_TOKEN`, `BRIGHTDATA_API_KEY` |
 | [signal](servers/signal) | a Signal account of yours as a linked device (signal-cli 0.14.9 with signal-mcp 1.43.3's message history): fetch messages, unread, conversations, full-text search of the history, contacts, groups (no invite links); attachments as metadata only. Read-only: `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optionally limited by `SIGNAL_ALLOWED_RECIPIENTS`. The account lives in a folder mounted writable at `/data`; needs `--memory 1g --pids 256` | full (Signal's servers; `--vpn PROFILE` optional) | - (the account is the `/data` folder) |
+| [whatsapp](servers/whatsapp) | a WhatsApp account linked as a device (edouard-claude/whatsapp-mcp, Rust, with a Go bridge on whatsmeow): chats, messages (pages, context, recent, full-text search), contacts, account status, media (downloaded into `/data`, size-capped), older history from the phone. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and settings only with `WHATSAPP_WRITE=1`, files to send only from a mounted `/send`; no pairing or logout tools | full (WhatsApp's media hosts come from WhatsApp; `--vpn PROFILE` optional) | - (the linked device's keys live in the mounted `/data`) |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
@@ -81,6 +82,7 @@ sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
 sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys optional, each named with --env
+sandbox-ai mcp add whatsapp --network full --mount /data=~/whatsapp-data:rw   # read-only; linked once with wa-mcp pair
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
@@ -146,6 +148,23 @@ It is read-only: the write tools exist only with `SIGNAL_WRITE=1` (`--env SIGNAL
 `--env SIGNAL_ALLOWED_RECIPIENTS`); no tool sends a file, a read receipt or changes the account.
 Fetching messages sends Signal's delivery receipts; unread is tracked in the local history only.
 signal-cli locks the account: one connection at a time.
+**whatsapp** is a WhatsApp account linked as a device, like WhatsApp Web. Its keys and its message
+database have to be written as it runs, so they live in a folder of yours mounted writable at `/data`
+(not in a variable): whoever has that folder is the account. Keep it private, give it to this
+server only, and link the device into it once, on the host, with the image's own `wa-mcp pair`
+(the code is entered on the phone under Linked devices; see
+[its PROVENANCE.md](servers/whatsapp/PROVENANCE.md)):
+
+```bash
+mkdir -m 700 ~/whatsapp-data
+podman run --rm -it --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs=/tmp --user=0:0 \
+  --volume ~/whatsapp-data:/data:rw IMAGE@DIGEST pair me --phone 4915123456789   # Ctrl-C once the history is in
+```
+
+It is read-only: the tools that send or change anything on WhatsApp exist only with
+`WHATSAPP_WRITE=1` (`--env WHATSAPP_WRITE`), files to send only from a folder mounted at `/send`
+(`--mount /send=DIR:ro`); pairing and logging out are never offered to the agent. One connection
+at a time can use an account. Message texts, names and files come from other people.
 
 ## Security model
 
@@ -249,6 +268,9 @@ and others, `/usr/share/doc/chromium/copyright` in the image). openosint bundles
 signal-mcp (MIT), signal-cli (GPL-3.0) with libsignal-client (AGPL-3.0) and its other jars, and
 Eclipse Temurin (GPL-2.0 with Classpath Exception); `servers/signal/LICENSES/SOURCES.txt` names
 their sources. See each server's `LICENSES/` and
+(MIT). whatsapp bundles whatsapp-mcp (MIT) and its bridge, which links whatsmeow and go-util (MPL-2.0) and libsignal
+(GPL-3.0): the bridge binary is GPL-3.0 (`servers/whatsapp/LICENSES`). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
+and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).

@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-11 (playwright moved to `servers/`; openosint, osint-mcp and signal added).
+State: 2026-11-11 (playwright moved to `servers/`; openosint, osint-mcp, signal and whatsapp added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -37,6 +37,14 @@ of 2026-11-09 is too new and only fixes `edit_message`, not offered here), signa
 (2026-10-07; 0.14.10 of 2026-11-07 too new), Eclipse Temurin JRE **25.0.5+8** (2026-10-22), the
 Python lock of duckduckgo.
 
+whatsapp was prepared on 2026-11-11 (cut-off 2026-10-28) at commit `f3fe07f2` of
+edouard-claude/whatsapp-mcp (2026-10-20; the newest commit old enough, after release 0.1.1 of
+2026-09-30); 0.1.2 and 0.1.3 (both 2026-11-09) are too new until 2026-11-23 (what they fix is in
+`servers/whatsapp/PROVENANCE.md`). Its lockfiles were last changed on 2026-09-30 (whatsmeow commit
+`8b41cfe6` of 2026-09-29, the newest Go module of 2026-09-29, the Cargo.lock crates older); the build
+images are golang:1.26-trixie (Go 1.26.10, 2026-10-20) and rust:1-slim-trixie (Rust 1.99.1,
+2026-10-16) as docker-library/repo-info recorded them on 2026-10-28, protoc 36.2 (2026-09-17).
+
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
 (1.12.0, 2026-10-22), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
@@ -63,6 +71,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
 | openosint | passive OSINT lookups with 26 reviewed modules of OpenOSINT 2.36.1 (MIT, commit `99849732`, each file pinned by SHA-256) behind an own server: dork URLs, RDAP, WHOIS, DNS, ipinfo.io, GitHub, psbdmp.ws, GDELT news; with keys HIBP, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Bright Data SERP. Passive only (active mode cannot be enabled); OpenOSINT's active tools, LLM agent, graph, web UI and Shodan/Censys tools are not in the image | full (WHOIS referrals and RDAP servers come from the registries); seven optional keys | natively against the reviewed modules (tools, refused arguments, passive mode, key redaction); the smoke spec in CI (offline dork URLs, a live RDAP lookup, four refused calls); not built here (no container engine) |
 | signal | a Signal account of yours as a linked device: signal-cli 0.14.9 (JVM release, GPL-3.0; by SHA-256 and its maintainer's signature) on Temurin JRE 25.0.5+8, with six reviewed modules of signal-mcp 1.43.3 (googlarz/signal-mcp, MIT: client and SQLite message history; not its MCP server, CLI, Desktop import or webhook) behind an own server: 8 read tools (fetch, unread, conversations, search, contacts, groups without invite links); `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optional `SIGNAL_ALLOWED_RECIPIENTS`; no file, receipt or account change | full; `/data` writable (required: the account, linked once with `--link`); `--memory 1g --pids 256` | natively with a stand-in for signal-cli's JSON-RPC daemon (`tests/test_signal.py`); in the image: signal-cli runs and libsignal loads under the hardened flags; smoke spec without an account; not built here, no live account |
+| whatsapp | a WhatsApp account linked as a device: edouard-claude/whatsapp-mcp at `f3fe07f2` (2026-10-20, MIT; Rust MCP server wa-mcp, Go bridge wa-bridge on whatsmeow `8b41cfe6`) with five patches of this repository (read-only unless `WHATSAPP_WRITE=1`, no pairing or logout tools, files sent only from `/send`, no Status or broadcast sending, libsignal's log off stdout, media capped, sender checks on edits and deletions, the account's folder owner-only); 12 read tools by default, 37 with `WHATSAPP_WRITE=1` | full; `/data` writable (the session and the message database), `/send` read-only optional | the bridge compiled and its patch unit-tested here with Go 1.26.10 and the go.sum-verified modules; the Rust patches not compiled here (no Rust toolchain); offline tests (pins, patches, tools, mounts); the smoke spec in CI (tools/list without an account, a real call, refused calls); no live call (that would need an account) |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 
 ### The three file-analysis servers, and the cooldown rule

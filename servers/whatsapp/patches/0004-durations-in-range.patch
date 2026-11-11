@@ -1,0 +1,19 @@
+diff --git a/crates/wa-mcp/src/dates.rs b/crates/wa-mcp/src/dates.rs
+index 9b3777e..a5a58c5 100644
+--- a/crates/wa-mcp/src/dates.rs
++++ b/crates/wa-mcp/src/dates.rs
+@@ -75,7 +75,13 @@ fn split_duration(s: &str) -> Option<(i64, &str)> {
+     if unit.is_empty() || !unit.chars().all(char::is_alphabetic) {
+         return None;
+     }
+-    Some((n.parse().ok()?, unit))
++    let n: i64 = n.parse().ok()?;
++    // sandbox-ai-mcp: jiff's `n.days()` and the like panic out of their range (99999999d): no duration
++    // beyond a million units, which every unit holds.
++    if n > 1_000_000 {
++        return None;
++    }
++    Some((n, unit))
+ }
+ 
+ #[cfg(test)]

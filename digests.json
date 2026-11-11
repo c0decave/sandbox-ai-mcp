@@ -12,7 +12,8 @@
     "signal": "sha256:f937c0f5a2c9ac489aa8b5ac077f9eea1c2aa6dc0c01cfee3f6dcd63ef3b7f3e",
     "telegram": "sha256:d0bc04a31cf40d59f9d57525f4d9be9d1fdf428eac873cd2d2b44554bc89e40b",
     "telegram-user": "sha256:ae6032612bcaffe74831bed6276b23009908fe546d464424bd1596459a846be6",
-    "web-fetch": "sha256:1b4faa8549fe7cbdf07846226d1f1d84a34c14ddb502f703a8e866fd484dbb96"
+    "web-fetch": "sha256:1b4faa8549fe7cbdf07846226d1f1d84a34c14ddb502f703a8e866fd484dbb96",
+    "whatsapp": null
   },
   "rootfs": {}
 }

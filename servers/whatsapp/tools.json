@@ -1,0 +1,16 @@
+{
+  "tools": [
+    "get_chat",
+    "get_contact",
+    "get_media",
+    "get_message_context",
+    "list_accounts",
+    "list_chats",
+    "list_messages",
+    "list_recent",
+    "request_history",
+    "search_contacts",
+    "search_messages",
+    "session_status"
+  ]
+}
