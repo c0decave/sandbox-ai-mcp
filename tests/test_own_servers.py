@@ -396,5 +396,108 @@ class Servers(unittest.TestCase):
             self.assertEqual(module.redact("Bearer ghp_testtokenvalue"), "Bearer [redacted]")
 
 
+def osint_mcp_installed():
+    try:
+        return importlib.util.find_spec("osint_mcp") is not None
+    except ImportError:
+        return False
+
+
+@unittest.skipUnless(mcp is not None and osint_mcp_installed(),
+                     "osint-mcp runs from its own lock (mcp 2.x): inside its image, or after "
+                     "pip install --require-hashes -r servers/osint-mcp/requirements.txt")
+class OsintMcp(unittest.TestCase):
+    """Upstream's osint-mcp behind src/server.py: what is refused before any request, the tightened address check,
+    and its parsers against tests/fixtures/osint-mcp.json. No network: CI runs it inside the image with none."""
+
+    def test_osint_mcp(self):
+        from unittest import mock
+        import socket
+        self.check_server()
+        module = load("osint-mcp")  # replaces osint_mcp.network.public_ip, as the entrypoint does
+        from osint_mcp import investigations, mailsec, network, sources
+        self.assertIs(network.public_ip, module.public_ip)
+        for private in ("64:ff9b::a00:1", "64:ff9b::7f00:1", "64:ff9b::c0a8:101", "64:ff9b:1::a00:1",
+                        "::ffff:10.0.0.1", "2002:a00:1::1", "10.0.0.1", "127.0.0.1", "169.254.169.254", "::1",
+                        "100.64.0.1", "224.0.0.1"):
+            with self.assertRaises(ValueError, msg=private):
+                network.public_ip(private)
+        for public in ("64:ff9b::808:808", "8.8.8.8", "2606:4700:4700::1111"):
+            self.assertEqual(network.public_ip(public), public)
+
+        async def resolve(answers):
+            async def getaddrinfo(self, host, port, **kwargs):
+                return [(socket.AF_INET6 if ":" in a else socket.AF_INET, socket.SOCK_STREAM, 6, "", (a, port))
+                        for a in answers]
+            with mock.patch.object(asyncio.BaseEventLoop, "getaddrinfo", getaddrinfo):
+                return await network.resolve_public("site.example.org", 443)
+        # a name that resolves to a NAT64 address of a private one is refused, like a private address itself
+        with self.assertRaises(ValueError):
+            asyncio.run(resolve(["93.184.215.14", "64:ff9b::a00:1"]))
+        self.assertEqual(asyncio.run(resolve(["2606:2800:21f:cb07:6820:80da:af6b:8b2c", "93.184.215.14"])),
+                         ["93.184.215.14", "2606:2800:21f:cb07:6820:80da:af6b:8b2c"])  # IPv4 first
+        for bad in ("http://localhost/", "http://router.local/", "https://u:p@example.org/", "ftp://example.org/",
+                    "http://x/", "https://" + "a" * 4100 + ".org/"):
+            with self.assertRaises(ValueError, msg=bad[:60]):
+                network.normalize_url(bad)
+
+        data = json.loads((ROOT / "tests/fixtures/osint-mcp.json").read_text())
+        rdap = sources.parse_rdap_domain(data["rdap_domain"])
+        self.assertEqual((rdap["domain"], rdap["registered"], rdap["expires"]),
+                         ("example.com", "1995-08-14T04:00:00Z", "2027-08-13T04:00:00Z"))
+        self.assertEqual(rdap["nameservers"], ["a.iana-servers.net", "b.iana-servers.net"])
+        self.assertEqual((rdap["registrar"], rdap["abuse_email"]),
+                         ("RESERVED-Internet Assigned Numbers Authority", "abuse@example.net"))
+        # wildcards stripped, names folded, only names under the domain (not example.com.evil.test)
+        self.assertEqual(sources.parse_crtsh(data["crtsh"], "example.com"),
+                         ["example.com", "mail.example.com", "www.example.com"])
+        snapshots = sources.parse_cdx(data["cdx"])
+        self.assertEqual(snapshots[0]["archive_url"], "https://web.archive.org/web/20020120142510/http://example.com:80/")
+
+        async def ripestat(client, url, params=None, **kwargs):
+            endpoint = url.rsplit("/", 2)[-2]
+            return 200, data["ripestat"][endpoint]
+        with mock.patch.object(sources, "fetch_json", ripestat):
+            info = asyncio.run(sources.asn_info(None, "1.1.1.1", include_prefixes=False))
+        self.assertEqual((info["asn"], info["prefix"], info["holder"], info["announced"]),
+                         (13335, "1.1.1.0/24", "CLOUDFLARENET - Cloudflare, Inc.", True))
+
+        spf = mailsec.parse_spf(["v=spf1 include:_spf.example.net -all"])
+        dmarc = mailsec.parse_dmarc(["v=DMARC1; p=reject; rua=mailto:d@example.com"])
+        self.assertEqual(mailsec.grade(spf, dmarc)[0], "A")
+        self.assertEqual(mailsec.grade(mailsec.parse_spf(["v=spf1 +all"]), {"present": False})[0], "F")
+        # the public suffix list is upstream's bundled snapshot: no fetch, no cache file (read-only root, no network)
+        self.assertEqual(investigations.site_domain("shop.example.co.uk"), "example.co.uk")
+        page = investigations.parse_page("<title>Shop</title><script>x()</script><a href='/contact'>c</a>"
+                                         "<a href='https://other.example.net/terms'>t</a><p>VAT: RO 1234567</p>",
+                                         "https://example.com/")
+        self.assertEqual(page["legal_links"], ["https://example.com/contact"])  # same origin only
+        self.assertEqual(page["external_link_domains"], ["other.example.net"])
+        self.assertEqual(page["company_identifiers"], [{"label": "VAT", "value": "RO 1234567"}])
+
+    def check_server(self):
+        expected = json.loads((ROOT / "servers/osint-mcp/tools.json").read_text())["tools"]
+        answers = rpc("osint-mcp", session(
+            ("http_headers", {"url": "http://169.254.169.254/latest/meta-data/"}),
+            ("http_headers", {"url": "http://[64:ff9b::a00:1]/"}),  # upstream alone would connect
+            ("tls_certificate", {"host": "127.0.0.1", "port": 22}),
+            ("dns_lookup", {"domain": "example.com", "nameserver": "10.0.0.1"}),
+            ("http_headers", {"url": "http://router.local/"}),
+            ("email_security", {"domain": "example.com", "dkim_selectors": ["../x"]}),
+            ("recon_batch", {"domains": [f"d{i}.example" for i in range(11)]}),
+            ("tls_certificate", {"host": "example.com", "port": 70000})),
+            env={"OSINT_MCP_CACHE_PATH": ":memory:"})
+        self.assertEqual(sorted(t["name"] for t in answers[1]["result"]["tools"]), expected)
+        texts = {index: answers[index]["result"]["content"][0]["text"] for index in range(2, 10)}
+        for index, text in texts.items():
+            self.assertTrue(answers[index]["result"].get("isError"), text)
+        for index in (2, 3, 4, 5):
+            self.assertIn("private, local and reserved addresses are not supported", texts[index])
+        self.assertIn("local hostnames are not supported", texts[6])
+        self.assertIn("DKIM selectors", texts[7])
+        self.assertIn("at most 10 items", texts[8])
+        self.assertIn("65535", texts[9])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,10 @@
 # MCP servers for sandbox-ai: state and candidates
 
+<<<<<<< HEAD
 State: 2026-11-11 (playwright moved to `servers/`; openosint added).
+=======
+State: 2026-11-11 (playwright moved to `servers/`; osint-mcp added).
+>>>>>>> feat/osint-mcp
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -17,6 +21,10 @@ Checked on 2026-11-06 (cut-off: published on or before 2026-10-23). Too new:
 | candidates/context7 | `@upstash/context7-mcp` 4.5.0 (commit `a138857c`); pnpm 10.34.9 | 2026-11-03; 2026-10-25 | 2026-11-17; 2026-11-08 |
 | candidates/rea | `rea-agents` 6.8.0 (commit `160d821a`) | 2026-10-25 | 2026-11-08 |
 | candidates/ghidra | `pyghidra-mcp` 0.3.0, and 24 of its hash-locked dependencies (pydantic 2.14.2, onnxruntime 1.31.1, opentelemetry 1.45.2, huggingface-hub 2.4.0, grpcio 1.85.1, ...) | 2026-11-02; 2026-10-24 to 2026-11-02 | 2026-11-16 at the latest |
+
+osint-mcp was pinned on 2026-11-11 (cut-off 2026-10-28) to `osint-mcp-server` **0.3.0** (2026-10-05, its newest
+release, commit `815276a9`) with `mcp` 2.3.0 (2026-10-02); its lock was made with uv's `--exclude-newer
+2026-10-29T00:00:00Z`, every pin on or before 2026-10-28 (`servers/osint-mcp/PROVENANCE.md`).
 
 playwright was re-pinned on 2026-11-11 (cut-off 2026-10-28) from 0.0.84 (2026-10-31; 0.0.85 of
 2026-11-09 is newer still) to **0.0.83** (2026-09-28, commit `f183dad4`), whose lockfile pins
@@ -50,6 +58,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | web-fetch | a public web page as text | full, public addresses only | natively, including the address checks |
 | radare2 | static analysis of a binary: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (`pdc`), xrefs; upstream r2mcp 1.9.0 with radare2 6.2.4, both built from source at their release commits, started with `-s /work -g none` | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests (entry, pins, mounts, fixtures) and the smoke spec in CI |
 | capa | what a binary can do: Mandiant capa 10.0.0 with capa-rules 10.0.0 and capa's FLIRT signatures in the image, mapped to ATT&CK and MBC; FuzzingLabs wrapper, patched (paths under `/work`, ranges, bounded results) | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
+| osint-mcp | domain and website OSINT from public sources, no key: robyroro/osint-mcp 0.3.0 (MIT; PyPI `osint-mcp-server`, the wheel identical to commit `815276a9`), 15 read-only tools (RDAP, DNS, crt.sh, Wayback, RIPEstat, Shodan InternetDB, email security, TLS, HTTP headers, batch recon, shared infrastructure, site investigation); all 2025 lines read; started through `src/server.py`, which adds web-fetch's NAT64/6to4 check to upstream's address check; cache in memory | full | natively (handshake, tools, refused calls, the address check, parsers, upstream's 99 tests); `test_osint_mcp` inside the image and the smoke spec in CI (example.com DNS and TLS, RIPEstat; four local targets refused); not built here (no container engine) |
 | playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
 | openosint | passive OSINT lookups with 26 reviewed modules of OpenOSINT 2.36.1 (MIT, commit `99849732`, each file pinned by SHA-256) behind an own server: dork URLs, RDAP, WHOIS, DNS, ipinfo.io, GitHub, psbdmp.ws, GDELT news; with keys HIBP, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Bright Data SERP. Passive only (active mode cannot be enabled); OpenOSINT's active tools, LLM agent, graph, web UI and Shodan/Censys tools are not in the image | full (WHOIS referrals and RDAP servers come from the registries); seven optional keys | natively against the reviewed modules (tools, refused arguments, passive mode, key redaction); the smoke spec in CI (offline dork URLs, a live RDAP lookup, four refused calls); not built here (no container engine) |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |

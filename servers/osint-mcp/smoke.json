@@ -1,0 +1,81 @@
+{
+  "name": "osint-mcp",
+  "network": "full",
+  "expect_tools": [
+    "recon_domain",
+    "dns_lookup",
+    "tls_certificate",
+    "asn_lookup",
+    "http_headers",
+    "subdomains",
+    "wayback"
+  ],
+  "calls": [
+    {
+      "tool": "dns_lookup",
+      "arguments": {
+        "domain": "example.com",
+        "record_types": [
+          "A"
+        ]
+      },
+      "expect": "\"status\": \"ok\"",
+      "timeout": 60
+    },
+    {
+      "tool": "tls_certificate",
+      "arguments": {
+        "host": "example.com"
+      },
+      "expect": "\"valid\": true",
+      "timeout": 60
+    },
+    {
+      "tool": "asn_lookup",
+      "arguments": {
+        "query": "AS13335",
+        "include_prefixes": false
+      },
+      "expect": "CLOUDFLARENET",
+      "timeout": 120,
+      "upstream_limited": [
+        "stat.ripe.net returned 429",
+        "stat.ripe.net returned 503"
+      ]
+    },
+    {
+      "tool": "http_headers",
+      "arguments": {
+        "url": "http://169.254.169.254/latest/meta-data/"
+      },
+      "expect": "private, local and reserved addresses are not supported",
+      "expect_error": true
+    },
+    {
+      "tool": "tls_certificate",
+      "arguments": {
+        "host": "127.0.0.1",
+        "port": 22
+      },
+      "expect": "private, local and reserved addresses are not supported",
+      "expect_error": true
+    },
+    {
+      "tool": "dns_lookup",
+      "arguments": {
+        "domain": "example.com",
+        "nameserver": "10.0.0.1"
+      },
+      "expect": "private, local and reserved addresses are not supported",
+      "expect_error": true
+    },
+    {
+      "tool": "http_headers",
+      "arguments": {
+        "url": "http://router.local/"
+      },
+      "expect": "local hostnames are not supported",
+      "expect_error": true
+    }
+  ]
+}

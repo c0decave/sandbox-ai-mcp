@@ -97,8 +97,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+<<<<<<< HEAD
         server: [binwalk, brave-search, capa, duckduckgo, openosint, playwright, radare2, searxng, telegram,
                  telegram-user, web-fetch]   # candidates/ join once their pins are set
+=======
+        server: [binwalk, brave-search, capa, duckduckgo, osint-mcp, playwright, radare2, searxng,
+                 telegram, telegram-user, web-fetch]   # candidates/ join once their pins are set
+>>>>>>> feat/osint-mcp
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
