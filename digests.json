@@ -1,17 +1,17 @@
 {
   "images": {
-    "binwalk": "sha256:ea989a4b096202b89edbe1818494fa882f52126a7bb1fe278a895e487855a4f7",
-    "brave-search": "sha256:c0d1d1512eb7cfce5cf7caf8646e99997846504fd9af2674130b46e5271efdb8",
-    "capa": "sha256:29583eeef5b7f9c43cc97d64823da624798a7964e41a457b8eae27f8e03dcf5e",
-    "duckduckgo": "sha256:a77c1be038c58b0510cd8a187b16ce9b313b9fc8e986df15f713c9121f46c20a",
-    "openosint": null,
-    "osint-mcp": null,
-    "playwright": "sha256:5b05a0d03aaec169df1a74116b0b2af9a6cd9997238da0ac1395b05a946ba71e",
-    "radare2": "sha256:30a8bcb159aca60a60fb35889f73879c51ca068a5458c1b69fbd2d10864c7ca9",
-    "searxng": "sha256:d0473362b5eeb33849d1449979e101adf031c7b571b6174c198e16d2a94ee2a9",
-    "telegram": "sha256:99ad3d29d4c3ea013e3991ea7ce951771e7a8d51ff81625fe5adc7ace6ed26e9",
-    "telegram-user": "sha256:e35d7fdfd306790870ac68703fd94b9ecaec3e51cd1c8e0e5145219eb66078d8",
-    "web-fetch": "sha256:c4937df928f1dbe4c9d579e0af9bccac68930d28c68f3fa0704161bbe7dad735"
+    "binwalk": "sha256:91e55cb45b7f644414551dc04c83231e68909c1d8961e4bc2ddab71b4215b9b7",
+    "brave-search": "sha256:f8020368d3f3a89c9c68367d656ae22d80e20f30f0db5c048bd62d4a7b699e82",
+    "capa": "sha256:7b2573fcc92c4aa72bfdeaa7e8368c860002ab4c4e508144192ca17e3ab5f4db",
+    "duckduckgo": "sha256:94f27a5659189c1d11a1cbbb88d57a0083a05494290beb7e5b725d8d6568cd5c",
+    "openosint": "sha256:d0ee04dd90ea6bbdae648325ca0f22b3513100d173815d7d8782f5ab3788ba5f",
+    "osint-mcp": "sha256:73c0b24be5fc0ed3786c23eedf7dca082ff3ce65a3db6cfe2bdcbaea1280b5a5",
+    "playwright": "sha256:e4afb9b2d764805c17b418eb5e357419c99856d30390dd624fcbff56946615ea",
+    "radare2": "sha256:5565081fa5177d6b4458c3a33937c431ceb5d4e1ae053c0f76ee72a60ccfc28c",
+    "searxng": "sha256:d3f3e99b0c9a8ae48b9a668c588e9e66e3337d2e412b0625eb110ce53cc916c5",
+    "telegram": "sha256:4c215c7d9c3a6db0e69139121c4b09ce0434c09282d8890664912384a2808d78",
+    "telegram-user": "sha256:8e6636135e142cda292fca78694774c5f67029276f47cf837aac6c3c189192e4",
+    "web-fetch": "sha256:98a68d44c0ec8d36ba2b39dade7bd9669208469b3e5fc4df085556a82015c463"
   },
   "rootfs": {}
 }
