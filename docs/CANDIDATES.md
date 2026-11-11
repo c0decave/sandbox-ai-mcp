@@ -1,10 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-<<<<<<< HEAD
-State: 2026-11-11 (playwright moved to `servers/`; openosint added).
-=======
-State: 2026-11-11 (playwright moved to `servers/`; osint-mcp added).
->>>>>>> feat/osint-mcp
+State: 2026-11-11 (playwright moved to `servers/`; openosint and osint-mcp added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,

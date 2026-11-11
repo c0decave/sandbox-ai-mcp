@@ -259,7 +259,6 @@ class Playwright(unittest.TestCase):
             self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
 
 
-<<<<<<< HEAD
 class OpenOsint(unittest.TestCase):
     """OpenOSINT's reviewed modules only, each pinned by SHA-256 at the pinned commit; passive tools only."""
 
@@ -309,7 +308,8 @@ class OpenOsint(unittest.TestCase):
                                                                  "OPENOSINT_GDELT_WINDOW_HOURS"), var["name"])
         self.assertNotIn("OPENOSINT_ALLOW_ACTIVE", json.dumps(entry))
         self.assertNotIn("--allow-active", self.dockerfile)
-=======
+
+
 class OsintMcp(unittest.TestCase):
     """robyroro/osint-mcp from its hash-pinned wheel, started through src/server.py (the tightened address check)."""
 
@@ -353,7 +353,6 @@ class OsintMcp(unittest.TestCase):
         self.assertTrue(real, "the smoke spec must make real calls")
         for call in real:  # no API key and no target but example.com and RIPEstat's public data
             self.assertNotIn("${", json.dumps(call))
->>>>>>> feat/osint-mcp
 
 
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")

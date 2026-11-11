@@ -197,15 +197,10 @@ MIT ([LICENSE](LICENSE)). telegram-user bundles Telethon (MIT) and its dependenc
 own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Apache-2.0, BSD, MIT,
 Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
 (MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
-<<<<<<< HEAD
-(MIT). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
-and others, `/usr/share/doc/chromium/copyright` in the image). openosint bundles 26 modules of OpenOSINT
-(MIT) and python-whois (MIT). See each server's `LICENSES/` and
-=======
 (MIT). osint-mcp bundles osint-mcp (MIT) with dnspython (ISC) and tldextract (BSD-3-Clause).
 playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
-and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
->>>>>>> feat/osint-mcp
+and others, `/usr/share/doc/chromium/copyright` in the image). openosint bundles 26 modules of OpenOSINT
+(MIT) and python-whois (MIT). See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).
