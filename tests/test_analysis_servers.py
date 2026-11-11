@@ -259,6 +259,62 @@ class Playwright(unittest.TestCase):
             self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
 
 
+class Signal(unittest.TestCase):
+    """The Signal account server: the account only in a writable /data, read-only by default, signal-cli's and
+    the JRE's release files and signal-mcp's commit pinned, its reviewed modules listed by SHA-256."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "signal"
+        self.entry = read_json("servers", "signal", "server.json")
+        self.spec = read_json("servers", "signal", "smoke.json")
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+
+    def test_the_account_folder_is_required_and_nothing_secret_is_in_the_environment(self):
+        self.assertEqual(self.entry["mounts"], [{"target": "/data", "description": self.entry["mounts"][0]["description"],
+                                                 "required": True}])
+        self.assertIn("--mount /data=DIR:rw", self.entry["notes"])
+        self.assertEqual([v["name"] for v in self.entry["env"]], ["SIGNAL_WRITE", "SIGNAL_ALLOWED_RECIPIENTS"])
+        self.assertFalse(any(v["secret"] or v["required"] for v in self.entry["env"]))
+        mount, = self.spec["mounts"]
+        self.assertEqual((mount["target"], mount.get("writable", False)), ("/data", False))  # refused: read-only
+
+    def test_the_smoke_run_has_the_limits_the_entry_tells_users_to_add(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("full", "full"))
+        self.assertEqual((self.spec["memory"], self.spec["pids"]), ("1g", 256))
+        limits = f"--memory {self.spec['memory']} --pids {self.spec['pids']}"
+        for text in (self.entry["description"], self.entry["notes"], self.provenance):
+            self.assertIn(limits, text)
+
+    def test_read_only_by_default(self):
+        self.assertEqual(read_json("servers", "signal", "tools.json")["tools"],
+                         ["get_conversation", "get_status", "get_unread", "list_contacts", "list_conversations",
+                          "list_groups", "receive_messages", "search_messages"])
+        server = (self.folder / "src" / "server.py").read_text()
+        self.assertIn('WRITE = _flag("SIGNAL_WRITE")', server)
+        for tool in ("send_message", "send_group_message", "react_to_message"):
+            self.assertRegex(server, rf"@offered\(WRITE\)\nasync def {tool}\(")
+        self.assertNotRegex(server, r"\b(shell=True|os\.system|eval|exec)\(")
+
+    def test_every_pin_is_in_the_provenance(self):
+        for arg in ("SIGNAL_MCP_COMMIT", "SIGNAL_CLI_SHA256", "TEMURIN_SHA256"):
+            value = re.search(rf"^ARG {arg}=([0-9a-f]{{40,64}})$", self.dockerfile, re.M)
+            self.assertTrue(value, f"{arg} is not pinned")
+            self.assertIn(value.group(1), self.provenance, f"{arg} is not in PROVENANCE.md")
+        for url in re.findall(r"^ARG \w+_URL=(\S+)$", self.dockerfile, re.M):
+            self.assertTrue(url.startswith("https://github.com/"), url)
+        prepare = (self.folder / "prepare.py").read_text()
+        for digest in re.findall(r'"([0-9a-f]{64})"', prepare):
+            self.assertIn(digest, self.provenance)
+        for line in (self.folder / "signal-mcp-files.sha256").read_text().splitlines():
+            digest, path = line.split()
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertRegex(path, r"^src/signal_mcp/[a-z_]+\.py$")
+            self.assertIn(path.removeprefix("src/signal_mcp/"), self.provenance)
+        listed = [line.split()[1] for line in (self.folder / "signal-mcp-files.sha256").read_text().splitlines()]
+        self.assertNotIn("src/signal_mcp/server.py", listed)  # upstream's own MCP server is not shipped
+
+
 @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
 class SandboxAiAgrees(unittest.TestCase):
     """What this repository writes and what `sandbox-ai mcp add` accepts must be the same thing."""

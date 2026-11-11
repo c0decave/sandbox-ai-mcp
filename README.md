@@ -23,6 +23,7 @@ network it was not given, and nothing here probes anyone.
 | [searxng](servers/searxng) | web search through a SearXNG instance of yours (many engines at once), JSON API | the instance (`SEARXNG_URL`) | - |
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
+| [signal](servers/signal) | a Signal account of yours as a linked device (signal-cli 0.14.9 with signal-mcp 1.43.3's message history): fetch messages, unread, conversations, full-text search of the history, contacts, groups (no invite links); attachments as metadata only. Read-only: `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optionally limited by `SIGNAL_ALLOWED_RECIPIENTS`. The account lives in a folder mounted writable at `/data`; needs `--memory 1g --pids 256` | full (Signal's servers; `--vpn PROFILE` optional) | - (the account is the `/data` folder) |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
@@ -56,6 +57,7 @@ sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
 sandbox-ai mcp add playwright --network full --memory 2g --pids 512   # Chromium needs more
+sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -97,6 +99,24 @@ It is read-only: `send_message`, `join_channel`, `leave_channel` and `mark_read`
 `--mount /out=DIR:rw`. MTProto goes to Telegram's data centres by IP address, so the entry needs
 the full network; `--vpn PROFILE` puts sandbox-ai's VPN (with kill switch) in front, or
 `TELEGRAM_MTPROXY` an MTProto proxy. Flood waits come back as tool errors with their time.
+
+**signal** is a Signal account linked as a secondary device: the folder mounted at `/data` holds
+the device's keys and the message history, so give it a folder of its own and never share it.
+Link it once, by hand, with the network (the image prints a `sgnl://` link to scan as a QR code in
+Signal on the phone, Settings, Linked devices; see [its PROVENANCE.md](servers/signal/PROVENANCE.md)):
+
+```bash
+mkdir -m 700 ~/signal-account
+podman run --rm -it --network=pasta --user=0:0 --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+  --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m -v ~/signal-account:/data:rw \
+  ghcr.io/c0decave/sandbox-ai-mcp-signal@DIGEST --link sandbox-ai
+qrencode -t ansiutf8 'sgnl://linkdevice?...'     # the link it printed
+```
+
+It is read-only: the write tools exist only with `SIGNAL_WRITE=1` (`--env SIGNAL_WRITE`, best with
+`--env SIGNAL_ALLOWED_RECIPIENTS`); no tool sends a file, a read receipt or changes the account.
+Fetching messages sends Signal's delivery receipts; unread is tracked in the local history only.
+signal-cli locks the account: one connection at a time.
 
 ## Security model
 
@@ -194,7 +214,10 @@ own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Ap
 Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
 (MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
 (MIT). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
-and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
+and others, `/usr/share/doc/chromium/copyright` in the image). signal bundles six modules of
+signal-mcp (MIT), signal-cli (GPL-3.0) with libsignal-client (AGPL-3.0) and its other jars, and
+Eclipse Temurin (GPL-2.0 with Classpath Exception); `servers/signal/LICENSES/SOURCES.txt` names
+their sources. See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).

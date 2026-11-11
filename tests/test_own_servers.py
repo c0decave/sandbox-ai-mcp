@@ -304,5 +304,44 @@ class Servers(unittest.TestCase):
                                                   "answers": ["An answer", "From an infobox"]})
 
 
+    def test_signal(self):
+        """In the image (CI runs it there): the read-only tools and refused calls; signal-cli and its JVM under
+        the hardened flags, with the native libraries out of their jars; and libsignal loading from there
+        (signal-cli link makes the device's temporary key with it before it connects - which fails here)."""
+        try:
+            import signal_mcp  # noqa: F401 - signal-mcp's modules, as the image installs them
+        except ImportError:
+            self.skipTest("signal-mcp's modules are not installed (the image has them; tests/test_signal.py "
+                          "covers the server natively where they are)")
+        self.check_tools("signal")
+        answers = rpc("signal", session(("get_unread", {"limit": 0}), ("get_status", {}), ("list_groups", {})))
+        self.assertIn("limit: an integer from 1 to 200", result(answers[2])["error"])
+        self.assertFalse(result(answers[3])["linked"])
+        self.assertIn("no Signal account", result(answers[4])["error"])
+        home = Path("/opt/signal-cli")
+        if not (home / "classpath").is_file():
+            return  # natively: no signal-cli here
+        import tempfile
+        import zipfile
+        from unittest import mock
+        with mock.patch.dict(os.environ):  # the server points HOME at /data when it is imported
+            module = load("signal")
+        self.assertEqual(sorted(p.name for p in (home / "native").iterdir()), ["libsignal_jni.so", "libsqlitejdbc.so"])
+        for jar, prefix in (("libsignal-client-0.103.0.jar", "libsignal_jni"), ("sqlite-jdbc-3.53.4.0.jar",
+                                                                              "org/sqlite/native/")):
+            with zipfile.ZipFile(home / "lib" / jar) as archive:
+                self.assertFalse([n for n in archive.namelist() if n.startswith(prefix)], jar)
+        version = subprocess.run(module.signal_cli_argv("--version"), capture_output=True, text=True, timeout=180)
+        self.assertIn("signal-cli 0.14.9", version.stdout + version.stderr)
+        with tempfile.TemporaryDirectory(dir="/tmp") as folder:
+            argv = module.signal_cli_argv("link", "-n", "ci")
+            argv[argv.index("--config") + 1] = folder
+            linked = subprocess.run(argv, capture_output=True, text=True, timeout=180)
+        text = linked.stdout + linked.stderr
+        self.assertNotRegex(text, r"UnsatisfiedLinkError|ExceptionInInitializerError|signal_jni|NoClassDefFoundError",
+                            text[-2000:])
+        self.assertNotEqual(linked.returncode, 0, "no network here: linking cannot finish")
+
+
 if __name__ == "__main__":
     unittest.main()

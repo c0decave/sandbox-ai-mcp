@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-11 (playwright moved to `servers/`).
+State: 2026-11-11 (playwright moved to `servers/`; signal added).
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -22,6 +22,11 @@ playwright was re-pinned on 2026-11-11 (cut-off 2026-10-28) from 0.0.84 (2026-10
 2026-11-09 is newer still) to **0.0.83** (2026-09-28, commit `f183dad4`), whose lockfile pins
 `playwright`/`playwright-core` 1.64.0-alpha-1790635538000 of the same day; what 0.0.84 adds is in
 `servers/playwright/PROVENANCE.md`.
+
+signal (2026-11-11, cut-off 2026-10-28): signal-mcp **1.43.3** (2026-10-21, commit `d3b1945c`; 1.43.4
+of 2026-11-09 is too new and only fixes `edit_message`, not offered here), signal-cli **0.14.9**
+(2026-10-07; 0.14.10 of 2026-11-07 too new), Eclipse Temurin JRE **25.0.5+8** (2026-10-22), the
+Python lock of duckduckgo.
 
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
@@ -46,6 +51,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | radare2 | static analysis of a binary: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (`pdc`), xrefs; upstream r2mcp 1.9.0 with radare2 6.2.4, both built from source at their release commits, started with `-s /work -g none` | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests (entry, pins, mounts, fixtures) and the smoke spec in CI |
 | capa | what a binary can do: Mandiant capa 10.0.0 with capa-rules 10.0.0 and capa's FLIRT signatures in the image, mapped to ATT&CK and MBC; FuzzingLabs wrapper, patched (paths under `/work`, ranges, bounded results) | none; `/work` read-only (required) | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 | playwright | a headless Chromium through Microsoft's Playwright MCP 0.0.83 (commit `f183dad4`, 2026-09-28; Apache-2.0) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 25 default tools (navigate, snapshot, click, type, forms, tabs, evaluate, run code, screenshots, console, network requests); `--isolated --no-sandbox --no-webmcp`, no `--caps` | full; `--memory 2g --pids 512` | offline tests (pins, flags, tools, limits, the smoke spec's limits as sandbox-ai takes them); the smoke spec in CI (a `data:` page, a `file:` URL and a file outside the roots refused); not built here (no container engine) |
+| signal | a Signal account of yours as a linked device: signal-cli 0.14.9 (JVM release, GPL-3.0; by SHA-256 and its maintainer's signature) on Temurin JRE 25.0.5+8, with six reviewed modules of signal-mcp 1.43.3 (googlarz/signal-mcp, MIT: client and SQLite message history; not its MCP server, CLI, Desktop import or webhook) behind an own server: 8 read tools (fetch, unread, conversations, search, contacts, groups without invite links); `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optional `SIGNAL_ALLOWED_RECIPIENTS`; no file, receipt or account change | full; `/data` writable (required: the account, linked once with `--link`); `--memory 1g --pids 256` | natively with a stand-in for signal-cli's JSON-RPC daemon (`tests/test_signal.py`); in the image: signal-cli runs and libsignal loads under the hardened flags; smoke spec without an account; not built here, no live account |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 
 ### The three file-analysis servers, and the cooldown rule

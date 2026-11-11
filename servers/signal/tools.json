@@ -1,0 +1,12 @@
+{
+  "tools": [
+    "get_conversation",
+    "get_status",
+    "get_unread",
+    "list_contacts",
+    "list_conversations",
+    "list_groups",
+    "receive_messages",
+    "search_messages"
+  ]
+}
