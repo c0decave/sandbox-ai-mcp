@@ -1,18 +1,18 @@
 {
   "images": {
-    "binwalk": "sha256:91e55cb45b7f644414551dc04c83231e68909c1d8961e4bc2ddab71b4215b9b7",
-    "brave-search": "sha256:f8020368d3f3a89c9c68367d656ae22d80e20f30f0db5c048bd62d4a7b699e82",
-    "capa": "sha256:7b2573fcc92c4aa72bfdeaa7e8368c860002ab4c4e508144192ca17e3ab5f4db",
-    "duckduckgo": "sha256:94f27a5659189c1d11a1cbbb88d57a0083a05494290beb7e5b725d8d6568cd5c",
-    "openosint": "sha256:d0ee04dd90ea6bbdae648325ca0f22b3513100d173815d7d8782f5ab3788ba5f",
-    "osint-mcp": "sha256:73c0b24be5fc0ed3786c23eedf7dca082ff3ce65a3db6cfe2bdcbaea1280b5a5",
-    "playwright": "sha256:e4afb9b2d764805c17b418eb5e357419c99856d30390dd624fcbff56946615ea",
-    "radare2": "sha256:5565081fa5177d6b4458c3a33937c431ceb5d4e1ae053c0f76ee72a60ccfc28c",
-    "searxng": "sha256:d3f3e99b0c9a8ae48b9a668c588e9e66e3337d2e412b0625eb110ce53cc916c5",
-    "signal": null,
-    "telegram": "sha256:4c215c7d9c3a6db0e69139121c4b09ce0434c09282d8890664912384a2808d78",
-    "telegram-user": "sha256:8e6636135e142cda292fca78694774c5f67029276f47cf837aac6c3c189192e4",
-    "web-fetch": "sha256:98a68d44c0ec8d36ba2b39dade7bd9669208469b3e5fc4df085556a82015c463"
+    "binwalk": "sha256:45c617526cd8b58e79bb8b0abb47714b39fd211b8294b22a55cc1bf2f3734d36",
+    "brave-search": "sha256:7f773e9475780b3875b80f5daf07aa10f340fb782245028186d5513f905b1bf5",
+    "capa": "sha256:29885b77ae25f3e4667bc550dacfb974396a0a6f65bd197a327d051edad96de0",
+    "duckduckgo": "sha256:5aef6ad8a4d5c53f7404a357d08dffe6fc68d0a08ccfc7bd7d686175813a9cab",
+    "openosint": "sha256:40cb723fc4f8189be46f66549d1c75597512161e4e935398ef05d199f473102a",
+    "osint-mcp": "sha256:ea7916fa19c9f0bbfa98f9cb38636e7982a5dccff35cef41ed880a7731a83de1",
+    "playwright": "sha256:b19a4ba4756c4716764473535c36eaca3e0dc8724cfccd5c9d17e276ec03b10a",
+    "radare2": "sha256:5e6e78e90923e8e2d5aa17cbf913f9f425576b8e7707c386394ba3c9e563f256",
+    "searxng": "sha256:0f8bf5077c55eadb0a3121bfcc4ed4d8eecb26a3ce00159d47e01a88de18a2f1",
+    "signal": "sha256:f937c0f5a2c9ac489aa8b5ac077f9eea1c2aa6dc0c01cfee3f6dcd63ef3b7f3e",
+    "telegram": "sha256:d0bc04a31cf40d59f9d57525f4d9be9d1fdf428eac873cd2d2b44554bc89e40b",
+    "telegram-user": "sha256:ae6032612bcaffe74831bed6276b23009908fe546d464424bd1596459a846be6",
+    "web-fetch": "sha256:1b4faa8549fe7cbdf07846226d1f1d84a34c14ddb502f703a8e866fd484dbb96"
   },
   "rootfs": {}
 }
