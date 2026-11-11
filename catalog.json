@@ -5,6 +5,7 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "radare2",
     "whatsapp"
   ],
   "entries": [
@@ -280,7 +281,6 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-radare2",
       "tag": "latest",
-      "digest": "sha256:5e6e78e90923e8e2d5aa17cbf913f9f425576b8e7707c386394ba3c9e563f256",
       "mounts": [
         {
           "target": "/work",

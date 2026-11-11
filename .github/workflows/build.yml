@@ -304,7 +304,9 @@ jobs:
           echo "::warning title=${{ matrix.server }} without Bubblewrap::the smoke test under Bubblewrap failed (see its annotation); the image is published for Podman only, rootfs.json leaves ${{ matrix.server }} out"
 
       - name: Publish the rootfs (a release named after its hash)
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.bwrap.outcome == 'success'
+        if: >-
+          github.event_name != 'pull_request' && steps.bwrap.outcome == 'success'
+          && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -340,12 +342,14 @@ jobs:
 
   catalog:
     needs: [test, image]
-    # Only main publishes the rootfs archives rootfs.json points to: sign the catalog of a main run.
+    # Only main and v* tags publish the rootfs archives rootfs.json points to: sign the catalog of such a run. A tag
+    # lets a change be built and signed before main moves, so main's catalog.json and its signature never disagree.
     # Also when some image jobs failed (not when the run was cancelled or the tests failed): the servers that passed
     # make the catalog, the others stay pending.
     if: >-
       !cancelled() && needs.test.result == 'success'
-      && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      && github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
