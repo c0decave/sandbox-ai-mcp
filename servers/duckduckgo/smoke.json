@@ -15,7 +15,11 @@
         "max_results": 3
       },
       "expect": "\"results\"",
-      "timeout": 120
+      "timeout": 120,
+      "upstream_limited": [
+        "DuckDuckGo answered HTTP 202",
+        "DuckDuckGo answered HTTP 429"
+      ]
     },
     {
       "tool": "web_search",

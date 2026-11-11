@@ -10,6 +10,11 @@ name: build
 # digests and rootfs into catalog.json and rootfs.json (an artifact, with the reports). Sign them
 # on your machine with scripts/sign_catalog.py, which refuses unless both reports of every server
 # passed, then commit catalog.json, rootfs.json and their .sig files (docs/SIGNING.md).
+# One server failing does not stop the others: each image job uploads what it has (ci-<name>, with
+# result-<name>.json only when every required step passed), and the catalog job runs whenever the
+# tests passed, taking only the servers scripts/ci_results.py finds passed (the others stay pending,
+# each named in an annotation). A real call the upstream service rate-limits is retried and then
+# skipped (smoke.json "upstream_limited"); the refused calls must still pass.
 # The smoke runs need a sandbox-ai with signed catalogs and Bubblewrap servers (sandbox/mcp_rootfs.py):
 # the repository variable SANDBOX_AI_REF picks its branch, tag or commit (default main).
 
@@ -115,6 +120,8 @@ jobs:
       - name: Smoke fixtures (checked against their SHA-256)
         run: python3 scripts/fixtures.py --out "${GITHUB_WORKSPACE}/tests/fixtures"
 
+      # Without its secrets (a ${VAR} of the spec not given is empty with --list-only): every server must start and
+      # list its tools without them. A failure becomes an annotation (smoke_test.py).
       - name: Start with the hardened run line (initialize, tools/list)
         run: |
           python3 scripts/smoke_test.py --engine docker --list-only \
@@ -122,12 +129,29 @@ jobs:
             --spec servers/${{ matrix.server }}/smoke.json \
             --tools-file servers/${{ matrix.server }}/tools.json
 
+      # The server's parsers against recorded answers and its argument checks (tests/test_own_servers.py), with the
+      # image's own Python and libraries, no network: what a real call skipped for an upstream rate limit leaves out.
+      - name: Recorded answers inside the image (no network)
+        env:
+          SERVER: ${{ matrix.server }}
+        run: |
+          test="test_${SERVER//-/_}"
+          if ! grep -q "^    def ${test}(" tests/test_own_servers.py; then
+            echo "tests/test_own_servers.py has no ${test}"; exit 0
+          fi
+          docker run --rm --network=none --read-only --tmpfs=/tmp:rw,nosuid,nodev,noexec,size=64m \
+            --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=128 --memory=512m \
+            -e PYTHONDONTWRITEBYTECODE=1 -v "${GITHUB_WORKSPACE}:/repo:ro" -w /repo \
+            --entrypoint /opt/venv/bin/python "local/sandbox-ai-mcp-${SERVER}:ci" \
+            -m unittest discover -v -s tests -p test_own_servers.py -k "${test}"
+
       - name: Smoke spec (real and refused calls)
         env:
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
           SERVER: ${{ matrix.server }}
-        # The output goes into a file (not a pipe, which a leftover process could hold open); when the smoke fails,
-        # its last lines become an annotation, which the API returns without the log.
+        # The output goes into a file (not a pipe, which a leftover process could hold open), then into the log;
+        # smoke_test.py writes a failure as an error annotation and an upstream rate limit as a warning, which the
+        # API returns without the log.
         run: |
           status=0
           python3 scripts/smoke_test.py --engine docker \
@@ -136,10 +160,6 @@ jobs:
             --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             > smoke.txt 2>&1 || status=$?
           cat smoke.txt
-          if [ "$status" -ne 0 ]; then
-            text=$(tail -n 40 smoke.txt | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
-            echo "::error title=smoke failed (${SERVER})::exit ${status}%0A${text}"
-          fi
           exit "$status"
 
       - name: Install Trivy ${{ env.TRIVY_VERSION }} (checksum pinned)
@@ -230,6 +250,7 @@ jobs:
           sudo apt-get install -y -q bubblewrap slirp4netns passt
           # Ubuntu 24.04 keeps unprivileged user namespaces from bwrap unless this is off.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
 
       - name: Smoke with sandbox-ai under Podman
         if: github.event_name != 'pull_request'
@@ -285,21 +306,36 @@ jobs:
             --target "${GITHUB_SHA}"
           gh release upload "$tag" rootfs-out/rootfs-${{ matrix.server }}.tar.gz --clobber
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      # Written only when every step above passed (the Bubblewrap smoke may fail: then the rootfs is left out):
+      # the catalog job takes no server without it.
+      - name: Result
         if: github.event_name != 'pull_request'
+        run: |
+          printf '{"name": "%s", "passed": true, "run": "%s", "sha": "%s"}\n' \
+            "${{ matrix.server }}" "${GITHUB_RUN_ID}" "${GITHUB_SHA}" > "result-${{ matrix.server }}.json"
+
+      # Also when a step failed: the reports say why, and the catalog job sees which servers passed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && github.event_name != 'pull_request'
         with:
           name: ci-${{ matrix.server }}
           path: |
+            result-${{ matrix.server }}.json
             digest-${{ matrix.server }}.json
             rootfs-out/rootfs-${{ matrix.server }}.json
             smoke-${{ matrix.server }}-sandbox-ai-podman.json
             smoke-${{ matrix.server }}-sandbox-ai-bwrap.json
-          if-no-files-found: error
+          if-no-files-found: warn
+          overwrite: true   # a re-run of the job replaces its artifact
 
   catalog:
-    needs: image
+    needs: [test, image]
     # Only main publishes the rootfs archives rootfs.json points to: sign the catalog of a main run.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # Also when some image jobs failed (not when the run was cancelled or the tests failed): the servers that passed
+    # make the catalog, the others stay pending.
+    if: >-
+      !cancelled() && needs.test.result == 'success'
+      && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -310,10 +346,13 @@ jobs:
           pattern: ci-*
           path: ci-digests
           merge-multiple: true
-      - name: catalog.json and rootfs.json with the pushed digests and rootfs
+      - name: The servers that passed (Podman, and Bubblewrap where the rootfs was kept, for what they pushed)
+        run: python3 scripts/ci_results.py ci-digests --out passed.txt
+      - name: catalog.json and rootfs.json with the pushed digests and rootfs of those servers
         run: |
-          python3 scripts/make_catalog.py --ci-digests ci-digests --write-digests
-          python3 scripts/make_catalog.py --check
+          # shellcheck disable=SC2046 # one server name per line, no spaces
+          python3 scripts/make_catalog.py --ci-digests ci-digests --only $(cat passed.txt) --write-digests
+          python3 scripts/make_catalog.py --check --allow-pending
           cat ci-digests/digest-*.json
           { echo '### digests.json'; echo '```json'; cat digests.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

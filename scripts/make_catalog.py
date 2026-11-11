@@ -11,6 +11,7 @@ the catalog says ``"state": "pending-digests"``, and axross refuses that entry
 
     scripts/make_catalog.py                       # write catalog.json from digests.json
     scripts/make_catalog.py --ci-digests DIR --write-digests   # take a CI run's digests
+    scripts/make_catalog.py --ci-digests DIR --only NAME... --write-digests   # only the servers that passed
     scripts/make_catalog.py --check               # catalog.json up to date and pinned?
     scripts/make_catalog.py --check --allow-pending --axross /path/to/axross
     scripts/make_catalog.py --check --allow-pending --sandbox-ai /path/to/sandbox-ai
@@ -19,6 +20,11 @@ rootfs.json beside it has the Bubblewrap form of each published server (the ``ro
 files the build workflow uploads, kept in digests.json's ``"rootfs"``): the archive's URL and SHA-256,
 built from the very image digest the catalog pins, and what runs it. A file of its own, since axross
 takes no keys it does not know; scripts/sign_catalog.py signs both.
+
+``--only NAME...`` (with ``--ci-digests``) takes only these servers of the CI run and makes every other
+server pending, without its rootfs: the build workflow's catalog job passes the servers whose image job
+passed and whose reports scripts/sign_catalog.py would take (scripts/ci_results.py), so a server that
+failed is left out instead of keeping an older digest no report of this run vouches for.
 
 ``--check`` exits 1 when catalog.json is not what the metadata and digests give, when an
 entry is invalid, or when digests are pending (unless ``--allow-pending``). With
@@ -471,6 +477,8 @@ def main(argv=None) -> int:
                         help="digest-<name>.json files (or folders) of a CI run")
     parser.add_argument("--write-digests", action="store_true",
                         help="store the --ci-digests in digests.json")
+    parser.add_argument("--only", nargs="+", metavar="NAME",
+                        help="with --ci-digests: only these servers of the CI run; every other one becomes pending")
     parser.add_argument("--out", type=Path, help="default: ROOT/catalog.json")
     parser.add_argument("--check", action="store_true",
                         help="do not write; fail unless catalog.json is current (and pinned)")
@@ -488,11 +496,28 @@ def main(argv=None) -> int:
         digests = load_digests(digests_path)
         stored = json.loads(digests_path.read_text(encoding="utf-8"))
         rootfs = dict(stored.get("rootfs") or {})
+        if opts.only and not opts.ci_digests:
+            raise CatalogProblem("--only needs --ci-digests")
         if opts.ci_digests:
             new = read_ci_digests(opts.ci_digests)
+            new_rootfs = read_ci_rootfs(opts.ci_digests)
+            if opts.only:
+                only = set(opts.only)
+                unknown = sorted(only - {s["name"] for s in servers})
+                if unknown:
+                    raise CatalogProblem(f"--only: no such server: {', '.join(unknown)}")
+                without = sorted(only - set(new))
+                if without:
+                    raise CatalogProblem(f"--only: the CI run has no digest for {', '.join(without)}")
+                new = {name: digest for name, digest in new.items() if name in only}
+                new_rootfs = {name: meta for name, meta in new_rootfs.items() if name in only}
+                for server in servers:  # left out: pending, not an older digest this run does not vouch for
+                    if server["name"] not in only:
+                        digests[server["name"]] = None
+                        rootfs.pop(server["name"], None)
             digests.update(new)
             rootfs = {name: meta for name, meta in rootfs.items() if name not in new}  # a new image, a new rootfs
-            rootfs.update(read_ci_rootfs(opts.ci_digests))
+            rootfs.update(new_rootfs)
             if opts.write_digests:
                 stored["images"] = {s["name"]: digests.get(s["name"]) for s in servers}
                 stored["rootfs"] = rootfs

@@ -39,9 +39,27 @@ push to `ghcr.io/c0decave/sandbox-ai-mcp-NAME`, then with a checkout of sandbox-
   (`mcp_rootfs`), with its `rootfs_sha256`;
 - on `main`: the archive published as the release `rootfs-NAME-<first 12 hex digits of its SHA-256>`.
 
-The `catalog` job (only for `main`) turns the digests and rootfs files into `catalog.json`, `rootfs.json` and
-`digests.json` and uploads them with all smoke reports as the artifact `catalog`
-(the reports in its folder `ci-digests/`).
+Each image job uploads what it has as the artifact `ci-NAME`, also when a step failed, and `result-NAME.json`
+with it only when every required step passed (a failed Bubblewrap smoke is not one: the job then leaves the
+rootfs out and the server is published for Podman alone).
+
+The `catalog` job (only for `main`) runs once the tests passed, also when some image jobs failed:
+`scripts/ci_results.py` takes the servers whose job passed and whose reports `sign_catalog.py` would take
+(Podman always, Bubblewrap where the job kept the rootfs; for the digest and rootfs that job pushed); every other
+server is named in an annotation and left out: `make_catalog.py --only ...` makes it pending in `catalog.json`
+(no digest) and drops it from `rootfs.json`.
+It turns the digests and rootfs files of those servers into `catalog.json`, `rootfs.json` and `digests.json` and
+uploads them with all smoke reports as the artifact `catalog` (the reports in its folder `ci-digests/`). With no
+server passed there is no catalog (the job fails).
+
+A real call whose upstream service rate-limits it (DuckDuckGo answers runners with HTTP 202) is retried with
+backoff and then marked `"skipped": "upstream rate-limited"` in the report (`smoke.json`: `"upstream_limited"`,
+texts the server writes only when the service answered with that status). It does not fail the report: the
+server started, offered exactly `tools.json`, reached the service through the sandbox's network and turned the
+refusal into its documented error; its refused calls must pass, and its parsers ran against recorded answers
+inside the image (the step "Recorded answers inside the image"). A skipped call does not count as the tool call
+every report needs. `sign_catalog.py` names such calls before it signs, and refuses a report that skipped
+anything else or has a failed check.
 
 `sign_catalog.py` refuses unless `catalog.json` and `rootfs.json` are what `servers/*/server.json` and
 `digests.json` give (`make_catalog.py --check`) and every entry with a digest has both reports, passed, of the
@@ -68,8 +86,10 @@ which turns every entry into the definition `sandbox-ai mcp add` would write (`d
 
 - The smoke runs check out `github.com/c0decave/sandbox-ai` at `SANDBOX_AI_REF` (repository variable, default
   `main`). It must contain `sandbox/mcp_rootfs.py` and `sandbox/mcp-signers` (signed MCP catalogs and
-  Bubblewrap servers); the job stops with an error naming the file otherwise. If the published `main` does not
-  have them yet, publish sandbox-ai first or point the variable at a tag that has them:
+  Bubblewrap servers); the job stops with an error naming the file otherwise. Its `mcp_rootfs.py` must give bwrap
+  the command on bwrap's own command line, after `--args FD`: bwrap takes only options from `--args`, never the
+  command, prints its usage, and every Bubblewrap smoke fails with "the server closed stdout" (every server is
+  then published for Podman only). If the published `main` does not have them yet, publish sandbox-ai first or point the variable at a tag that has them:
   `gh variable set SANDBOX_AI_REF -R c0decave/sandbox-ai-mcp --body vX.Y.Z`.
 - `sandbox/mcp-signers` of the published sandbox-ai must carry the line of the signing key's `.pub`, or users'
   sandbox-ai will not trust the signature.

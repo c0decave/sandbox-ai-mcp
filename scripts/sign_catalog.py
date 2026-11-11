@@ -14,7 +14,9 @@ of the build workflow keeps them in ci-digests/; `gh run download RUN -n catalog
 
 each with tools.json matched, with at least one passed tool call (a handshake and a tool list say nothing about
 the tool), run with no more network than the entry declares, and with catalog.json and rootfs.json current
-(scripts/make_catalog.py --check; no rootfs for a server the catalog does not publish). Then it
+(scripts/make_catalog.py --check; no rootfs for a server the catalog does not publish). A tool call skipped
+because the upstream service rate-limited it (scripts/smoke_test.py, "upstream_limited") does not fail a report
+but does not count as that call either; it is named before signing. Then it
 writes catalog.json.sig and rootfs.json.sig: SSH signatures (ssh-keygen -Y sign) in the namespace
 sandbox-ai-mcp, which sandbox-ai checks against sandbox/mcp-signers before `sandbox-ai mcp add` takes an entry.
 The key never leaves your machine: sign after the CI run, then commit catalog.json, rootfs.json and both .sig.
@@ -57,52 +59,83 @@ def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[s
         problems.append(f"{reports}: not a folder of smoke reports")
         return problems
     for entry in published:
-        name, image = entry["name"], f"{entry['image']}@{entry['digest']}"
-        # Bubblewrap is vouched for only where rootfs.json offers that form: a server whose Bubblewrap smoke test
-        # failed is published for Podman alone (its rootfs left out by the build), never signed for Bubblewrap.
-        for runner in (r for r in RUNNERS if r != "sandbox-ai-bwrap" or name in rootfs):
-            wanted_name = f"smoke-{name}-{runner}.json"
-            found = sorted(reports.rglob(wanted_name))
-            if len(found) > 1:
-                problems.append(f"{name}: {wanted_name} is there {len(found)} times under {reports} (one CI run only)")
-                continue
-            try:
-                report = json.loads(found[0].read_text(encoding="utf-8"))
-            except (IndexError, OSError, ValueError):
-                problems.append(f"{name}: no {wanted_name} under {reports}")
-                continue
-            if not isinstance(report, dict) or report.get("runner") != runner or report.get("name") != name:
-                problems.append(f"{name}: {wanted_name} is not the {runner} report of {name}")
-            elif not report.get("ok"):
-                failed = [c.get("check") for c in report.get("checks", []) if not c.get("ok")]
-                problems.append(f"{name}: {runner} failed ({', '.join(map(str, failed)) or report.get('exception')})")
-            elif not any(c.get("check") == "tools.json" and c.get("ok") for c in report.get("checks", [])):
-                problems.append(f"{name}: {runner} did not compare tools/list with tools.json")
-            elif not any(str(c.get("check", "")).startswith("tools/call ") and c.get("ok")
-                         for c in report.get("checks", [])):
-                # A handshake and a tool list say nothing about the tool: the signature vouches for
-                # a server that ran at least one call of its smoke spec.
-                problems.append(f"{name}: {runner} made no tool call (only initialize and tools/list): "
-                                f"servers/{name}/smoke.json must call the tool")
-            elif NETWORK_ORDER.get(str(report.get("network")), len(NETWORK_ORDER)) > \
-                    NETWORK_ORDER.get(entry.get("network"), 0):
-                problems.append(f"{name}: the {runner} report ran it with network {report.get('network')}, "
-                                f"the entry says {entry.get('network')}: a server is never vouched for with "
-                                "more network than it declares")
-            elif report.get("image") != image:
-                problems.append(f"{name}: the {runner} report is of {report.get('image')}, the catalog pins {image}")
-            elif runner == "sandbox-ai-bwrap":
-                wanted = (rootfs.get(name) or {}).get("sha256")
-                if not wanted:
-                    problems.append(f"{name}: rootfs.json has no rootfs for it")
-                elif report.get("rootfs_sha256") != wanted:
-                    problems.append(f"{name}: the bwrap report is of rootfs {report.get('rootfs_sha256')}, "
-                                    f"rootfs.json says {wanted}")
+        name = entry["name"]
+        problems.extend(server_problems(reports, name, f"{entry['image']}@{entry['digest']}",
+                                        (rootfs.get(name) or {}).get("sha256") if name in rootfs else None,
+                                        entry.get("network")))
     stale = sorted(set(rootfs) - {e["name"] for e in published})
     if stale:
         problems.append(f"rootfs.json pins a rootfs for {', '.join(stale)}, which the catalog does not "
                         "publish: run scripts/make_catalog.py")
     return problems
+
+
+def find_report(reports: Path, name: str, runner: str) -> tuple[dict | None, str | None]:
+    """(the RUNNER report of NAME under REPORTS, None) or (None, why there is no usable one)."""
+    wanted_name = f"smoke-{name}-{runner}.json"
+    found = sorted(reports.rglob(wanted_name))
+    if len(found) > 1:
+        return None, f"{name}: {wanted_name} is there {len(found)} times under {reports} (one CI run only)"
+    try:
+        report = json.loads(found[0].read_text(encoding="utf-8"))
+    except (IndexError, OSError, ValueError):
+        return None, f"{name}: no {wanted_name} under {reports}"
+    if not isinstance(report, dict) or report.get("runner") != runner or report.get("name") != name:
+        return None, f"{name}: {wanted_name} is not the {runner} report of {name}"
+    return report, None
+
+
+def server_problems(reports: Path, name: str, image: str, rootfs_sha256: str | None, network) -> list[str]:
+    """Why NAME, published as IMAGE (IMAGE@DIGEST) with network NETWORK, may not be vouched for: its Podman report,
+    and its Bubblewrap report for the rootfs ROOTFS_SHA256 when it has one (None: Podman alone), must have passed
+    under REPORTS for exactly these. Shared with scripts/ci_results.py, which picks a CI run's servers by it."""
+    problems = []
+    # Bubblewrap is vouched for only where rootfs.json offers that form: a server whose Bubblewrap smoke test
+    # failed is published for Podman alone (its rootfs left out by the build), never signed for Bubblewrap.
+    for runner in (r for r in RUNNERS if r != "sandbox-ai-bwrap" or rootfs_sha256 is not None):
+        report, problem = find_report(reports, name, runner)
+        checks = report.get("checks", []) if report else []
+        calls = [c for c in checks if isinstance(c, dict) and str(c.get("check", "")).startswith("tools/call ")]
+        if problem:
+            problems.append(problem)
+        elif not report.get("ok") or not all(isinstance(c, dict) and c.get("ok") for c in checks):
+            failed = [c.get("check") for c in checks if not c.get("ok")]
+            problems.append(f"{name}: {runner} failed ({', '.join(map(str, failed)) or report.get('exception')})")
+        elif any(c.get("skipped") and c not in calls for c in checks):
+            problems.append(f"{name}: {runner} skipped a check other than a tool call")
+        elif not any(c.get("check") == "tools.json" and c.get("ok") for c in checks):
+            problems.append(f"{name}: {runner} did not compare tools/list with tools.json")
+        elif not any(c.get("ok") and not c.get("skipped") for c in calls):
+            # A handshake and a tool list say nothing about the tool: the signature vouches for a server that ran
+            # at least one call of its smoke spec (a call skipped for an upstream rate limit does not count).
+            problems.append(f"{name}: {runner} made no tool call (only initialize and tools/list): "
+                            f"servers/{name}/smoke.json must call the tool")
+        elif NETWORK_ORDER.get(str(report.get("network")), len(NETWORK_ORDER)) > NETWORK_ORDER.get(network, 0):
+            problems.append(f"{name}: the {runner} report ran it with network {report.get('network')}, "
+                            f"the entry says {network}: a server is never vouched for with "
+                            "more network than it declares")
+        elif report.get("image") != image:
+            problems.append(f"{name}: the {runner} report is of {report.get('image')}, the catalog pins {image}")
+        elif runner == "sandbox-ai-bwrap":
+            if not rootfs_sha256:
+                problems.append(f"{name}: rootfs.json has no rootfs for it")
+            elif report.get("rootfs_sha256") != rootfs_sha256:
+                problems.append(f"{name}: the bwrap report is of rootfs {report.get('rootfs_sha256')}, "
+                                f"rootfs.json says {rootfs_sha256}")
+    return problems
+
+
+def skipped_calls(reports: Path, names) -> list[str]:
+    """The tool calls of NAMES' reports that were skipped because the upstream service rate-limited them (in passed
+    reports; said before signing, never hidden)."""
+    notes = []
+    for name in names:
+        for runner in RUNNERS:
+            report, _ = find_report(reports, name, runner)
+            for check in (report or {}).get("checks", []):
+                if isinstance(check, dict) and check.get("skipped"):
+                    notes.append(f"{name}: {runner}: {check.get('check')} skipped ({check['skipped']})")
+    return notes
 
 
 def sign(path: Path, key: str) -> Path:
@@ -157,6 +190,9 @@ def main(argv=None) -> int:
     if problems:
         print("nothing signed", file=sys.stderr)
         return 1
+    catalog = json.loads((root / "catalog.json").read_text(encoding="utf-8"))
+    for note in skipped_calls(opts.reports, [e["name"] for e in catalog.get("entries", []) if e.get("digest")]):
+        print(f"note: {note}: the server reached the service, which refused; its other calls passed")
     for path in files:
         print(f"signed {sign(path, opts.key).name}")
     return 0

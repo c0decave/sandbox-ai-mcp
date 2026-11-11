@@ -18,8 +18,19 @@ ones, so a changed tool list fails.
 
     scripts/smoke_test.py --image IMAGE --spec servers/radare2/smoke.json --var FIXTURES=/abs/dir
 
-``${NAME}`` in the spec is replaced by ``--var NAME=VALUE``. Exit status 0 when every
-check passed. Standard library only.
+``${NAME}`` in the spec is replaced by ``--var NAME=VALUE`` (with ``--list-only`` a variable not
+given is empty: the server must start and list its tools without its secrets). Exit status 0 when
+every check passed. Standard library only.
+
+A call may name the answers of an upstream service that refuses for its own reasons, a rate limit
+(``"upstream_limited": ["DuckDuckGo answered HTTP 202", ...]``, texts the server only writes when the
+service did answer, with that status). Such a call is retried ``--upstream-retries`` times with
+exponential backoff (``--upstream-backoff`` seconds, doubled each time); still limited, the check is
+marked ``"skipped": "upstream rate-limited"`` and does not fail the run: the server started, offered
+its recorded tools, reached the service through the sandbox's network and turned its refusal into
+the documented error. Every other check (the refused calls) must still pass, and a call with
+``expect_error`` cannot be skipped. On GitHub Actions a failure is an error annotation and a skipped
+call a warning, which the API returns without the job log.
 
 ``--runner sandbox-ai-podman`` and ``--runner sandbox-ai-bwrap`` (with ``--sandbox-ai DIR``, a
 checkout) start the server the way sandbox-ai does instead: its own ``mcp.image_command`` for
@@ -101,19 +112,57 @@ def start_proxy(hosts: list[str], axross_dir: str):
     return proxy
 
 
-def substitute(value, variables: dict[str, str]):
+def substitute(value, variables: dict[str, str], missing: str | None = None):
+    """*value* with ``${NAME}`` replaced by ``variables[NAME]``; a NAME not given is *missing*, or refused when
+    *missing* is None."""
     if isinstance(value, str):
         def one(match):
             key = match.group(1)
             if key not in variables:
+                if missing is not None:
+                    return missing
                 raise KeyError(f"the spec uses ${{{key}}}: pass --var {key}=VALUE")
             return variables[key]
         return re.sub(r"\$\{([A-Z0-9_]+)\}", one, value)
     if isinstance(value, list):
-        return [substitute(v, variables) for v in value]
+        return [substitute(v, variables, missing) for v in value]
     if isinstance(value, dict):
-        return {k: substitute(v, variables) for k, v in value.items()}
+        return {k: substitute(v, variables, missing) for k, v in value.items()}
     return value
+
+
+def upstream_limits(spec: dict) -> None:
+    """ValueError unless every call's ``upstream_limited`` is a list of non-empty texts, on a call that expects a
+    result (a refused call proves the server's own checks and is never skipped)."""
+    for call in spec.get("calls", []):
+        markers = call.get("upstream_limited")
+        if markers is None:
+            continue
+        if not isinstance(markers, list) or not markers or not all(isinstance(m, str) and m.strip() for m in markers):
+            raise ValueError(f"{call.get('tool')}: upstream_limited must be a list of texts")
+        if call.get("expect_error"):
+            raise ValueError(f"{call.get('tool')}: a call with expect_error cannot be upstream_limited")
+
+
+def failure_hint(runner: str, stderr: str) -> str | None:
+    """What a known failure of the run line means."""
+    if runner == "sandbox-ai-bwrap" and "usage: bwrap" in stderr:
+        return ("bwrap printed its usage: it got no command. sandbox-ai's mcp_rootfs passes the command after '--' "
+                "inside --args FD, where bwrap (every version) does not take it; the command must follow --args on "
+                "bwrap's own command line. Point SANDBOX_AI_REF at a sandbox-ai with that fix.")
+    return None
+
+
+def escape_annotation(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def skipped_annotations(report: dict, retries: int) -> list[str]:
+    """A GitHub Actions warning for each real call skipped because its upstream service rate-limited it."""
+    return [f"::warning title=smoke {report.get('name')} ({report.get('runner')}) upstream rate-limited::"
+            + escape_annotation(f"{check}: skipped after {retries} retries (the service answered and refused); "
+                                "the other calls and tools/list passed")
+            for check in report.get("skipped", [])]
 
 
 def load_module(path, name):
@@ -130,6 +179,8 @@ def annotation(report: dict) -> str:
     lines = [f"runner {report.get('runner')}, image {report.get('image')}"]
     if report.get("exception"):
         lines.append(f"exception: {report['exception']}")
+    if report.get("hint"):
+        lines.append(f"hint: {report['hint']}")
     for check in report.get("checks", []):
         if not check.get("ok"):
             lines.append(f"failed: {check.get('check')} expected {check.get('expect', check.get('missing'))!r}, "
@@ -137,9 +188,7 @@ def annotation(report: dict) -> str:
     tail = str(report.get("stderr_tail") or "").strip()
     if tail:
         lines.append("stderr: " + tail[-1500:])
-    text = "\n".join(lines)
-    escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-    return f"::error title=smoke {report.get('name')} ({report.get('runner')})::{escaped}"
+    return f"::error title=smoke {report.get('name')} ({report.get('runner')})::{escape_annotation(chr(10).join(lines))}"
 
 
 def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts, env: dict,
@@ -264,11 +313,17 @@ def main(argv=None) -> int:
     parser.add_argument("--max-text", type=int, default=1500, help="result text shown per call")
     parser.add_argument("--tools-file", help="servers/<name>/tools.json: tools/list must offer "
                         "exactly these tools (a changed tool list fails)")
+    parser.add_argument("--upstream-retries", type=int, default=3,
+                        help="retries of a call whose upstream service is rate-limited (default 3)")
+    parser.add_argument("--upstream-backoff", type=float, default=15.0,
+                        help="seconds before the first retry, doubled for each next one (default 15)")
     opts = parser.parse_args(argv)
 
     variables = dict(v.split("=", 1) for v in opts.var)
+    missing = "" if opts.list_only else None  # tools/list must work without the secrets
     with open(opts.spec, encoding="utf-8") as handle:
         spec = json.load(handle)
+    upstream_limits(spec)
     name = spec["name"]
     network = spec.get("network", "none")
     mounts = [] if opts.list_only else [
@@ -289,7 +344,7 @@ def main(argv=None) -> int:
     facts = {}
     if opts.runner == "axross":
         read_fd, write_fd = os.pipe()
-        os.write(write_fd, env_file(substitute(spec.get("env", {}), variables),
+        os.write(write_fd, env_file(substitute(spec.get("env", {}), variables, missing),
                                     proxy.port if proxy else None))
         os.close(write_fd)
         argv = run_command(f"smoke-{name}", opts.image, network=network, mounts=mounts,
@@ -307,14 +362,15 @@ def main(argv=None) -> int:
                 meta = json.load(handle)
         read_fd = None
         argv, environment, facts = sandbox_ai_argv(opts.runner, opts.sandbox_ai, opts.image, network, mounts,
-                                                   substitute(spec.get("env", {}), variables), opts.rootfs, meta)
+                                                   substitute(spec.get("env", {}), variables, missing),
+                                                   opts.rootfs, meta)
     if opts.print_argv:
         print("argv:", json.dumps(argv))
     session = Session(argv, read_fd, environment)
     if read_fd is not None:
         os.close(read_fd)
     report = {"name": name, "image": opts.image, "network": network, "runner": opts.runner, **facts,
-              "checks": []}
+              "checks": [], "skipped": []}
     ok = True
     try:
         init = session.request("initialize", {
@@ -335,30 +391,50 @@ def main(argv=None) -> int:
             ok &= check_tools_file(report, names, opts.tools_file)
         for call in [] if opts.list_only else spec.get("calls", []):
             arguments = substitute(call.get("arguments", {}), variables)
-            started = time.monotonic()
-            answer = session.request("tools/call", {"name": call["tool"], "arguments": arguments},
-                                     call.get("timeout", 120))
-            text = result_text(answer)
             expect = substitute(call.get("expect", ""), variables)
-            passed = expect in text and "error" not in answer
-            if call.get("expect_error"):
-                passed = expect in text
-            report["checks"].append({
-                "check": f"tools/call {call['tool']}", "arguments": arguments, "ok": passed,
-                "expect": expect, "seconds": round(time.monotonic() - started, 2),
-                "text": text[: opts.max_text]})
-            ok &= passed
+            markers = call.get("upstream_limited") or []
+            started = time.monotonic()
+            attempt = 0
+            while True:
+                attempt += 1
+                answer = session.request("tools/call", {"name": call["tool"], "arguments": arguments},
+                                         call.get("timeout", 120))
+                text = result_text(answer)
+                passed = expect in text and "error" not in answer
+                if call.get("expect_error"):
+                    passed = expect in text
+                limited = None if passed or "error" in answer else next((m for m in markers if m in text), None)
+                if limited is None or attempt > opts.upstream_retries:
+                    break
+                wait = opts.upstream_backoff * 2 ** (attempt - 1)
+                print(f"smoke: {call['tool']}: upstream rate-limited ({limited}); retry {attempt} of "
+                      f"{opts.upstream_retries} in {wait:g} s", file=sys.stderr, flush=True)
+                time.sleep(wait)
+            check = {"check": f"tools/call {call['tool']}", "arguments": arguments, "ok": passed,
+                     "expect": expect, "seconds": round(time.monotonic() - started, 2), "attempts": attempt,
+                     "text": text[: opts.max_text]}
+            if limited is not None:
+                # The service answered and refused (its status in the server's error): not this server's failure.
+                check.update(ok=True, skipped="upstream rate-limited", upstream=limited)
+                report["skipped"].append(check["check"])
+            report["checks"].append(check)
+            ok &= check["ok"]
     except Exception as exc:  # noqa: BLE001 - reported, not hidden
         ok = False
         report["exception"] = f"{type(exc).__name__}: {exc}"
     finally:
-        report["stderr_tail"] = session.close()[-3000:]
+        stderr = session.close()
+        report["stderr_tail"] = stderr[-3000:]
         if proxy is not None:
             proxy.close()
     report["ok"] = bool(ok)
+    hint = None if ok else failure_hint(opts.runner, stderr)  # all of it: bwrap's usage is longer than the tail
+    if hint:
+        report["hint"] = hint
     print(json.dumps(report, indent=2))
-    if not ok and os.environ.get("GITHUB_ACTIONS") == "true":
-        print(annotation(report))
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        for line in ([] if ok else [annotation(report)]) + skipped_annotations(report, opts.upstream_retries):
+            print(line, flush=True)
     if opts.report:
         with open(opts.report, "w", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)
