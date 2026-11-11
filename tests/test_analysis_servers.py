@@ -184,7 +184,9 @@ class FileAnalysisServers(unittest.TestCase):
                 self.assertEqual(entries[name]["image"], make_catalog.IMAGE_PREFIX + name)
                 self.assertEqual(entries[name]["category"], "Analysis: Files")
                 self.assertIn("/work", entries[name]["description"])
-                self.assertNotIn("digest", entries[name], "not published yet: pending-digests")
+                # Pending until a CI run pushed it; once published, pinned by its digest.
+                digest = entries[name].get("digest")
+                self.assertTrue(digest is None or re.fullmatch(r"sha256:[0-9a-f]{64}", digest), digest)
 
     def test_the_provenance_pins_every_source(self):
         for name in FILE_ANALYSIS:
