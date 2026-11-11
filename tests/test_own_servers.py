@@ -303,6 +303,98 @@ class Servers(unittest.TestCase):
         self.assertEqual(module.extras_of(data), {"suggestions": ["example domain names"],
                                                   "answers": ["An answer", "From an infobox"]})
 
+    def test_openosint(self):
+        """OpenOSINT's tool code behind this repository's server: only the passive tools, arguments refused
+        before a request is built, keys in no answer and no log line. Runs where the image's modules are
+        (the image, or a venv with servers/openosint/openosint-files.sha256 installed); no network needed."""
+        import io
+        import logging
+        from unittest import mock
+        try:
+            import openosint  # noqa: F401 - the reviewed modules, installed by the Dockerfile
+        except ImportError:
+            self.skipTest("OpenOSINT's reviewed modules are not installed (they are in the image)")
+
+        def text(answer):
+            return answer["result"]["content"][0]["text"], answer["result"].get("isError", False)
+
+        self.check_tools("openosint")
+        key = "ip2l-test-key-not-a-real-one"
+        answers = rpc("openosint", session(
+            ("generate_dorks", {"target": "example.com"}),
+            ("generate_dorks", {"target": "example.com", "json_output": True}),
+            ("search_rdap", {"domain": "localhost"}),
+            ("search_whois", {"domain": "example.com/path"}),
+            ("search_dns", {"domain": "a\x00b.com"}),
+            ("search_virustotal", {"target": "https://example.com/"}),
+            ("search_virustotal", {"target": "2606:4700::1111"}),
+            ("search_ip", {"ip": "169.254.169.254"}),
+            ("search_abuseipdb", {"ip": "10.0.0.1"}),
+            ("search_github", {"query": "octocat/../x"}),
+            ("search_paste", {"query": "two words"}),
+            ("search_breach", {"email": "a%2Fb@example.com"}),
+            ("search_footprint", {"target": "x", "max_queries": 4}),
+            ("search_gdelt_geo", {"query": "x", "timespan": 5}),
+            ("search_gdelt_geo", {"query": "x", "bbox": [1, 2, 3]}),
+            ("search_breach", {"email": "someone@example.com"}),
+            ("search_ip2location", {"ip": "8.8.8.8"}),
+            ("search_username", {"username": "x"})),
+            env={"OPENOSINT_ALLOW_ACTIVE": "1", "HIBP_API_KEY": "", "IP2LOCATION_API_KEY": key,
+                 "OPENOSINT_PROXY_URL": "http://127.0.0.1:9"})
+        dorks, failed = text(answers[2])
+        self.assertFalse(failed)
+        self.assertTrue(dorks.startswith("Google dork URLs for 'example.com':"))
+        self.assertIn("https://www.google.com/search?q=%22example.com%22", dorks)
+        self.assertEqual(json.loads(text(answers[3])[0])["tool"], "generate_dorks")
+        for index, expected in ((4, "a domain name such as example.com"), (5, "a domain name"),
+                                (6, "without control characters"), (7, "URL submission is not offered"),
+                                (8, "an IPv4 address"), (9, "a public address"), (10, "a public address"),
+                                (11, "without / \\ ? # %"), (12, "an e-mail address or username"),
+                                (13, "an e-mail address"), (14, "max_queries: an integer from 1 to 3"),
+                                (15, "timespan: an integer from 15 to 1440"), (16, "bbox: four numbers")):
+            message, failed = text(answers[index])
+            self.assertTrue(failed, index)
+            self.assertIn(expected, message, index)
+        message, failed = text(answers[17])
+        self.assertTrue(failed)
+        self.assertIn("[key_required] HIBP_API_KEY", message)
+        self.assertIn("--env NAME", message)
+        self.assertNotIn("web UI", message)
+        message, failed = text(answers[18])  # the request fails (no network, or the proxy on port 9)
+        self.assertTrue(failed)
+        self.assertNotIn(key, message)
+        self.assertIn("[redacted]", message)
+        self.assertTrue(text(answers[19])[1])  # an active tool is not there, OPENOSINT_ALLOW_ACTIVE or not
+
+        os.environ["OPENOSINT_ALLOW_ACTIVE"] = "1"
+        self.addCleanup(os.environ.pop, "OPENOSINT_ALLOW_ACTIVE", None)
+        module = load("openosint")
+        from openosint import tool_policy
+        self.assertNotIn("OPENOSINT_ALLOW_ACTIVE", os.environ)
+        os.environ["OPENOSINT_ALLOW_ACTIVE"] = "1"
+        self.assertFalse(tool_policy.active_enabled())
+        for name in ("search_virustotal_url", "scrape_url", "search_username", "search_email", "search_domain",
+                     "search_phone"):
+            self.assertFalse(tool_policy.is_tool_enabled(name), name)
+        fenced = 'News for \'x\': 1 location(s).\n\n```geojson\n{"type": "FeatureCollection", "features": [{}]}\n```'
+        stripped = module._answer("search_gdelt_geo", "x", fenced, False)
+        self.assertNotIn("geojson", stripped.replace("geo point", ""))
+        self.assertIn("[1 geo point(s)", stripped)
+        with self.assertRaises(module.ToolError):
+            module._answer("search_ip", "8.8.8.8", "Scan error: ipinfo.io returned HTTP 500.", False)
+        long = module._answer("search_dns", "example.com", "x" * (module.MAX_ANSWER + 10), False)
+        self.assertTrue(long.endswith("[answer cut at 64 KiB]"))
+        with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "ghp_testtokenvalue"}):
+            stream = io.StringIO()
+            handler = logging.StreamHandler(stream)
+            handler.setFormatter(module.RedactingFormatter("%(message)s"))
+            logging.getLogger("t").addHandler(handler)
+            logging.getLogger("t").propagate = False
+            self.addCleanup(logging.getLogger("t").removeHandler, handler)
+            logging.getLogger("t").warning("url with ghp_testtokenvalue")
+            self.assertEqual(stream.getvalue(), "url with [redacted]\n")
+            self.assertEqual(module.redact("Bearer ghp_testtokenvalue"), "Bearer [redacted]")
+
 
 if __name__ == "__main__":
     unittest.main()

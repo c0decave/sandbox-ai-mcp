@@ -23,6 +23,7 @@ network it was not given, and nothing here probes anyone.
 | [searxng](servers/searxng) | web search through a SearXNG instance of yours (many engines at once), JSON API | the instance (`SEARXNG_URL`) | - |
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
+| [openosint](servers/openosint) | passive OSINT lookups with OpenOSINT 2.36.1's tool code: Google dork URLs, RDAP, WHOIS and DNS of a domain (SPF/DMARC posture), IP geolocation and ASN, GitHub profiles and commit e-mails, Pastebin dumps, geolocated GDELT news; with your keys Have I Been Pwned, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Google results through Bright Data. Nothing touches the target; OpenOSINT's active tools, LLM agent and web UI are not in the image | full (registries' WHOIS and RDAP servers) | optional: `HIBP_API_KEY`, `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `IP2LOCATION_API_KEY`, `IPINFO_TOKEN`, `GITHUB_TOKEN`, `BRIGHTDATA_API_KEY` |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
@@ -52,6 +53,7 @@ sandbox-ai mcp add duckduckgo --network full    # pull by digest, write the defi
 sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
+sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys optional, each named with --env
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
@@ -194,7 +196,8 @@ own licence: radare2 (LGPL-3.0-only, single plugins and dependencies GPL-3.0, Ap
 Zlib) with r2mcp (MIT); Mandiant capa and capa-rules (Apache-2.0) with the FuzzingLabs MCP wrapper
 (MIT); Debian's binwalk and its extractors (MIT/Expat and their own licences) with that wrapper
 (MIT). playwright bundles Playwright MCP and Playwright (Apache-2.0) with Debian's Chromium (BSD-3-Clause
-and others, `/usr/share/doc/chromium/copyright` in the image). See each server's `LICENSES/` and
+and others, `/usr/share/doc/chromium/copyright` in the image). openosint bundles 26 modules of OpenOSINT
+(MIT) and python-whois (MIT). See each server's `LICENSES/` and
 `PROVENANCE.md`. Prepared servers bundle upstream software under its own licence
 (Apache-2.0 for Chrome DevTools MCP, Browserbase MCP, pyghidra-mcp and Ghidra;
 MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).
