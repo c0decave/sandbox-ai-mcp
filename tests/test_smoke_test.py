@@ -141,6 +141,20 @@ class SmokeTest(unittest.TestCase):
             with self.subTest(spec=bad), self.assertRaises(ValueError):
                 smoke.limits(bad)
 
+    def test_cpus_and_the_tmp_size_are_limits_too(self):
+        """Playwright's Chromium crashed in a 64m /tmp: a spec raises it (never above its memory: a tmpfs is memory)
+        and may give CPUs; the run line has them, and so has sandbox-ai's definition."""
+        self.assertEqual(smoke.limits({"memory": "2g", "tmp": "768m", "cpus": 2}),
+                         {"memory": "2g", "tmp": "768m", "cpus": 2})
+        for bad in ({"tmp": "1G"}, {"tmp": "1g"}, {"memory": "1g", "tmp": "2g"}, {"cpus": 0}, {"cpus": "2"},
+                    {"cpus": 1.234}, {"cpus": True}):
+            with self.subTest(spec=bad), self.assertRaises(ValueError):
+                smoke.limits(bad)
+        argv = smoke.run_command("x", "image", memory="2g", tmp="768m", cpus=2)
+        self.assertIn("--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=768m,notmpcopyup", argv)
+        self.assertIn("--cpus=2", argv)
+        self.assertIn("--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=64m,notmpcopyup", smoke.run_command("x", "image"))
+
     def test_the_limits_reach_the_engine_and_the_report(self):
         status, report = self.run_smoke(self.spec(memory="2g", pids=512), "--print-argv")
         self.assertEqual(status, 0, report)

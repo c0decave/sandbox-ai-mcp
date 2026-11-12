@@ -77,6 +77,25 @@ class MakeCatalogTest(unittest.TestCase):
 
     # -- happy path --------------------------------------------------------------------
 
+    def test_the_limits_of_the_smoke_runs_go_into_rootfs_json(self):
+        """What a published server's smoke runs had beyond the defaults (servers/NAME/smoke.json) is what sandbox-ai's
+        mcp add applies: rootfs.json's "limits"; a pending server's are left out, a server without any too."""
+        first, second = self.hub.names[0], self.hub.names[1]
+        (self.hub.root / "servers" / first / "smoke.json").write_text(json.dumps(
+            {"name": first, "memory": "2g", "pids": 512, "tmp": "768m", "cpus": 2, "calls": []}))
+        (self.hub.root / "servers" / second / "smoke.json").write_text(json.dumps({"name": second, "calls": []}))
+        self.hub.ci_file(first, D1)
+        self.hub.ci_file(second, D1)
+        code, text = self.hub.run("--ci-digests", str(self.hub.root / "ci"), "--write-digests")
+        self.assertEqual(code, 0, text)
+        rootfs = json.loads((self.hub.root / "rootfs.json").read_text())
+        self.assertEqual(rootfs["limits"], {first: {"memory": "2g", "cpus": 2, "pids": 512, "tmp": "768m"}})
+        (self.hub.root / "servers" / first / "smoke.json").write_text(json.dumps(
+            {"name": first, "memory": "1g", "tmp": "2g", "calls": []}))
+        code, text = self.hub.run()
+        self.assertEqual(code, 1, text)
+        self.assertIn("tmp must not be more than the memory", text)
+
     def test_all_digests_give_a_pinned_catalog(self):
         for name in self.hub.names:
             self.hub.ci_file(name, D1)

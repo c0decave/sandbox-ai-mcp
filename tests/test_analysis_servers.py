@@ -269,9 +269,22 @@ class Playwright(unittest.TestCase):
         self.assertEqual(self.spec["network"], "full")
         self.assertEqual((self.spec["memory"], self.spec["pids"]), ("2g", 512))
         limits = f"--memory {self.spec['memory']} --pids {self.spec['pids']}"
-        self.assertIn(limits, self.entry["description"])
-        self.assertIn(limits, self.entry["notes"])
+        self.assertIn(limits, self.entry["notes"])  # (for a sandbox-ai before 0.1.94)
         self.assertIn(limits, (ROOT / "servers" / "playwright" / "PROVENANCE.md").read_text())
+        # Chromium's profile, cache, shared memory and screenshots are in /tmp: 64m crashed it.
+        self.assertEqual((self.spec["tmp"], self.spec["cpus"]), ("768m", 2))
+        self.assertIn("a 768m /tmp", self.entry["description"])
+        # What its smoke runs had is what sandbox-ai's mcp add applies (rootfs.json's "limits", made from smoke.json).
+        rootfs = json.loads((ROOT / "rootfs.json").read_text())
+        self.assertEqual(rootfs["limits"]["playwright"], {"memory": "2g", "cpus": 2, "pids": 512, "tmp": "768m"})
+
+    def test_the_smoke_run_fills_memory_and_tmp_as_real_pages_do(self):
+        """A data: page of a few bytes passed while every real page crashed the browser (a 64m /tmp): the smoke run
+        builds a page of several MB with large canvases and takes a screenshot."""
+        tools = [call["tool"] for call in self.spec["calls"]]
+        self.assertIn("browser_take_screenshot", tools)
+        heavy = next(call for call in self.spec["calls"] if call.get("expect") == "40000 rows")
+        self.assertIn("4000", heavy["arguments"]["function"])
 
     def test_the_browser_runs_isolated_headless_and_offers_no_page_tools(self):
         for flag in ("--headless", "--isolated", "--no-sandbox", "--no-webmcp"):
