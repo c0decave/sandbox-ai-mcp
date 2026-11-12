@@ -374,7 +374,7 @@ class Gowitness(unittest.TestCase):
 
     def test_the_smoke_spec_screenshots_and_refuses(self):
         refused = [call for call in self.spec["calls"] if call.get("expect_error")]
-        self.assertEqual(len(refused), 3)
+        self.assertEqual(len(refused), 4)  # a file URL, the metadata address, loopback, .onion without Tor
         self.assertTrue(any("image/png" in call["expect"] for call in self.spec["calls"]))
 
 

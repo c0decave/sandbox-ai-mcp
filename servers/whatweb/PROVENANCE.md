@@ -101,6 +101,7 @@ address up in the shipped `country-ips.dat`). Points that shape this server:
   6to4 addresses judged by the IPv4 address they carry). With `ALLOW_PRIVATE_TARGETS=1` (exactly `1`) the private
   ranges 10/8, 172.16/12, 192.168/16, 100.64/10 and fc00::/7 are allowed too; loopback, link-local (cloud metadata
   169.254.169.254), unspecified, multicast, broadcast, documentation and reserved addresses never are.
+  Behind sandbox-ai's Tor profile (`SANDBOX_AI_TOR=1` and `SANDBOX_AI_TOR_VIRTUAL_NETWORK`, an IPv4 range inside 10.0.0.0/8) the addresses of that range - Tor's addresses for onion services - are taken too, so `.onion` URLs work; nothing else of the local ranges is. Without a Tor profile a `.onion` name is refused before it is looked up, and every refusal says what the address is and what would apply (`tests/test_onion_behind_tor.py`).
 - **The run line** (an argument list, never a shell): `/usr/bin/ruby3.3 -W0 /opt/whatweb/whatweb --colour=never
   --quiet --log-json=FOLDER/result.log --aggression=1|3 --follow-redirect=never --max-redirects=0 --max-threads=1
   --open-timeout=10 --read-timeout=20 -- URL`, its working directory and `HOME`/`TMPDIR` a fresh folder made by

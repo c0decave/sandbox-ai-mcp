@@ -108,7 +108,7 @@ user name or password, a port 1-65535. The host is resolved and every address mu
 IPv6 carrying an IPv4 address - NAT64, IPv4-mapped, 6to4 - that one too, as in `servers/web-fetch`); with
 `ALLOW_PRIVATE_TARGETS=1` (exactly `1`) also 10/8, 172.16/12, 192.168/16, 100.64/10 and fc00::/7. Loopback,
 link-local (cloud metadata at 169.254.169.254), unspecified, multicast, documentation and reserved addresses are
-always refused. `width` 320-3840, `height` 240-2160, `delay` 0-10 s, `timeout` 5-120 s and at least `delay` + 5,
+always refused. Behind sandbox-ai's Tor profile (`SANDBOX_AI_TOR=1` and `SANDBOX_AI_TOR_VIRTUAL_NETWORK`, an IPv4 range inside 10.0.0.0/8) the addresses of that range - Tor's addresses for onion services - are taken too, so `.onion` URLs work; nothing else of the local ranges is. Without a Tor profile a `.onion` name is refused before it is looked up, and every refusal says what the address is and what would apply (`tests/test_onion_behind_tor.py`). `width` 320-3840, `height` 240-2160, `delay` 0-10 s, `timeout` 5-120 s and at least `delay` + 5,
 `format` png or jpeg, `jpeg_quality` 10-100. No other gowitness option can be reached: no JavaScript, headers,
 proxy, profile folder, remote browser, database, other writers or scan modes.
 

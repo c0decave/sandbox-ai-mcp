@@ -8,7 +8,9 @@ Tools:
     - plugin_info: what WhatWeb's plugins detect, by search word
 
 Needs network "full". Only public addresses are scanned (ALLOW_PRIVATE_TARGETS=1 also allows the private
-ranges, never loopback or link-local), checked before every hop: WhatWeb itself follows no redirect
+ranges, never loopback or link-local; behind sandbox-ai's Tor profile, SANDBOX_AI_TOR=1 with
+SANDBOX_AI_TOR_VIRTUAL_NETWORK, also Tor's range for onion services, so .onion URLs work), checked before every
+hop: WhatWeb itself follows no redirect
 (--follow-redirect=never); this server follows at most 5, each checked again. WhatWeb runs as a
 separate process with an argument list (never a shell), in a fresh folder below /tmp, time-bounded,
 its answer bounded. What it reports - titles, strings, header values - was written by the web site:
@@ -100,14 +102,112 @@ def allow_private_targets() -> bool:
     return os.environ.get("ALLOW_PRIVATE_TARGETS") == "1"
 
 
+# -- onion services behind sandbox-ai's Tor profile -------------------------------------------------------------------
+# The same block is in web-fetch, gowitness and whatweb (each image has its own copy: keep them alike). Behind a Tor
+# profile sandbox-ai sets SANDBOX_AI_TOR=1 and SANDBOX_AI_TOR_VIRTUAL_NETWORK, the IPv4 range tor maps .onion names
+# into (AutomapHostsOnResolve; tor's default 10.192.0.0/10). Every connection of the container goes through Tor then,
+# and an address of that range is an onion service: it is taken, nothing else of 10.0.0.0/8 or the other local,
+# loopback, link-local or reserved ranges is. The error texts say what an address is and what would apply.
+
+TOR_DEFAULT_NETWORK = ipaddress.ip_network("10.192.0.0/10")
+TOR_PARENT = ipaddress.ip_network("10.0.0.0/8")
+LOCAL_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+                                                         "100.64.0.0/10", "fc00::/7"))
+METADATA = (ipaddress.ip_address("169.254.169.254"), ipaddress.ip_address("fd00:ec2::254"))
+NEEDS_TOR = (".onion needs a Tor profile (start the server behind one: --vpn TOR_PROFILE); "
+             "this server does not run behind Tor")
+NOT_TOLD = ("this server was not told Tor's address range (SANDBOX_AI_TOR_VIRTUAL_NETWORK missing or invalid: "
+            "an older sandbox-ai?)")
+
+
+def tor_network():
+    """(behind Tor, Tor's virtual IPv4 range or None): (False, None) without SANDBOX_AI_TOR=1; (True, None) when
+    SANDBOX_AI_TOR_VIRTUAL_NETWORK is missing, not an IPv4 network or not inside 10.0.0.0/8."""
+    if os.environ.get("SANDBOX_AI_TOR") != "1":
+        return False, None
+    try:
+        network = ipaddress.IPv4Network(os.environ.get("SANDBOX_AI_TOR_VIRTUAL_NETWORK", "").strip(), strict=True)
+    except ValueError:
+        return True, None
+    return True, (network if network.subnet_of(TOR_PARENT) else None)
+
+
+def onion(host: str) -> bool:
+    return host.rstrip(".").lower().rpartition(".")[2] == "onion"
+
+
+def check_onion_name(host: str) -> None:
+    """Before any lookup: a .onion name only behind Tor (so it never goes to a resolver outside Tor either)."""
+    if onion(host) and not tor_network()[0]:
+        raise ArgumentError(f"refused: {host}: {NEEDS_TOR}")
+
+
+def in_tor_network(address) -> bool:
+    """An IPv4 address of the range Tor announced (behind Tor only)."""
+    network = tor_network()[1]
+    return network is not None and address.version == 4 and address in network
+
+
+def address_kind(address) -> str:
+    if address in METADATA:
+        return "the cloud metadata address (link-local)"
+    if address.is_loopback:
+        return "a loopback address (the server's own container)"
+    if address.is_unspecified:
+        return "the unspecified address"
+    if address.is_link_local:
+        return "a link-local address"
+    if address.is_multicast:
+        return "a multicast address"
+    if any(address in net for net in LOCAL_NETWORKS):
+        return "a local-network address"
+    return "a reserved or documentation address"
+
+
+def refusal(host: str, address, private_targets) -> str:
+    """Why *host*, resolving to *address* (which the server's own check refused), is refused, and what would apply.
+    *private_targets*: whether ALLOW_PRIVATE_TARGETS=1 is set; None for a server without that setting."""
+    behind, network = tor_network()
+    carried = embedded_ipv4(address)
+    judged = carried if carried is not None and (not carried.is_global or carried.is_multicast) else address
+    shown = str(address) if judged is address else f"{address} (which reaches {judged})"
+    try:
+        literal = ipaddress.ip_address(host) == address
+    except ValueError:
+        literal = False
+    start = f"refused: {shown} is" if literal else f"refused: {host} resolves to {shown},"
+    if behind and network is None and judged in TOR_DEFAULT_NETWORK:
+        return f"{start} Tor's address for an onion service; {NOT_TOLD}"
+    kind = address_kind(judged)
+    text = f"{start} {kind}, not a public address"
+    if kind == "a local-network address":
+        if private_targets is None:
+            text += "; this server never connects to local-network addresses"
+        elif not private_targets:
+            text += " (ALLOW_PRIVATE_TARGETS=1 allows your own LAN)"
+    else:
+        text += "; this server never connects to it" + ("" if private_targets is None
+                                                         else ", not even with ALLOW_PRIVATE_TARGETS=1")
+    if behind and onion(host):
+        text += (f"; behind Tor an onion name must resolve into Tor's range {network}" if network is not None
+                 else f"; {NOT_TOLD}")
+    elif behind and network is not None and judged in TOR_PARENT:
+        text += f"; behind Tor only Tor's range for onion services ({network}) is taken of 10.0.0.0/8"
+    elif not behind and (onion(host) or judged in TOR_DEFAULT_NETWORK):
+        text += f"; if it is Tor's address for an onion service: {NEEDS_TOR}"
+    return text
+
+
 def check_url(url) -> str:
-    """URL if it is http(s) to an allowed address; ArgumentError otherwise."""
+    """URL if it is http(s) to an allowed address (behind Tor also one of Tor's range for onion services);
+    ArgumentError otherwise."""
     if not isinstance(url, str) or not url or len(url) > MAX_URL or any(ord(c) < 33 or ord(c) == 127 for c in url):
         raise ArgumentError(f"url: an http or https URL of at most {MAX_URL} characters, without spaces")
     parts = urllib.parse.urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password \
             or "@" in parts.netloc:
         raise ArgumentError("url: an http or https URL with a host name, without user name or password")
+    check_onion_name(parts.hostname)
     try:
         port = parts.port or (443 if parts.scheme == "https" else 80)
         infos = socket.getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM)
@@ -116,9 +216,8 @@ def check_url(url) -> str:
     permit = allow_private_targets()
     for info in infos:
         address = ipaddress.ip_address(info[4][0].split("%")[0])
-        if not allowed(address, permit):
-            raise ArgumentError(f"{parts.hostname} resolves to {address}, which is not a public address"
-                                + ("" if permit else " (ALLOW_PRIVATE_TARGETS=1 allows the private ranges)"))
+        if not (allowed(address, permit) or in_tor_network(address)):
+            raise ArgumentError(refusal(parts.hostname, address, permit))
     return url
 
 

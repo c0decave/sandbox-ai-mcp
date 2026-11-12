@@ -204,7 +204,9 @@ session summary; its `directory`/`cwd` arguments are not offered (they would sca
 **gowitness and whatweb** visit the site you name from the container's address (`--vpn PROFILE` hides it). Both
 take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (`--env
 ALLOW_PRIVATE_TARGETS`) adds the private ranges for your own network, loopback and link-local (cloud metadata)
-stay refused. gowitness checks the URL it is given; what the page then loads (redirects, frames, scripts) goes
+stay refused. Behind a Tor profile (`--vpn TOR_PROFILE`), web-fetch, gowitness and whatweb also take the
+address range sandbox-ai announces as Tor's for onion services (`SANDBOX_AI_TOR_VIRTUAL_NETWORK`), so `.onion`
+URLs work, and nothing else of the local ranges; without one a `.onion` URL is refused with that reason. gowitness checks the URL it is given; what the page then loads (redirects, frames, scripts) goes
 wherever the container's network lets it, as with playwright. Its gowitness is built from the pinned release
 without the report server, web UI, database and go-rod driver, and without gowitness's lifting of Chromium's port
 blocklist (see [its PROVENANCE.md](servers/gowitness/PROVENANCE.md)). whatweb at aggression 1 sends one ordinary
