@@ -18,8 +18,10 @@ the catalog says ``"state": "pending-digests"``, and axross refuses that entry
 
 rootfs.json beside it has the Bubblewrap form of each published server (the ``rootfs-<name>.json``
 files the build workflow uploads, kept in digests.json's ``"rootfs"``): the archive's URL and SHA-256,
-built from the very image digest the catalog pins, and what runs it. A file of its own, since axross
-takes no keys it does not know; scripts/sign_catalog.py signs both.
+built from the very image digest the catalog pins, and what runs it; and ``"limits"``: what a server
+needs beyond sandbox-ai's defaults (memory, pids, cpus, tmp - the size of its /tmp), taken from the fields of
+its ``servers/<name>/smoke.json``, which its smoke runs use, so that ``sandbox-ai mcp add`` applies what CI
+tested. A file of its own, since axross takes no keys it does not know; scripts/sign_catalog.py signs both.
 
 ``--only NAME...`` (with ``--ci-digests``) takes only these servers of the CI run and makes every other
 server pending, without its rootfs: the build workflow's catalog job passes the servers whose image job
@@ -318,14 +320,39 @@ def read_ci_rootfs(paths: list[Path]) -> dict[str, dict]:
     return out
 
 
-def build_rootfs(servers: list[dict], digests: dict, rootfs: dict) -> dict:
-    """rootfs.json: the Bubblewrap form of every server whose image is published and whose rootfs was built."""
+LIMIT_KEYS = ("memory", "cpus", "pids", "tmp")
+
+
+def server_limits(root: Path, name: str) -> dict:
+    """The limits of server NAME's smoke runs (servers/NAME/smoke.json: memory, cpus, pids, tmp), checked as
+    scripts/smoke_test.py checks them (sandbox-ai's own rules); {} when it sets none."""
+    path = root / "servers" / name / "smoke.json"
+    if not path.is_file():
+        return {}
+    spec = json.loads(path.read_text(encoding="utf-8"))
+    smoke = _load_module(Path(__file__).resolve().parent / "smoke_test.py", "smoke_test_for_catalog")
+    try:
+        found = smoke.limits(spec)
+    except ValueError as exc:
+        raise CatalogProblem(f"servers/{name}/smoke.json: {exc}") from None
+    return {key: found[key] for key in LIMIT_KEYS if key in found}
+
+
+def build_rootfs(servers: list[dict], digests: dict, rootfs: dict, root: Path | None = None) -> dict:
+    """rootfs.json: the Bubblewrap form of every server whose image is published and whose rootfs was built, and the
+    limits every published server's smoke runs had beyond the defaults (server_limits; ROOT None: none)."""
     known = {s["name"] for s in servers}
     unknown = sorted(set(rootfs) - known)
     if unknown:
         raise CatalogProblem(f"rootfs for servers that do not exist: {', '.join(unknown)}")
-    return {"version": 1, "rootfs": {name: validate_rootfs(name, meta, digests.get(name))
-                                     for name, meta in sorted(rootfs.items()) if digests.get(name)}}
+    document = {"version": 1, "rootfs": {name: validate_rootfs(name, meta, digests.get(name))
+                                         for name, meta in sorted(rootfs.items()) if digests.get(name)}}
+    limits = {server["name"]: server_limits(root, server["name"]) for server in sorted(servers, key=lambda s: s["name"])
+              if root is not None and digests.get(server["name"])}
+    limits = {name: value for name, value in limits.items() if value}
+    if limits:
+        document["limits"] = limits
+    return document
 
 
 def build_catalog(servers: list[dict], digests: dict[str, str | None]) -> dict:
@@ -455,6 +482,13 @@ def sandbox_ai_check(catalog_path: Path, catalog: dict, rootfs: dict, sandbox_ai
             if entry["network"] == "none" and definition["network"] != "none":
                 problems.append(f"{name}: the catalog says network none, sandbox-ai would give it "
                                 f"{definition['network']}")
+        for name, limits in sorted(rootfs.get("limits", {}).items()):
+            # The limits mcp add applies, checked by sandbox-ai's own rules (a checkout before 0.1.94: not read there).
+            if hasattr(mcp, "checked_limits"):
+                try:
+                    mcp.checked_limits(limits, name)
+                except ValueError as exc:
+                    problems.append(f"sandbox-ai refuses the limits of {name}: {exc}")
         module = mcp.rootfs_module()
         for name, meta in sorted(rootfs.get("rootfs", {}).items()):
             try:
@@ -525,7 +559,7 @@ def main(argv=None) -> int:
         for server in servers:
             digests.setdefault(server["name"], None)
         catalog = build_catalog(servers, digests)
-        rootfs_document = build_rootfs(servers, digests, rootfs)
+        rootfs_document = build_rootfs(servers, digests, rootfs, root)
     except (CatalogProblem, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

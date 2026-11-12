@@ -26,10 +26,12 @@ A mount may be ``{"target": "/data", "fresh": true, "writable": true}`` instead 
 gets a new empty folder of its own (removed afterwards), for a server that keeps its data in a folder the user mounts
 writable (a note, a memory) and must write, search and read it back in its smoke run without touching anything else.
 
-A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, what the
-server's catalog notes tell users to add with ``sandbox-ai mcp add --memory --pids``): the run line then
-has these instead of 512m and 128, and the sandbox-ai runners put them into the definition, as
-``mcp add`` does.
+A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, ``"cpus": 2``,
+``"tmp": "768m"`` - the size of its /tmp, a tmpfs, so at most the memory): the run line then has these instead of
+512m, 128 and a 64m /tmp (and ``--cpus``), and the sandbox-ai runners put them into the definition, as ``mcp add``
+does with the limits the catalog recommends (scripts/make_catalog.py writes them into rootfs.json's ``"limits"``
+from these very fields). A sandbox-ai checkout that does not know a key yet (``cpus``, ``tmp``: before 0.1.94) is
+given the others.
 
 A call may name the answers of an upstream service that refuses for its own reasons, a rate limit
 (``"upstream_limited": ["DuckDuckGo answered HTTP 202", ...]``, texts the server only writes when the
@@ -80,10 +82,13 @@ MEMORY = re.compile(r"^[1-9][0-9]{0,5}[mg]$")
 def run_command(name: str, image: str, *, network: str = "none", mounts=(), args=(),
                 program: str = "podman", env_fd: int | str = "AXROSS_ENV_FD",
                 run_id: str = "AXROSS_RUN_ID", egress_port: int | str = "AXROSS_EGRESS_PORT",
-                memory: str | None = None, pids: int | None = None) -> list[str]:
-    """The ``podman run`` line axross builds for a container server (*memory* and *pids* replace its limits)."""
+                memory: str | None = None, pids: int | None = None, cpus=None, tmp: str | None = None) -> list[str]:
+    """The ``podman run`` line axross builds for a container server (*memory*, *pids* and *tmp*, the size of its
+    /tmp, replace its limits; *cpus* adds ``--cpus``)."""
     flags = tuple(f"--memory={memory}" if memory and f.startswith("--memory=") else
-                  f"--pids-limit={pids}" if pids and f.startswith("--pids-limit=") else f for f in RUN_FLAGS)
+                  f"--pids-limit={pids}" if pids and f.startswith("--pids-limit=") else
+                  f.replace(",size=64m,", f",size={tmp},") if tmp and f.startswith("--tmpfs=/tmp:") else f
+                  for f in RUN_FLAGS) + ((f"--cpus={cpus}",) if cpus else ())
     if os.path.basename(program) == "docker":
         # notmpcopyup is podman's: docker refuses it ("invalid tmpfs option"),
         # and its tmpfs never copies the image's /tmp up anyway - same /tmp.
@@ -159,10 +164,27 @@ def upstream_limits(spec: dict) -> None:
             raise ValueError(f"{call.get('tool')}: a call with expect_error cannot be upstream_limited")
 
 
+def size_mib(text: str) -> int:
+    return int(text[:-1]) * (1024 if text.endswith("g") else 1)
+
+
 def limits(spec: dict) -> dict:
-    """``{"memory": ..., "pids": ...}`` of the spec (only those it sets), ValueError unless sandbox-ai would take
-    them in a definition."""
+    """``{"memory", "pids", "cpus", "tmp"}`` of the spec (only those it sets), ValueError unless sandbox-ai would take
+    them in a definition (its /tmp at most its memory: a tmpfs is memory)."""
     found = {}
+    if "cpus" in spec:
+        cpus = spec["cpus"]
+        if isinstance(cpus, bool) or not isinstance(cpus, (int, float)) or not 0.01 <= cpus <= 1024 \
+                or round(cpus, 2) != cpus:
+            raise ValueError("cpus must be a number of CPUs from 0.01 to 1024 (2, 1.5)")
+        found["cpus"] = cpus
+    if "tmp" in spec:
+        if not isinstance(spec["tmp"], str) or not MEMORY.match(spec["tmp"]):
+            raise ValueError("tmp must be like 64m or 1g")
+        if size_mib(spec["tmp"]) > size_mib(spec.get("memory", "512m") if MEMORY.match(str(spec.get("memory", "512m")))
+                                            else "512m"):
+            raise ValueError("tmp must not be more than the memory (a tmpfs is memory)")
+        found["tmp"] = spec["tmp"]
     if "memory" in spec:
         if not isinstance(spec["memory"], str) or not MEMORY.match(spec["memory"]):
             raise ValueError("memory must be like 512m or 2g")
@@ -256,6 +278,8 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
         # the workflow has just pulled ("image not known").
         os.environ.setdefault("XDG_DATA_HOME", os.path.join(state, "data"))
     mcp = load_module(os.path.join(checkout, "sandbox", "mcp.py"), "sandbox_ai_mcp_for_smoke")
+    known = getattr(mcp, "IMAGE_KEYS", None)  # a checkout before cpus or tmp were limits: the others
+    resources = {key: value for key, value in (resources or {}).items() if known is None or key in known}
     definition = {"network": "full" if network in ("full", "allowlist") else "none", "env": sorted(env),
                   "mounts": [{"target": target, "host": host, "mode": "rw" if writable else "ro"}
                              for host, target, writable in mounts], **(resources or {})}

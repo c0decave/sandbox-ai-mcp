@@ -206,5 +206,17 @@
         "TOKIO_WORKER_THREADS": "2"
       }
     }
+  },
+  "limits": {
+    "playwright": {
+      "memory": "2g",
+      "cpus": 2,
+      "pids": 512,
+      "tmp": "768m"
+    },
+    "signal": {
+      "memory": "1g",
+      "pids": 256
+    }
   }
 }

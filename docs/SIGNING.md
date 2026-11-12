@@ -20,7 +20,7 @@ For the catalog `https://raw.githubusercontent.com/c0decave/sandbox-ai-mcp/main/
 |---|---|
 | `catalog.json` | the entries, each image pinned by digest |
 | `catalog.json.sig` | the signature over `catalog.json`; without it every entry is refused (unless `--unsigned`) |
-| `rootfs.json` | the Bubblewrap form of each server: archive URL (a release asset), SHA-256, entrypoint, user |
+| `rootfs.json` | the Bubblewrap form of each server: archive URL (a release asset), SHA-256, entrypoint, user; and `"limits"`, what a server needs beyond sandbox-ai's defaults (from its `smoke.json`: memory, pids, cpus, tmp), which `sandbox-ai mcp add` applies |
 | `rootfs.json.sig` | its signature; a signed catalog takes only a signed `rootfs.json` (otherwise Podman only) |
 
 `scripts/sign_catalog.py` writes both `.sig` files next to their files at the top of the repository, which is

@@ -30,8 +30,8 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [whatsapp](servers/whatsapp) | a WhatsApp account linked as a device (edouard-claude/whatsapp-mcp, Rust, with a Go bridge on whatsmeow): chats, messages (pages, context, recent, full-text search), contacts, account status, media (downloaded into `/data`, size-capped), older history from the phone. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and settings only with `WHATSAPP_WRITE=1`, files to send only from a mounted `/send`; no pairing or logout tools | full (WhatsApp's media hosts come from WhatsApp; `--vpn PROFILE` optional) | - (the linked device's keys live in the mounted `/data`) |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
-| [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
-| [gowitness](servers/gowitness) | screenshots of web pages with gowitness 3.2.2 (built with only its single-URL scan) and Debian's headless Chromium: the page as a PNG or JPEG image (window or full page) with what gowitness records - final URL, status, title, headers, TLS certificate, technologies (Wappalyzer), cookie names, console messages, the page's requests; one URL or up to 5. Public addresses only (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges). Needs `--memory 2g --pids 512` and a /tmp of 768m | full | - |
+| [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog; before: `--memory 2g --pids 512`) | full | - |
+| [gowitness](servers/gowitness) | screenshots of web pages with gowitness 3.2.2 (built with only its single-URL scan) and Debian's headless Chromium: the page as a PNG or JPEG image (window or full page) with what gowitness records - final URL, status, title, headers, TLS certificate, technologies (Wappalyzer), cookie names, console messages, the page's requests; one URL or up to 5. Public addresses only (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges). Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | full | - |
 | [whatweb](servers/whatweb) | which software a web site runs: WhatWeb 0.6.4's 1,800+ plugins (CMS and versions, frameworks, servers, libraries, analytics) as JSON per URL visited; aggression 1 (one GET per URL, default) or 3 (more requests to the same site, only when asked; 4 not offered); plugin search. Public addresses only, every redirect checked (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges) | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
@@ -110,8 +110,8 @@ sandbox-ai mcp add whatsapp --network full --mount /data=~/whatsapp-data:rw   # 
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
-sandbox-ai mcp add playwright --network full --memory 2g --pids 512   # Chromium needs more
-sandbox-ai mcp add gowitness --network full --memory 2g --pids 512    # Chromium; a /tmp of 768m for large pages
+sandbox-ai mcp add playwright --network full   # 0.1.94: the catalog's limits (before: --memory 2g --pids 512)
+sandbox-ai mcp add gowitness --network full    # 0.1.94: the catalog's limits (2g, 512 processes, 768m /tmp)
 sandbox-ai mcp add whatweb --network full      # --env ALLOW_PRIVATE_TARGETS for your own LAN
 sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn PROFILE hides your address
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
@@ -238,8 +238,11 @@ code: its `podman run` line, and its Bubblewrap runner (the archive checked
 against its SHA-256, unpacked without trusting it, `bwrap --unshare-all`,
 read-only root, no capabilities, cleared environment, slirp4netns without the
 host's loopback for network). `catalog.json` pins the image digests,
-`rootfs.json` the archives (a file of its own: axross reads the catalog and
-takes no keys it does not know).
+`rootfs.json` the archives and the limits a server needs beyond sandbox-ai's
+defaults (`"limits"`: memory, pids, cpus and tmp, the size of its /tmp; made by
+`scripts/make_catalog.py` from the server's `smoke.json`, so `sandbox-ai mcp add`
+applies what CI tested), a file of its own: axross reads the catalog and takes no
+keys it does not know.
 
 A release of the catalog is signed, on your machine, never in CI (every step: [docs/SIGNING.md](docs/SIGNING.md)):
 

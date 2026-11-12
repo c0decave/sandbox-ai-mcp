@@ -339,7 +339,7 @@
       "id": "mcp:playwright",
       "name": "playwright",
       "title": "Browser (Playwright MCP, Chromium)",
-      "description": "A headless Chromium driven through Microsoft's Playwright MCP: open pages, read them as accessibility snapshots, click, type, fill forms, select, drag, press keys, handle dialogs, manage tabs, wait for text, run JavaScript in the page, take screenshots, and read the page's console messages and network requests. Debian's Chromium, a fresh in-memory profile per connection; file: URLs and files outside the server's own /tmp are refused; a page cannot add tools (WebMCP off). Needs network: Full and more than the default limits (--memory 2g --pids 512).",
+      "description": "A headless Chromium driven through Microsoft's Playwright MCP: open pages, read them as accessibility snapshots, click, type, fill forms, select, drag, press keys, handle dialogs, manage tabs, wait for text, run JavaScript in the page, take screenshots, and read the page's console messages and network requests. Debian's Chromium, a fresh in-memory profile per connection; file: URLs and files outside the server's own /tmp are refused; a page cannot add tools (WebMCP off). Needs network: Full and more than the default limits (2g memory, 2 CPUs, 512 processes, a 768m /tmp: sandbox-ai 0.1.94 takes them from the catalog).",
       "category": "Web",
       "tags": [
         "web",
@@ -356,7 +356,7 @@
       "tag": "latest",
       "digest": "sha256:05380faee947fd34e882c4f0b0da5d59af69926f0b7cb66146b40f6be8007f4a",
       "network": "full",
-      "notes": "Add it with --network full --memory 2g --pids 512: Chromium does not start reliably within the default 512 MiB and 128 processes. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512): Chromium does not start reliably within the default 512 MiB and 128 processes, and crashes once its /tmp (its profile, cache, shared memory and screenshots; 64 MiB by default) is full - sandbox-ai mcp set playwright --recommended raises them for a server added before. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
     },
     {
       "id": "mcp:radare2",

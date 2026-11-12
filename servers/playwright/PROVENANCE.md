@@ -80,7 +80,7 @@ Playwright's own reconnects) and registered under `$HOME/.cache/ms-playwright` (
 listens on TCP. The stdio server has no telemetry or update check.
 
 **Limits:** Chromium needs more than sandbox-ai's defaults (512 MiB, 128 processes, which counts
-threads): add the server with `--memory 2g --pids 512` (`smoke.json` runs it with these). Its
+threads), and a /tmp of more than 64 MiB (its profile, cache, shared memory - Playwright starts it with `--disable-dev-shm-usage` - and screenshots are there; a full one crashed every real page): `smoke.json` runs it with 2g, 2 CPUs, 512 processes and a 768m /tmp, which rootfs.json recommends and sandbox-ai 0.1.94 applies (an older one: add the server with `--memory 2g --pids 512`). Its
 profile, disk cache and output files share the 64 MiB `/tmp`; a long session on large pages can
 fill it (Chromium then stops caching; screenshots fail with ENOSPC). The browser closes after an
 hour without a tool call and starts again with the next one (`--idle-timeout` default).
