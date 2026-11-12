@@ -1,0 +1,15 @@
+WhatWeb 0.6.4 in this image (/opt/whatweb) is distributed under the GNU General Public License,
+version 2 or (at your option) any later version (LICENSES/WhatWeb-GPL-2.0.txt; the file headers of
+whatweb and lib/). Its complete corresponding source is the upstream repository at the pinned commit:
+
+    https://github.com/urbanadventurer/WhatWeb
+    commit d279d93042d034f3fd29d5a893d44ccc0595d3f8 (tag v0.6.4, 2026-04-02)
+
+The image holds whatweb, lib/ and plugins/ of that commit unchanged, minus files removed (not modified)
+at build time: lib/logging/mongodb.rb, lib/logging/elasticsearch.rb, plugins/IpToCountry.csv, the
+plugins-disabled/ folder and the seven tutorial plugins of my-plugins/ (see PROVENANCE.md).
+
+Ruby 3.3, addressable and public_suffix come from Debian (ruby3.3, ruby-addressable, ruby-public-suffix);
+their licences are under /usr/share/doc/<package>/copyright in the image.
+
+The MCP server /opt/mcp/server.py is this repository's own (MIT, see the repository's LICENSE).

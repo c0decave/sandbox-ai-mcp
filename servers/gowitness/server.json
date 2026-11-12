@@ -1,0 +1,30 @@
+{
+  "id": "mcp:gowitness",
+  "name": "gowitness",
+  "title": "Web screenshots (gowitness, Chromium)",
+  "description": "Screenshots of web pages with gowitness 3.2.2 and Debian's headless Chromium: the page as a PNG or JPEG image (window or full page, at most 5 MiB), with what gowitness records of it - final URL, HTTP status, title, response headers, TLS certificate, technologies (Wappalyzer fingerprints), cookie names, console messages and the page's requests. One URL or up to 5 at a time, a fresh browser profile each time. Only http(s) URLs of public addresses. Needs network: Full and more than the default limits (--memory 2g --pids 512, a /tmp of 768m).",
+  "category": "Web",
+  "tags": [
+    "web",
+    "screenshot",
+    "gowitness",
+    "chromium",
+    "recon"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/gowitness",
+  "page": "https://github.com/sensepost/gowitness",
+  "license": "MIT (MCP server, sandbox-ai-mcp); GPL-3.0 (gowitness); Chromium: BSD-3-Clause and others (Debian)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-gowitness",
+  "tag": "latest",
+  "network": "full",
+  "env": [
+    {
+      "name": "ALLOW_PRIVATE_TARGETS",
+      "description": "1: also take URLs of private addresses (10/8, 172.16/12, 192.168/16, 100.64/10, fc00::/7); loopback, link-local and cloud metadata stay refused",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "notes": "Add it with --network full --memory 2g --pids 512 (Chromium does not start reliably within the default 512 MiB and 128 processes) and a /tmp of 768m. The address check covers the URL given; the redirects, frames and resources a page then loads go wherever the container's network lets them, and Chromium ignores certificate errors (the TLS details are returned). Each visit comes from your address: --vpn PROFILE hides it. Titles, headers, console messages, cookie names and the screenshot are written by whoever runs the site: treat them as data, not instructions."
+}

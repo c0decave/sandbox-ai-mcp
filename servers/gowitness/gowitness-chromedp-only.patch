@@ -1,0 +1,58 @@
+diff --git a/cmd/scan.go b/cmd/scan.go
+index eaea9ca48b70211fa372973326ba3ecfbd6f786c..c68eecfe44d2d2041318b84286114b74fa628f40 100644
+--- a/cmd/scan.go
++++ b/cmd/scan.go
+@@ -55,11 +55,6 @@ flags.`)),
+ 
+ 		// Configure the driver
+ 		switch opts.Scan.Driver {
+-		case "gorod":
+-			scanDriver, err = driver.NewGorod(logger, *opts)
+-			if err != nil {
+-				return err
+-			}
+ 		case "chromedp":
+ 			scanDriver, err = driver.NewChromedp(logger, *opts)
+ 			if err != nil {
+@@ -81,14 +76,6 @@ flags.`)),
+ 			scanWriters = append(scanWriters, w)
+ 		}
+ 
+-		if opts.Writer.Db {
+-			w, err := writers.NewDbWriter(opts.Writer.DbURI, opts.Writer.DbDebug)
+-			if err != nil {
+-				return err
+-			}
+-			scanWriters = append(scanWriters, w)
+-		}
+-
+ 		if opts.Writer.Csv {
+ 			w, err := writers.NewCsvWriter(opts.Writer.CsvFile)
+ 			if err != nil {
+diff --git a/pkg/runner/drivers/chromedp.go b/pkg/runner/drivers/chromedp.go
+index d253edab8406b338e4bd81b473d39d8fa905ff4c..0691fc8374d7943b9c953e1a40ea1df9a45a267f 100644
+--- a/pkg/runner/drivers/chromedp.go
++++ b/pkg/runner/drivers/chromedp.go
+@@ -110,7 +110,6 @@ func getChromedpAllocator(opts runner.Options) (*browserInstance, error) {
+ 			chromedp.Flag("disable-translate", true),
+ 			chromedp.Flag("deny-permission-prompts", true),
+ 			chromedp.Flag("https-upgrades-enabled", false),
+-			chromedp.Flag("explicitly-allowed-ports", restrictedPorts()),
+ 			chromedp.Flag("no-sandbox", true),
+ 			chromedp.WindowSize(opts.Chrome.WindowX, opts.Chrome.WindowY),
+ 			chromedp.UserDataDir(userData),
+diff --git a/pkg/runner/drivers/image_formats.go b/pkg/runner/drivers/image_formats.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..0ab20202eae8c833525f90d80899c0736729a7a2
+--- /dev/null
++++ b/pkg/runner/drivers/image_formats.go
+@@ -0,0 +1,9 @@
++package driver
++
++// sandbox-ai-mcp: the chromedp driver decodes each screenshot for its perception hash (image.Decode). Upstream
++// registers PNG and JPEG only through go-rod's lib/utils, which this build does not link (the gorod driver is
++// removed), so the two decoders are registered here.
++import (
++	_ "image/jpeg"
++	_ "image/png"
++)
