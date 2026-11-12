@@ -1,0 +1,60 @@
+{
+  "name": "whatweb",
+  "network": "full",
+  "start_timeout": 60,
+  "expect_tools": [
+    "fingerprint",
+    "plugin_info"
+  ],
+  "calls": [
+    {
+      "tool": "fingerprint",
+      "arguments": {
+        "url": "https://example.com/"
+      },
+      "expect": "Example Domain",
+      "timeout": 180
+    },
+    {
+      "tool": "plugin_info",
+      "arguments": {
+        "search": "WordPress"
+      },
+      "expect": "Website:",
+      "timeout": 90
+    },
+    {
+      "tool": "fingerprint",
+      "arguments": {
+        "url": "file:///etc/passwd"
+      },
+      "expect": "http or https",
+      "expect_error": true
+    },
+    {
+      "tool": "fingerprint",
+      "arguments": {
+        "url": "http://169.254.169.254/latest/"
+      },
+      "expect": "not a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "fingerprint",
+      "arguments": {
+        "url": "http://127.0.0.1/"
+      },
+      "expect": "not a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "fingerprint",
+      "arguments": {
+        "url": "https://example.com/",
+        "aggression": 4
+      },
+      "expect": "4 is not offered",
+      "expect_error": true
+    }
+  ]
+}

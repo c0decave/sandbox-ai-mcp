@@ -5,6 +5,7 @@
     "capa": "sha256:727258608c6602757de18047ea332e4bb7650867cb325d2158af7b089e5463af",
     "duckduckgo": "sha256:f89758eebac9b9b9f0dd4a5efa05f5c8fdd01483cf6e1e92cdd1b2ed7f693bb2",
     "engram": "sha256:781ae61d0c19a5741f8876362c4dea6442db982020e63eddd20b789ed5ad3ae1",
+    "gowitness": null,
     "memory": "sha256:fdea1e2787769eb6ad9a81f9fc47b3800d5113d2e9872ef1229e1309bf83fe8a",
     "openosint": "sha256:9c9826eb8f284fb6c02e425493ad67c076e6c1b95817464db3389b141df784f1",
     "osint-mcp": "sha256:46a1fed12b97a9a2c65734175d324f4ccefb735d3b82c5f30c5b562ce2576d9c",
@@ -15,7 +16,8 @@
     "telegram": "sha256:1e7256e49aedc4cb5207b69a5b746f3facf622d450f545fdd0098892f9d5e617",
     "telegram-user": "sha256:910d3a03ba71553299f4446fee878ff75994a3e1f9446d615d057cf48e404235",
     "web-fetch": "sha256:dddd81235d3d7aec55c1ad5666f1a095bf3e11a4a7ae203d8580a16f1ad9ef6b",
-    "whatsapp": "sha256:17a4d3aa3102d16ac59c897cf4a81155e7a7ccfcbf42962bb6c7b8e907b8ab66"
+    "whatsapp": "sha256:17a4d3aa3102d16ac59c897cf4a81155e7a7ccfcbf42962bb6c7b8e907b8ab66",
+    "whatweb": null
   },
   "rootfs": {
     "binwalk": {

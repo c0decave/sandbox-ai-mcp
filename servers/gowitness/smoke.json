@@ -1,0 +1,59 @@
+{
+  "name": "gowitness",
+  "network": "full",
+  "memory": "2g",
+  "pids": 512,
+  "tmp": "768m",
+  "start_timeout": 60,
+  "expect_tools": [
+    "screenshot",
+    "screenshot_many"
+  ],
+  "calls": [
+    {
+      "tool": "screenshot",
+      "arguments": {
+        "url": "https://example.com/",
+        "delay": 1
+      },
+      "expect": "\"mime_type\": \"image/png\"",
+      "timeout": 180
+    },
+    {
+      "tool": "screenshot_many",
+      "arguments": {
+        "urls": [
+          "https://example.com/"
+        ],
+        "delay": 0,
+        "timeout": 20
+      },
+      "expect": "\"title\": \"Example Domain\"",
+      "timeout": 180
+    },
+    {
+      "tool": "screenshot",
+      "arguments": {
+        "url": "file:///etc/passwd"
+      },
+      "expect": "an http or https URL",
+      "expect_error": true
+    },
+    {
+      "tool": "screenshot",
+      "arguments": {
+        "url": "http://169.254.169.254/latest/meta-data/"
+      },
+      "expect": "not a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "screenshot",
+      "arguments": {
+        "url": "http://127.0.0.1:9/"
+      },
+      "expect": "not a public address",
+      "expect_error": true
+    }
+  ]
+}

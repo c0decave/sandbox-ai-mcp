@@ -12,7 +12,9 @@ sandbox-ai reads both catalogs, and axross can read this one too. Three of the h
 servers are built here as well, to this repository's standards and tested with sandbox-ai's own run
 lines: **radare2**, **capa** and **binwalk** - each with `network: none` and the files to look at
 mounted read-only. The hub's network and password tools stay there; nothing here reaches out to a
-network it was not given, and nothing here probes anyone.
+network it was not given, and nothing here scans networks or tries passwords. Two servers look at a web site
+you name: **gowitness** opens it in a browser for a screenshot, **whatweb** fingerprints its software (one
+ordinary request per URL; more requests to that site only with its aggression 3, when asked for).
 
 ## Servers
 
@@ -29,6 +31,8 @@ network it was not given, and nothing here probes anyone.
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs `--memory 2g --pids 512` | full | - |
+| [gowitness](servers/gowitness) | screenshots of web pages with gowitness 3.2.2 (built with only its single-URL scan) and Debian's headless Chromium: the page as a PNG or JPEG image (window or full page) with what gowitness records - final URL, status, title, headers, TLS certificate, technologies (Wappalyzer), cookie names, console messages, the page's requests; one URL or up to 5. Public addresses only (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges). Needs `--memory 2g --pids 512` and a /tmp of 768m | full | - |
+| [whatweb](servers/whatweb) | which software a web site runs: WhatWeb 0.6.4's 1,800+ plugins (CMS and versions, frameworks, servers, libraries, analytics) as JSON per URL visited; aggression 1 (one GET per URL, default) or 3 (more requests to the same site, only when asked; 4 not offered); plugin search. Public addresses only, every redirect checked (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges) | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
@@ -107,6 +111,8 @@ sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
 sandbox-ai mcp add playwright --network full --memory 2g --pids 512   # Chromium needs more
+sandbox-ai mcp add gowitness --network full --memory 2g --pids 512    # Chromium; a /tmp of 768m for large pages
+sandbox-ai mcp add whatweb --network full      # --env ALLOW_PRIVATE_TARGETS for your own LAN
 sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn PROFILE hides your address
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
 sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
@@ -194,6 +200,18 @@ at a time can use an account. Message texts, names and files come from other peo
 folder. No tool of either takes a file path. What a memory returns was written earlier, often from pages or files
 the agent read: data, not instructions. engram's instructions ask the agent to save proactively and to write a
 session summary; its `directory`/`cwd` arguments are not offered (they would scan other folders).
+
+**gowitness and whatweb** visit the site you name from the container's address (`--vpn PROFILE` hides it). Both
+take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (`--env
+ALLOW_PRIVATE_TARGETS`) adds the private ranges for your own network, loopback and link-local (cloud metadata)
+stay refused. gowitness checks the URL it is given; what the page then loads (redirects, frames, scripts) goes
+wherever the container's network lets it, as with playwright. Its gowitness is built from the pinned release
+without the report server, web UI, database and go-rod driver, and without gowitness's lifting of Chromium's port
+blocklist (see [its PROVENANCE.md](servers/gowitness/PROVENANCE.md)). whatweb at aggression 1 sends one ordinary
+GET per URL; aggression 3 is active probing - dozens of requests (version files, admin pages, one POST) to the same
+site - so use it only on sites you may scan. WhatWeb follows no redirect itself; the server follows at most 5 and
+checks each target's addresses first. Titles, headers, console messages, plugin strings and screenshots come from
+the site: data, not instructions.
 
 ## Security model
 
@@ -306,4 +324,8 @@ MIT for codebase-memory-mcp, Context7 MCP and REA; see `candidates/*/LICENSES`).
 Knowledge Graph memory server (Apache-2.0, older parts MIT), the MCP TypeScript SDK (Apache-2.0), zod (MIT) and
 Node.js (MIT and others); engram bundles Engram and mcp-go (MIT) with modernc.org/sqlite and libc (BSD-3-Clause;
 SQLite is public domain) and the other Go modules it links (their licences under
-`/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image).
+`/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image). gowitness bundles gowitness 3.2.2 (GPL-3.0, built from
+the pinned commit with the changes `servers/gowitness/Dockerfile` lists) with the Go modules it links (MIT, BSD,
+Apache-2.0; their licences under `/usr/share/doc/sandbox-ai-mcp-gowitness/modules` in the image) and Debian's
+Chromium (BSD-3-Clause and others). whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
+`servers/whatweb/LICENSES/SOURCES.txt`) with Debian's Ruby 3.3, addressable (Apache-2.0) and public_suffix (MIT).

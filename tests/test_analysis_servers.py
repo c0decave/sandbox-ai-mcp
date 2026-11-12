@@ -313,6 +313,85 @@ class Playwright(unittest.TestCase):
             self.assertIn(value.group(1), provenance, f"{arg} is not in PROVENANCE.md")
 
 
+class Gowitness(unittest.TestCase):
+    """gowitness built from its pinned commit with only the chromedp scan path; Debian's Chromium; the limits."""
+
+    REMOVED = ("cmd/report.go", "cmd/report_convert.go", "cmd/report_generate.go", "cmd/report_list.go",
+               "cmd/report_merge.go", "cmd/report_migrate.go", "cmd/report_server.go", "pkg/writers/db.go",
+               "pkg/runner/drivers/go-rod.go", "pkg/runner/drivers/restricted_ports.go")
+
+    def setUp(self):
+        self.entry = read_json("servers", "gowitness", "server.json")
+        self.spec = read_json("servers", "gowitness", "smoke.json")
+        self.dockerfile = (ROOT / "servers" / "gowitness" / "Dockerfile").read_text()
+        self.provenance = (ROOT / "servers" / "gowitness" / "PROVENANCE.md").read_text()
+        self.patch = (ROOT / "servers" / "gowitness" / "gowitness-chromedp-only.patch").read_text()
+
+    def test_the_smoke_run_has_the_limits_the_entry_tells_users_to_add(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("full", "full"))
+        self.assertEqual((self.spec["memory"], self.spec["pids"], self.spec["tmp"]), ("2g", 512, "768m"))
+        limits = f"--memory {self.spec['memory']} --pids {self.spec['pids']}"
+        for where, text in (("description", self.entry["description"]), ("notes", self.entry["notes"]),
+                            ("PROVENANCE.md", self.provenance)):
+            self.assertTrue(limits in text and "/tmp of 768m" in text, f"{where} does not name the limits")
+
+    def test_the_release_and_the_pins_are_in_the_provenance(self):
+        for arg in ("GOWITNESS_COMMIT", "GOWITNESS_VERSION", "CHROMIUM_VERSION"):
+            value = re.search(rf"^ARG {arg}=(\S+)$", self.dockerfile, re.M)
+            self.assertTrue(value, f"{arg} is not pinned")
+            self.assertIn(value.group(1), self.provenance, f"{arg} is not in PROVENANCE.md")
+        self.assertRegex(self.dockerfile, r"ARG GOWITNESS_COMMIT=[0-9a-f]{40}\n")
+        self.assertRegex(self.dockerfile, r"ARG GOLANG_IMAGE=\S+@sha256:[0-9a-f]{64}\n")
+        self.assertEqual((ROOT / "servers" / "gowitness" / "requirements.txt").read_bytes(),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes())
+
+    def test_only_the_scan_path_is_built(self):
+        for name in self.REMOVED:
+            self.assertIn(name, self.dockerfile, f"{name} is not removed")
+        for named in ("cmd/report*.go", "pkg/writers/db.go", "pkg/runner/drivers/go-rod.go", "restricted_ports.go",
+                      "image_formats.go"):
+            self.assertTrue(named in self.provenance, f"PROVENANCE.md does not name {named}")
+        changed = sorted(set(re.findall(r"^\+\+\+ b/(\S+)$", self.patch, re.M)))
+        self.assertEqual(changed, ["cmd/scan.go", "pkg/runner/drivers/chromedp.go",
+                                   "pkg/runner/drivers/image_formats.go"])
+        self.assertIn('-\t\t\tchromedp.Flag("explicitly-allowed-ports", restrictedPorts()),', self.patch)
+        self.assertIn('+\t_ "image/png"', self.patch)
+        self.assertIn("go-rod|ysmood", self.dockerfile)  # the build fails if they are linked
+        self.assertIn('ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u"', self.dockerfile)
+
+    def test_the_smoke_spec_screenshots_and_refuses(self):
+        refused = [call for call in self.spec["calls"] if call.get("expect_error")]
+        self.assertEqual(len(refused), 3)
+        self.assertTrue(any("image/png" in call["expect"] for call in self.spec["calls"]))
+
+
+class WhatWeb(unittest.TestCase):
+    """WhatWeb from its pinned commit on Debian's Ruby; aggression 4 is never offered."""
+
+    def test_pinned_and_in_the_provenance(self):
+        dockerfile = (ROOT / "servers" / "whatweb" / "Dockerfile").read_text()
+        provenance = (ROOT / "servers" / "whatweb" / "PROVENANCE.md").read_text()
+        commit = re.search(r"^ARG WHATWEB_COMMIT=([0-9a-f]{40})$", dockerfile, re.M).group(1)
+        self.assertIn(commit, provenance)
+        for package in ("ruby3.3=3.3.13-0+deb13u1", "libruby3.3=3.3.13-0+deb13u1", "ruby-addressable=2.8.7-2",
+                        "ruby-public-suffix=6.0.1-1"):
+            self.assertIn(package, dockerfile)
+            self.assertIn(package, provenance)
+        self.assertEqual((ROOT / "servers" / "whatweb" / "requirements.txt").read_bytes(),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes())
+
+    def test_no_aggression_4_and_no_passthrough(self):
+        spec = read_json("servers", "whatweb", "smoke.json")
+        for call in spec["calls"]:
+            if call["arguments"].get("aggression") == 4:
+                self.assertTrue(call.get("expect_error"))
+        source = (ROOT / "servers" / "whatweb" / "src" / "server.py").read_text()
+        self.assertIn('"--follow-redirect=never"', source)
+        self.assertIn('"--", url]', source)
+        for option in ("--custom-plugin", "--grep", "--plugins", "--input-file", "--proxy", "--header"):
+            self.assertNotIn(f'"{option}', source)
+
+
 class OpenOsint(unittest.TestCase):
     """OpenOSINT's reviewed modules only, each pinned by SHA-256 at the pinned commit; passive tools only."""
 

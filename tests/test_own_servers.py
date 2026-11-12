@@ -139,6 +139,108 @@ class Servers(unittest.TestCase):
         self.assertEqual(page["text"], "Head\n\nOne two\nxj")  # two inline links stay on one line
         self.assertEqual(page["links"], ["https://example.org/x"])
 
+    def test_whatweb(self):
+        """WhatWeb's server: refusals, the address check, the bounded answer, redirects followed by the server
+        (each hop checked), and WhatWeb's run line - against a stand-in for WhatWeb (no Ruby, no network)."""
+        import ipaddress
+        import tempfile
+        self.check_tools("whatweb")
+        answers = rpc("whatweb", session(("fingerprint", {"url": "file:///etc/passwd"}),
+                                         ("fingerprint", {"url": "http://169.254.169.254/latest/"}),
+                                         ("fingerprint", {"url": "http://127.0.0.1/"}),
+                                         ("fingerprint", {"url": "http://user:pw@example.org/"}),
+                                         ("fingerprint", {"url": "https://example.org/", "aggression": 4}),
+                                         ("fingerprint", {"url": "http://exa mple.org/"}),
+                                         ("plugin_info", {"search": "--debug"}),
+                                         ("plugin_info", {"search": "a,b"}),
+                                         ("fingerprint", {"url": "http://10.0.0.1/"})),
+                      env={"ALLOW_PRIVATE_TARGETS": ""})
+        self.assertIn("http or https", result(answers[2])["error"])
+        self.assertIn("not a public address", result(answers[3])["error"])
+        self.assertIn("not a public address", result(answers[4])["error"])
+        self.assertIn("without user name or password", result(answers[5])["error"])
+        self.assertIn("http or https", result(answers[7])["error"])
+        self.assertIn("search", result(answers[8])["error"])
+        self.assertIn("search", result(answers[9])["error"])
+        self.assertIn("ALLOW_PRIVATE_TARGETS=1", result(answers[10])["error"])
+        module = load("whatweb")
+        # aggression 4 never reaches WhatWeb (checked after the URL, so with a URL that passes)
+        module.check_url = lambda url: url
+        self.assertIn("4 is not offered", asyncio.run(module.fingerprint("https://example.org/", 4))["error"])
+        self.assertIn("4 is not offered", asyncio.run(module.fingerprint("https://example.org/", True))["error"])
+        for private, allowed in (("10.0.0.1", True), ("172.31.1.1", True), ("192.168.1.1", True), ("100.64.0.1", True),
+                                 ("fd00::1", True), ("::ffff:10.0.0.1", True), ("64:ff9b::a00:1", True),
+                                 ("127.0.0.1", False), ("::1", False), ("169.254.169.254", False), ("fe80::1", False),
+                                 ("0.0.0.0", False), ("224.0.0.1", False), ("192.0.2.1", False), ("240.0.0.1", False),
+                                 ("255.255.255.255", False), ("64:ff9b::7f00:1", False), ("2001:db8::1", False)):
+            address = ipaddress.ip_address(private)
+            self.assertFalse(module.allowed(address, False), private)
+            self.assertEqual(module.allowed(address, True), allowed, private)
+        for public in ("8.8.8.8", "2606:4700:4700::1111", "64:ff9b::808:808"):
+            self.assertTrue(module.allowed(ipaddress.ip_address(public), False), public)
+        # the bounded answer of a recorded log
+        fixture = json.loads((ROOT / "tests/fixtures/whatweb-example.json").read_text())
+        page = module.parse_log(fixture["https"])[0]
+        self.assertEqual(page["http_status"], 200)
+        self.assertEqual(page["plugins"]["Title"], {"string": ["Example Domain"]})
+        self.assertEqual(len(page["plugins"]["X-Powered-By"]["string"]), module.MAX_VALUES)
+        self.assertEqual(len(page["plugins"]["X-Powered-By"]["string"][0]), module.MAX_VALUE)
+        self.assertNotIn("request_config", page)
+        self.assertIsNone(module.next_hop("https://example.com/", page))  # a javascript: meta refresh is no hop
+        self.assertEqual(module.parse_log(fixture["empty"]), [])
+        with self.assertRaises(module.ArgumentError):
+            module.parse_log("[\n{\"target\":")  # cut off
+        # WhatWeb's run line and the redirect the server follows itself, with a stand-in for WhatWeb
+        folder = tempfile.mkdtemp()
+        try:
+            fake = Path(folder) / "fake_whatweb.py"
+            calls = Path(folder) / "calls.jsonl"
+            fake.write_text(
+                "import json, os, sys, time\n"
+                f"fixture = json.load(open({str(ROOT / 'tests/fixtures/whatweb-example.json')!r}))\n"
+                "args = sys.argv[1:]\n"
+                f"open({str(calls)!r}, 'a').write(json.dumps({{'args': args, 'cwd': os.getcwd(), 'env': dict(os.environ)}}) + '\\n')\n"
+                "url = args[args.index('--') + 1]\n"
+                "if url == 'https://slow.example/':\n"
+                "    time.sleep(30)\n"
+                "log = next(a for a in args if a.startswith('--log-json='))[len('--log-json='):]\n"
+                "if url == 'https://down.example/':\n"
+                "    open(log, 'w').write('[\\n]\\n'); print('ERROR Opening: https://down.example/ - refused', file=sys.stderr)\n"
+                "elif url == 'https://cut.example/':\n"
+                "    open(log, 'w').write('[\\n{\\\"target\\\"')\n"
+                "else:\n"
+                "    open(log, 'w').write(fixture['http' if url.startswith('http:') else 'https'])\n")
+            module.RUBY, module.RUBY_FLAGS, module.WHATWEB = sys.executable, (), str(fake)
+            seen = []
+            module.check_url = lambda url: seen.append(url) or url
+            answer = asyncio.run(module.fingerprint("http://example.com/"))
+            self.assertEqual(answer["final_url"], "https://example.com/", answer)
+            self.assertEqual([t["url"] for t in answer["targets"]], ["http://example.com/", "https://example.com/"])
+            self.assertEqual(seen, ["http://example.com/", "https://example.com/"])  # every hop checked
+            self.assertEqual(answer["targets"][1]["plugins"]["Title"]["string"], ["Example Domain"])
+            runs = [json.loads(line) for line in calls.read_text().splitlines()]
+            self.assertEqual(len(runs), 2)
+            args = runs[0]["args"]
+            self.assertEqual(args[-2:], ["--", "http://example.com/"])
+            for flag in ("--follow-redirect=never", "--aggression=1", "--max-threads=1", "--quiet", "--colour=never"):
+                self.assertIn(flag, args)
+            for flag in ("--custom-plugin", "--grep", "-p", "--plugins", "--input-file", "-i", "--cookie-jar",
+                         "--log-sql-create", "--proxy"):
+                self.assertFalse(any(a == flag or a.startswith(flag + "=") for a in args), flag)
+            self.assertEqual(sorted(runs[0]["env"]), ["HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"])
+            self.assertEqual(runs[0]["env"]["HOME"], runs[0]["cwd"])  # a fresh folder per run ...
+            self.assertFalse(os.path.exists(runs[0]["cwd"]))         # ... removed afterwards
+            no_hop = asyncio.run(module.fingerprint("http://example.com/", 3, False))
+            self.assertEqual(len(no_hop["targets"]), 1)
+            self.assertIn("--aggression=3", json.loads(calls.read_text().splitlines()[-1])["args"])
+            self.assertIn("gave no answer: ERROR Opening: https://down.example/ - refused",
+                          asyncio.run(module.fingerprint("https://down.example/"))["error"])
+            self.assertIn("gave an incomplete answer", asyncio.run(module.fingerprint("https://cut.example/"))["error"])
+            module.RUN_TIMEOUT = {1: 1, 3: 1}
+            self.assertIn("did not finish within 1 s", asyncio.run(module.fingerprint("https://slow.example/"))["error"])
+        finally:
+            import shutil
+            shutil.rmtree(folder, ignore_errors=True)
 
     def test_telegram(self):
         self.check_tools("telegram")
@@ -302,6 +404,82 @@ class Servers(unittest.TestCase):
         self.assertEqual(module.results_of(data, 1), found[:1])
         self.assertEqual(module.extras_of(data), {"suggestions": ["example domain names"],
                                                   "answers": ["An answer", "From an infobox"]})
+
+    def test_gowitness(self):
+        """The screenshot server's refusals (before gowitness runs), its address policy, the argument list it
+        gives gowitness and the summary of a recorded gowitness result. Needs neither gowitness nor Chromium."""
+        import ipaddress
+        from unittest import mock
+        self.check_tools("gowitness")
+        answers = rpc("gowitness", session(
+            ("screenshot", {"url": "file:///etc/passwd"}),
+            ("screenshot", {"url": "http://127.0.0.1:9/"}),
+            ("screenshot", {"url": "http://169.254.169.254/latest/meta-data/"}),
+            ("screenshot", {"url": "http://user:pw@example.org/"}),
+            ("screenshot", {"url": "javascript:alert(1)"}),
+            ("screenshot", {"url": "http://example.org/" + "a" * 2100}),
+            ("screenshot", {"url": "https://example.org/", "width": 99999}),
+            ("screenshot", {"url": "https://example.org/", "format": "gif"}),
+            ("screenshot", {"url": "https://example.org/", "delay": 10, "timeout": 10}),
+            ("screenshot_many", {"urls": [f"https://example.org/{i}" for i in range(6)]}),
+            ("screenshot_many", {"urls": ["http://8.8.8.8/", "http://[::1]/"]})))  # literals: no name lookup
+        errors = [result(answers[index]).get("error", "") for index in range(2, 13)]
+        self.assertTrue(all(errors), errors)
+        self.assertIn("http or https", errors[0])
+        for index in (1, 2, 10):
+            self.assertIn("not a public address", errors[index])
+        self.assertIn("user name or password", errors[3])
+        self.assertIn("http or https", errors[4])
+        self.assertIn("at most 2048", errors[5])
+        self.assertIn("width", errors[6])
+        self.assertIn("png or jpeg", errors[7])
+        self.assertIn("delay + 5", errors[8])
+        self.assertIn("1 to 5", errors[9])
+
+        module = load("gowitness")
+        ip = ipaddress.ip_address
+        for address in ("127.0.0.1", "::1", "169.254.169.254", "fe80::1", "0.0.0.0", "224.0.0.1", "192.0.2.1",
+                        "10.0.0.1", "192.168.1.1", "100.64.0.1", "fd00::1", "::ffff:10.0.0.1", "64:ff9b::a00:1",
+                        "2002:a00:1::1", "64:ff9b::7f00:1"):
+            self.assertFalse(module.allowed(ip(address), False), address)
+        for address in ("10.0.0.1", "172.16.0.1", "192.168.1.1", "100.64.0.1", "fd00::1", "64:ff9b::a00:1"):
+            self.assertTrue(module.allowed(ip(address), True), address)
+        for address in ("127.0.0.1", "::1", "169.254.169.254", "fe80::1", "0.0.0.0", "224.0.0.1", "192.0.2.1",
+                        "64:ff9b::7f00:1", "64:ff9b::a9fe:a9fe"):
+            self.assertFalse(module.allowed(ip(address), True), address)  # never, also with ALLOW_PRIVATE_TARGETS
+        for address in ("93.184.215.14", "2606:2800:21f:cb07:6820:80da:af6b:8b2c", "64:ff9b::808:808"):
+            self.assertTrue(module.allowed(ip(address), False), address)
+        with mock.patch.dict(os.environ, {"ALLOW_PRIVATE_TARGETS": "yes"}):
+            self.assertFalse(module.allow_private())  # exactly "1"
+        with mock.patch.dict(os.environ, {"ALLOW_PRIVATE_TARGETS": "1"}):
+            self.assertTrue(module.allow_private())
+
+        opts = module.options(True, 1280, 720, 2, 30, "png", 80)
+        argv = module.command("https://example.org/a b", "/tmp/gowitness-x", opts)
+        self.assertEqual(argv[:3], ["/usr/local/bin/gowitness", "scan", "single"])
+        self.assertIn("--url=https://example.org/a b", argv)  # one argument, never a shell
+        self.assertIn("--chrome-path=/usr/bin/chromium", argv)
+        self.assertIn("--screenshot-fullpage", argv)
+        self.assertIn("--write-jsonl-file=/tmp/gowitness-x/result.jsonl", argv)
+        for flag in ("--write-db", "--chrome-wss-url", "--chrome-user-data-dir", "--javascript", "--chrome-proxy",
+                     "--save-content", "--driver=gorod", "--write-stdout", "--chrome-header"):
+            self.assertFalse(any(a.startswith(flag) for a in argv), flag)
+        self.assertEqual(set(module.environment("/tmp/x")),
+                         {"PATH", "HOME", "TMPDIR", "LANG", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"})
+
+        recorded = json.loads((ROOT / "tests/fixtures/gowitness-example.jsonl").read_text().splitlines()[0])
+        found = module.summary(recorded)
+        self.assertEqual((found["status"], found["title"], found["final_url"]),
+                         (200, "Example Domain", "https://example.com/"))
+        self.assertEqual(found["technologies"], ["Akamai", "HTTP/3"])
+        self.assertNotIn("html", found)
+        self.assertNotIn("value", found["cookies"][0])  # names only
+        self.assertEqual(found["tls"]["issuer"], "DigiCert Global G3 TLS ECC SHA384 2020 CA1")
+        self.assertEqual(found["network"][0]["status"], 200)
+        self.assertEqual(found["counts"]["headers"], len(recorded["headers"]))
+        png = module.PNG_MAGIC + b"\x00\x00\x00\rIHDR" + (1280).to_bytes(4, "big") + (720).to_bytes(4, "big")
+        self.assertEqual(module.png_size(png), (1280, 720))
+        self.assertEqual(module.describe(png, "png")["width"], 1280)
 
     def test_openosint(self):
         """OpenOSINT's tool code behind this repository's server: only the passive tools, arguments refused

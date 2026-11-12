@@ -1,0 +1,9 @@
+gowitness (GPL-3.0, gowitness-GPL-3.0.txt) in this image is built from
+
+  https://github.com/sensepost/gowitness  commit 601c84367aaf26eae7d1b5181b70633cb662cf66 (tag 3.2.2)
+
+with ten files removed and gowitness-chromedp-only.patch applied, both listed in this repository's
+servers/gowitness/Dockerfile (https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/gowitness). The Go modules
+it links are the versions its go.sum pins; each module's licence is in /usr/share/doc/sandbox-ai-mcp-gowitness/modules.
+Chromium is Debian's package chromium 156.0.8078.79-1~deb13u1 (its licences: /usr/share/doc/chromium/copyright).
+The MCP server src/server.py is MIT (this repository's LICENSE).
