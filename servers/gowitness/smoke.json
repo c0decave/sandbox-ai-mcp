@@ -54,6 +54,14 @@
       },
       "expect": "not a public address",
       "expect_error": true
+    },
+    {
+      "tool": "screenshot",
+      "arguments": {
+        "url": "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/"
+      },
+      "expect": ".onion needs a Tor profile",
+      "expect_error": true
     }
   ]
 }

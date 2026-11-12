@@ -18,7 +18,9 @@ and web pages stay with `web-fetch`, which refuses local-network targets.
 
 **Setting:** `SEARXNG_URL`, checked at every call: `http` or `https`, a host, no credentials,
 query or fragment, at most 300 characters; plain `http` only to a private, loopback or
-CGNAT (100.64.0.0/10) address, so a name is always reached over TLS.
+CGNAT (100.64.0.0/10) address, so a name is always reached over TLS - or, behind sandbox-ai's Tor profile
+(`SANDBOX_AI_TOR=1`), to a `.onion` instance, which Tor encrypts and authenticates by its name. A `.onion`
+instance without a Tor profile is refused with that reason.
 
 **Tool:** `web_search(query, max_results, category, language, time_range, page)`: one
 `GET SEARXNG_URL/search?q=…&format=json&categories=…&language=…&pageno=…&safesearch=1`

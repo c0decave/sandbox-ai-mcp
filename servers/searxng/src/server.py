@@ -6,7 +6,8 @@ Tools:
     - web_search: results (title, URL, snippet, the engines that found it) for a query, optionally in a
       category, a language and a time range, page by page
 
-SEARXNG_URL names the instance (https://search.example.org, or http://IP:PORT in a private network); only its
+SEARXNG_URL names the instance (https://search.example.org, http://IP:PORT in a private network, or behind
+sandbox-ai's Tor profile http(s)://NAME.onion); only its
 /search is requested, with format=json (the instance must allow that format: search.formats in its
 settings.yml). Network: that host and port only. Arguments are validated, no redirects are followed, answers
 are size-bounded, and only http and https result links are returned.
@@ -44,7 +45,8 @@ class ArgumentError(ValueError):
 
 def instance(value=None) -> str:
     """SEARXNG_URL checked: http(s), a host, no credentials, query or fragment; plain http only to a private,
-    loopback or CGNAT address (the instance of your LAN); the URL without a trailing slash."""
+    loopback or CGNAT address (the instance of your LAN) or, behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1), to
+    a .onion instance; a .onion instance only behind Tor; the URL without a trailing slash."""
     url = (os.environ.get("SEARXNG_URL", "") if value is None else value).strip()
     if not url:
         raise ArgumentError("SEARXNG_URL is not set: the address of your SearXNG instance, e.g. "
@@ -53,6 +55,11 @@ def instance(value=None) -> str:
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password \
             or parsed.query or parsed.fragment or any(ord(c) < 33 for c in url) or len(url) > 300:
         raise ArgumentError("SEARXNG_URL: http(s)://HOST[:PORT][/PATH], without credentials, query or fragment")
+    if parsed.hostname.rstrip(".").rpartition(".")[2] == "onion":
+        if os.environ.get("SANDBOX_AI_TOR") != "1":
+            raise ArgumentError(f"SEARXNG_URL: refused: {parsed.hostname}: .onion needs a Tor profile (start the "
+                                "server behind one: --vpn TOR_PROFILE); this server does not run behind Tor")
+        return url.rstrip("/")  # an onion service: Tor encrypts and authenticates it by its name, plain http too
     if parsed.scheme == "http":
         try:
             address = ipaddress.ip_address(parsed.hostname)
