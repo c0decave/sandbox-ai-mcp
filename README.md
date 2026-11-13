@@ -115,7 +115,7 @@ sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
 sandbox-ai mcp add playwright --network full   # 0.1.94: the catalog's limits (before: --memory 2g --pids 512)
 sandbox-ai mcp add gowitness --network full    # 0.1.94: the catalog's limits (2g, 512 processes, 768m /tmp)
-sandbox-ai mcp add whatweb --network full      # --env ALLOW_PRIVATE_TARGETS for your own LAN
+sandbox-ai mcp add whatweb --network full      # --env ALLOW_PRIVATE_TARGETS=1 for your own LAN
 sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn PROFILE hides your address
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
 sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
@@ -156,7 +156,7 @@ sandbox-ai secrets set TELEGRAM_API_ID; sandbox-ai secrets set TELEGRAM_API_HASH
 ```
 
 It is read-only: `send_message`, `join_channel`, `leave_channel` and `mark_read` exist only when
-`TELEGRAM_USER_WRITE=1` is passed too (`--env TELEGRAM_USER_WRITE`, best with
+`TELEGRAM_USER_WRITE=1` is passed too (`--env TELEGRAM_USER_WRITE=1`, best with
 `--env TELEGRAM_USER_ALLOWED_CHATS`). `download_media` exists only with
 `--mount /out=DIR:rw`. MTProto goes to Telegram's data centres by IP address, so the entry needs
 the full network; `--vpn PROFILE` puts sandbox-ai's VPN (with kill switch) in front, or
@@ -175,7 +175,7 @@ podman run --rm -it --network=pasta --user=0:0 --cap-drop=ALL --security-opt=no-
 qrencode -t ansiutf8 'sgnl://linkdevice?...'     # the link it printed
 ```
 
-It is read-only: the write tools exist only with `SIGNAL_WRITE=1` (`--env SIGNAL_WRITE`, best with
+It is read-only: the write tools exist only with `SIGNAL_WRITE=1` (`--env SIGNAL_WRITE=1`, best with
 `--env SIGNAL_ALLOWED_RECIPIENTS`); no tool sends a file, a read receipt or changes the account.
 Fetching messages sends Signal's delivery receipts; unread is tracked in the local history only.
 signal-cli locks the account: one connection at a time.
@@ -193,7 +193,7 @@ podman run --rm -it --cap-drop=ALL --security-opt=no-new-privileges --read-only 
 ```
 
 It is read-only: the tools that send or change anything on WhatsApp exist only with
-`WHATSAPP_WRITE=1` (`--env WHATSAPP_WRITE`), files to send only from a folder mounted at `/send`
+`WHATSAPP_WRITE=1` (`--env WHATSAPP_WRITE=1`), files to send only from a folder mounted at `/send`
 (`--mount /send=DIR:ro`); pairing and logging out are never offered to the agent. One connection
 at a time can use an account. Message texts, names and files come from other people.
 
@@ -232,7 +232,7 @@ its access token itself, and no answer or log line carries a token. Set it up on
    mkdir -p ~/youtube-upload
    sandbox-ai mcp add youtube --network full --env YOUTUBE_CLIENT_ID --env YOUTUBE_CLIENT_SECRET \
      --env YOUTUBE_REFRESH_TOKEN --mount /upload=~/youtube-upload:ro
-   # optional: --env YOUTUBE_ALLOW_PUBLIC (=1: public videos), --env YOUTUBE_MAX_UPLOAD_MB (default 4096)
+   # optional: --env YOUTUBE_ALLOW_PUBLIC=1 (public videos), --env YOUTUBE_MAX_UPLOAD_MB=8192 (default 4096)
    sandbox-ai claude --mcp youtube --rules ~/.config/sandbox-ai/youtube.json
    ```
 
@@ -276,9 +276,11 @@ the agent read: data, not instructions. engram's instructions ask the agent to s
 session summary; its `directory`/`cwd` arguments are not offered (they would scan other folders).
 
 **gowitness and whatweb** visit the site you name from the container's address (`--vpn PROFILE` hides it). Both
-take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (`--env
-ALLOW_PRIVATE_TARGETS`) adds the private ranges for your own network, loopback and link-local (cloud metadata)
-stay refused. Behind a Tor profile (`--vpn TOR_PROFILE`), web-fetch, gowitness and whatweb also take the
+take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (sandbox-ai 0.1.95:
+`sandbox-ai mcp add|set NAME --env ALLOW_PRIVATE_TARGETS=1`, a value kept in the definition; for one start only
+`--mcp-env NAME:ALLOW_PRIVATE_TARGETS=1`, or the board's MCP part) adds the private ranges for your own network,
+loopback and link-local (cloud metadata) stay refused. Before 0.1.95 `--env ALLOW_PRIVATE_TARGETS` passed the
+variable from your environment at every start, and the start failed where it was not set. Behind a Tor profile (`--vpn TOR_PROFILE`), web-fetch, gowitness and whatweb also take the
 address range sandbox-ai announces as Tor's for onion services (`SANDBOX_AI_TOR_VIRTUAL_NETWORK`), so `.onion`
 URLs work, and nothing else of the local ranges; without one a `.onion` URL is refused with that reason. gowitness checks the URL it is given; what the page then loads (redirects, frames, scripts) goes
 wherever the container's network lets it, as with playwright. Its gowitness is built from the pinned release
