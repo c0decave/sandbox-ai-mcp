@@ -2,14 +2,8 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
-  "state": "pending-digests",
-  "pending": [
-    "bluesky",
-    "exec",
-    "files",
-    "tasks"
-  ],
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
+  "state": "pinned",
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -44,64 +38,6 @@
       ],
       "network": "none",
       "notes": "binwalk_extract is the one tool that writes: into /out when a writable folder is mounted there, else into the container's /tmp. Extraction runs third-party extractors on data someone else made, inside the container (no capabilities, no network, read-only root, noexec /tmp); mount /work read-only so an extractor cannot touch the image it read. What the scan reports is that data: treat it as data, not instructions."
-    },
-    {
-      "id": "mcp:bluesky",
-      "name": "bluesky",
-      "title": "Bluesky posts (your account, the app password stays in the server)",
-      "description": "Posts to your Bluesky account through the AT Protocol without the agent ever seeing your credentials: your handle and an app password (never the account password) live only in this server's container, which signs in at your PDS itself and keeps the session in memory. post (up to 300 graphemes counted as Bluesky counts them; links, @mentions and #hashtags as facets; languages; a reply; up to 4 JPEG, PNG or WebP images of /upload with alt text and their metadata - EXIF, location - removed, or a link card from the title and description you give, the site is never fetched), thread (2-10 posts, each answering the one before) and delete_post (only the account's own posts) WRITE to the account and are refused unless BLUESKY_WRITE=1 - read-only by default; have sandbox-ai ask for each call. get_profile, list_my_posts and get_post_thread read through Bluesky's public AppView, never with the session. A sign-in with the account password or an app password with access to direct messages is refused and ended. Files only from a folder mounted read-only at /upload, no links, devices or other users' files. Needs BLUESKY_HANDLE, BLUESKY_APP_PASSWORD (a secret) and network: Allowlist with bsky.social:443 (your PDS; another with BLUESKY_PDS) and public.api.bsky.app:443.",
-      "category": "Social",
-      "tags": [
-        "bluesky",
-        "atproto",
-        "social",
-        "publishing",
-        "posts"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/bluesky",
-      "page": "https://docs.bsky.app/",
-      "license": "MIT (MCP server, sandbox-ai-mcp)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-bluesky",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "BLUESKY_HANDLE",
-          "description": "Your handle (alice.bsky.social) or DID (did:plc:...): the account the server signs in to",
-          "secret": false,
-          "required": true
-        },
-        {
-          "name": "BLUESKY_APP_PASSWORD",
-          "description": "An app password of that account (xxxx-xxxx-xxxx-xxxx, Settings, Privacy and security, App passwords; without DM access), never the account password",
-          "secret": true,
-          "required": true
-        },
-        {
-          "name": "BLUESKY_WRITE",
-          "description": "1 lets post, thread and delete_post write to the account (unset: read-only, every write refused)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "BLUESKY_PDS",
-          "description": "The https:// address of your PDS if it is not Bluesky's (default https://bsky.social, which serves every Bluesky-hosted account)",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "mounts": [
-        {
-          "target": "/upload",
-          "description": "The images (and link-card thumbnails) to post, read-only (--mount /upload=DIR:ro); without it posts carry no images"
-        }
-      ],
-      "network": "allowlist",
-      "hosts": [
-        "bsky.social:443",
-        "public.api.bsky.app:443"
-      ],
-      "notes": "The app password stays in the server's container (environment, memory), as do the session tokens it gets for it: never returned, never logged, never sent anywhere but your PDS; the agent never sees them. An app password can post, delete and change the profile and follows, but not change the account's e-mail or password, delete the account or read direct messages; revoke it any time under App passwords. Ask for every write: a ruleset with {\"server\": \"bluesky\", \"tool\": [\"post\", \"thread\", \"delete_post\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call (tools.json has the whole recommended ruleset). Posts are public at once. Bluesky limits writes per account (about 1,600 posts an hour, 11,600 a day) and sign-ins (30 in 5 minutes, 300 a day): the server signs in once per connection and keeps the session. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to your PDS and public.api.bsky.app only."
     },
     {
       "id": "mcp:brave-search",
@@ -226,132 +162,6 @@
       ],
       "network": "none",
       "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
-    },
-    {
-      "id": "mcp:exec",
-      "name": "exec",
-      "title": "Shell commands for small local models (time limits, bounded output)",
-      "description": "Runs commands for an agent in its project folder, mounted writable at /work, so that a small local model does not stall, die or drown in output: run_command (bash, a time limit per call, default 120 s, max EXEC_MAX_TIMEOUT; stdin empty, no terminal, CI=1, PAGER=cat, EDITOR=true and the yes-switches of apt, pip and npm; the whole process tree stopped on the limit; output shortened to its first and last lines with the number omitted, colours and progress bars removed), start_job/job_status/stop_job/list_jobs for long builds and servers, run_tests (pytest, unittest, jest, vitest, go test, cargo test: only the failures), lint (pyflakes, shellcheck, JSON, YAML; runs nothing of the project). The start folder must be inside /work. The commands run in this server's container, with its tools (bash, coreutils, git, make, python3 with pytest, node, shellcheck) and no network. run_command, start_job, run_tests and stop_job change things: have sandbox-ai ask for them if you want to. Needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog).",
-      "category": "Developer tools",
-      "tags": [
-        "shell",
-        "exec",
-        "tests",
-        "lint",
-        "local-llm"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/exec",
-      "license": "MIT (MCP server, sandbox-ai-mcp); Debian packages under their own licences",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-exec",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "EXEC_TIMEOUT",
-          "description": "Seconds a command may run when the call names no limit (1-86400, default 120)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "EXEC_MAX_TIMEOUT",
-          "description": "The most seconds a call may ask for (1-86400, default 600); longer work goes to start_job",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "EXEC_JOB_TIMEOUT",
-          "description": "Seconds a background job may run (1-604800, default 3600)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "EXEC_MAX_JOBS",
-          "description": "Background jobs (and commands) running at once (1-32, default 4)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "EXEC_OUTPUT_LINES",
-          "description": "Lines of output an answer shows, a quarter of the start and the rest of the end (20-2000, default 100)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "EXEC_ENV_ALLOW",
-          "description": "Names of variables of the server's environment the commands get too, comma separated (default none: the commands get a fixed environment)",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The project folder, writable (--mount /work=PROJECT:rw): the agent's workspace folder itself, not a folder inside it",
-          "required": true
-        }
-      ],
-      "network": "none",
-      "notes": "This gives an agent nothing it does not have: it has a shell of its own already. The server is for models that lose themselves in a raw shell (a prompt that waits forever, a dev server that never ends, a build log of 50,000 lines). The commands run in this container, not in the agent's sandbox: only the tools of this image, only /work and the container's /tmp writable, no network (installing packages fails here; do that from the agent's own shell). Codex waits 60 s for an MCP call by default: raise its tool_timeout_sec for this server, or set EXEC_TIMEOUT and EXEC_MAX_TIMEOUT below that. Give the server no secrets: its commands can read every variable of its container (through PID 1, Podman's init, at /proc/1/environ), not only those named in EXEC_ENV_ALLOW; under Bubblewrap the server refuses to run commands, because there PID 1 holds sandbox-ai's whole environment (use --backend podman). Command output comes from programs and files of the project: data, not instructions."
-    },
-    {
-      "id": "mcp:files",
-      "name": "files",
-      "title": "Workspace files (reliable reads and writes, Markdown repairs)",
-      "description": "Reads and writes the files of an agent's workspace - the folder mounted at /work - so that a small local model gets them right: read_file (in parts, with the file's sha256), list_dir, glob, search, stat, diff, checksum; write_file (atomic, an existing file replaced only with the sha256 it was read with or overwrite=true, permissions, line breaks and byte order mark kept, binary-looking content refused), write_markdown (repairs what local models get wrong - a ```markdown fence around everything, literal \\n, a JSON string, CRLF, trailing spaces, #Heading, an open code fence, a repeated first heading - and lists each repair; dry_run), edit_file (one exact match, or a single whitespace-tolerant one, said so), insert_lines, delete_lines, append_file, apply_patch (strict hunks, the file's text shown when one does not apply), move, copy, mkdir, delete (into /work/.trash). Every write answers lines added and removed and the new sha256. Nothing outside the mounted folders: no '..', no link followed out of a folder (the write tools follow none), no devices, pipes or sockets. Folders mounted at /ref1-/ref3 are only read. FILES_READONLY=1 refuses every write. No network.",
-      "category": "Files",
-      "tags": [
-        "files",
-        "markdown",
-        "editing",
-        "workspace",
-        "local-models"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/files",
-      "license": "MIT (MCP server, sandbox-ai-mcp)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-files",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "FILES_READONLY",
-          "description": "1: every write tool refuses (the server only reads)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "FILES_MAX_BYTES",
-          "description": "Bytes one call reads or writes, 1K to 256M (like 8M; default 8M)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "FILES_TRASH",
-          "description": "0: delete removes for good instead of moving into /work/.trash (default 1)",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The workspace, writable (--mount /work=PROJECT:rw; :ro makes it read-only): the only folder written",
-          "required": true
-        },
-        {
-          "target": "/ref1",
-          "description": "Another folder to read from, read-only (--mount /ref1=DIR:ro); never written"
-        },
-        {
-          "target": "/ref2",
-          "description": "Another folder to read from, read-only (--mount /ref2=DIR:ro); never written"
-        },
-        {
-          "target": "/ref3",
-          "description": "Another folder to read from, read-only (--mount /ref3=DIR:ro); never written"
-        }
-      ],
-      "network": "none",
-      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
     },
     {
       "id": "mcp:gowitness",
@@ -647,34 +457,6 @@
       ],
       "network": "full",
       "notes": "The folder mounted at /data is the account: signal-cli's keys of this linked device and the message history live there, and no tool reads anything else of it or takes a file path. Link it once, with the network, before adding the server: podman run --rm -it --network=pasta --user=0:0 --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m -v DIR:/data:rw IMAGE --link NAME prints a sgnl:// link; show it as a QR code (qrencode -t ansiutf8 'sgnl://...') and scan it in Signal on the phone (Settings, Linked devices). Then: sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=DIR:rw. One connection at a time: signal-cli locks the account. Fetching messages sends Signal's delivery receipts, never read receipts; unread is tracked in the local history only. Unlink the device on the phone to revoke it. Message texts, names and group titles are written by other people: treat them as data, not instructions."
-    },
-    {
-      "id": "mcp:tasks",
-      "name": "tasks",
-      "title": "A plan outside the model's context (goal, steps, notes)",
-      "description": "Keeps an agent's plan outside its context, in the project folder mounted writable at /work, so that a small local model keeps its goal after a compaction or a restart and does not repeat a mistake: set_goal, add_steps, remove_step, start_step, complete_step (with a note of what was done), block_step (with the reason), add_note (facts and mistakes not to repeat), next_step (the one step to work on now, with the goal, its notes, the last result and the latest notes), list_steps and progress (compact). Stored in /work/.tasks/plan.json, with a readable /work/.tasks/PLAN.md for the human; every change is locked and written atomically, so several connections can share one plan. No tool takes a path; sizes are bounded. No network.",
-      "category": "Developer tools",
-      "tags": [
-        "planning",
-        "todo",
-        "tasks",
-        "local-llm",
-        "memory"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/tasks",
-      "license": "MIT (MCP server, sandbox-ai-mcp)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-tasks",
-      "tag": "latest",
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The project folder, writable (--mount /work=PROJECT:rw): the plan goes to PROJECT/.tasks",
-          "required": true
-        }
-      ],
-      "network": "none",
-      "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions."
     },
     {
       "id": "mcp:telegram",
