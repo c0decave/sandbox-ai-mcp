@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import collections
 import json
 import logging
 import os
@@ -68,6 +69,7 @@ MAX_URL = 2000
 MAX_ANSWER = 4 << 20            # bytes of one answer of Bluesky's
 MAX_TEXT = 300                  # characters of a short text of Bluesky's in an answer (names, error messages)
 MAX_POSTS_IN_THREAD = 100       # posts get_post_thread returns
+MAX_THREAD_NODES = 1000         # entries of the AppView's thread get_post_thread looks at (an answer may be 4 MiB)
 RETRIES = 3                     # tries of one request (429, 502-504, a broken connection) before giving up
 MAX_WAIT = 30.0                 # seconds a rate limit is waited for; a later reset is named, not waited for
 TIMEOUT = httpx.Timeout(30.0, connect=15.0, write=60.0)
@@ -233,12 +235,12 @@ def grapheme_clusters(text: str) -> list[str]:
     """TEXT split into user-perceived characters (extended grapheme clusters, UAX #29 rules GB3-GB13), as the
     Bluesky app and PDS count them: a flag, a family emoji, a letter with its accents, a Hangul syllable of jamo,
     a keycap or an emoji with its skin tone are each one."""
-    clusters: list[str] = []
+    starts: list[int] = []   # where each cluster starts (a cluster grown by += would take quadratic time)
     prev = None
     ri_run = 0          # regional indicators in a row before this code point
     pict = False        # the cluster so far ends in Extended_Pictographic Extend*
     pict_zwj = False    # ... followed by ZWJ (GB11)
-    for ch in text:
+    for index, ch in enumerate(text):
         cp = ord(ch)
         kind = _kind(cp)
         if prev is None:
@@ -263,10 +265,8 @@ def grapheme_clusters(text: str) -> list[str]:
             join = True
         else:                                                              # GB999
             join = False
-        if join:
-            clusters[-1] += ch
-        else:
-            clusters.append(ch)
+        if not join:
+            starts.append(index)
         ri_run = ri_run + 1 if kind == "RI" else 0
         pict_zwj = kind == "ZWJ" and pict
         if kind == "Other" and _pictographic(cp):
@@ -274,7 +274,7 @@ def grapheme_clusters(text: str) -> list[str]:
         elif kind != "Extend":
             pict = False
         prev = kind
-    return clusters
+    return [text[start:end] for start, end in zip(starts, [*starts[1:], len(text)])]
 
 
 def graphemes(text: str) -> int:
@@ -291,6 +291,37 @@ def _no_controls(value: str, name: str, newlines: bool = False) -> None:
         value.encode("utf-8")
     except UnicodeEncodeError:
         raise ArgumentError(f"{name}: not valid Unicode text (a lone surrogate)") from None
+    _no_hidden_text(value, name)
+
+
+_BIDI_CONTROLS = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+_BLACK_FLAG = "\U0001F3F4"
+
+
+def _selector(cp: int) -> bool:
+    return 0xFE00 <= cp <= 0xFE0F or 0xE0100 <= cp <= 0xE01EF
+
+
+def _no_hidden_text(value: str, name: str) -> None:
+    """No text a reader cannot see, so that what the user approves is what goes out: Unicode tag characters
+    (U+E0000-U+E007F, each an invisible copy of an ASCII character) only in an emoji flag (U+1F3F4, tags, U+E007F),
+    no variation selectors in a row (one after a character is all Unicode defines; a run carries any bytes), no
+    bidi embedding, override or isolate controls (they reorder what is shown)."""
+    hidden = ArgumentError(f"{name}: no invisible text (Unicode tag characters outside a flag, variation selectors "
+                           "in a row, bidi controls that reorder the text)")
+    in_flag = False   # after U+1F3F4 and at least one tag, before U+E007F
+    for index, ch in enumerate(value):
+        cp = ord(ch)
+        if ch in _BIDI_CONTROLS or (index and _selector(cp) and _selector(ord(value[index - 1]))):
+            raise hidden
+        if 0xE0020 <= cp <= 0xE007E and (in_flag or (index and value[index - 1] == _BLACK_FLAG)):
+            in_flag = True
+        elif cp == 0xE007F and in_flag:
+            in_flag = False
+        elif 0xE0000 <= cp <= 0xE007F or in_flag:
+            raise hidden
+    if in_flag:
+        raise hidden
 
 
 def _post_text(value, name: str, embed: bool) -> str:
@@ -304,11 +335,14 @@ def _post_text(value, name: str, embed: bool) -> str:
     _no_controls(value, name, newlines=True)
     if not value and not embed:
         raise ArgumentError(f"{name}: 1-{MAX_GRAPHEMES} graphemes of text (empty only with images or a link card)")
+    size = len(value.encode("utf-8"))
+    if size > 4 * MAX_POST_BYTES:   # far too long: not counted at all
+        raise ArgumentError(f"{name}: at most {MAX_GRAPHEMES} graphemes and {MAX_POST_BYTES} bytes in UTF-8 "
+                            f"(Bluesky's limits), this one has {size} bytes: shorten it or split it with thread")
     count = graphemes(value)
     if count > MAX_GRAPHEMES:
         raise ArgumentError(f"{name}: at most {MAX_GRAPHEMES} graphemes (Bluesky's limit), this one has {count}: "
                             "shorten it or split it with thread")
-    size = len(value.encode("utf-8"))
     if size > MAX_POST_BYTES:
         raise ArgumentError(f"{name}: at most {MAX_POST_BYTES} bytes in UTF-8 (Bluesky's limit), this one has {size}")
     return value
@@ -647,6 +681,9 @@ def _jpeg(data: bytes) -> tuple[bytes, int, int, list[str], int | None]:
             removed.append("IPTC")
         elif marker == 0xFE:                                 # a comment
             removed.append("comment")
+        elif 0xE0 <= marker <= 0xEF and (marker not in _JPEG_APP_KEPT
+                                         or not payload.startswith(_JPEG_APP_KEPT[marker])):
+            removed.append(f"APP{marker - 0xE0}")            # C2PA/JUMBF (APP11), GoPro (APP6), MPF, Ducky, ...
         else:
             out += segment
         index += 2 + length
@@ -654,7 +691,21 @@ def _jpeg(data: bytes) -> tuple[bytes, int, int, list[str], int | None]:
         raise ArgumentError("not a JPEG this server can read (no frame header)")
     if not ended:
         raise ArgumentError("not a JPEG this server can read (no end of image)")
-    return bytes(out), size[0], size[1], removed, orientation
+    return bytes(out), size[0], size[1], sorted(set(removed)), orientation
+
+
+#: The APPn segments a JPEG keeps (what its pixels need), by their identifiers: JFIF, the ICC colour profile,
+#: Adobe's colour transform. Every other APPn goes: EXIF and XMP (APP1), IPTC (APP13), and also a C2PA manifest
+#: (APP11 JUMBF, which can carry the camera's EXIF with its location and the signer's identity), GoPro's APP6,
+#: MPF, FlashPix, Ducky and the like.
+_JPEG_APP_KEPT = {0xE0: (b"JFIF\0", b"JFXX\0"), 0xE2: (b"ICC_PROFILE\0",), 0xEE: (b"Adobe",)}
+#: The PNG chunks a PNG keeps: the critical ones, colour, transparency, pixel size and APNG's animation.
+_PNG_KEPT = {b"IHDR", b"PLTE", b"IDAT", b"IEND", b"tRNS", b"cHRM", b"gAMA", b"iCCP", b"sBIT", b"sRGB", b"cICP",
+             b"mDCV", b"mDCv", b"cLLI", b"cLLi", b"bKGD", b"hIST", b"pHYs", b"sPLT", b"acTL", b"fcTL", b"fdAT"}
+_PNG_REMOVED = {b"eXIf": "EXIF", b"tEXt": "text", b"zTXt": "text", b"iTXt": "text", b"tIME": "time", b"caBX": "C2PA"}
+#: The chunks a WebP keeps: its image data, alpha, animation and the ICC colour profile.
+_WEBP_KEPT = {b"VP8X", b"VP8 ", b"VP8L", b"ALPH", b"ANIM", b"ANMF", b"ICCP"}
+_WEBP_REMOVED = {b"EXIF": "EXIF", b"XMP ": "XMP", b"C2PA": "C2PA"}
 
 
 def _png(data: bytes) -> tuple[bytes, int, int, list[str], int | None]:
@@ -672,11 +723,10 @@ def _png(data: bytes) -> tuple[bytes, int, int, list[str], int | None]:
             height = int.from_bytes(data[index + 12:index + 16], "big")
         if kind == b"eXIf":
             orientation = _exif_orientation(data[index + 8:index + 8 + length])
-            removed.append("EXIF")
-        elif kind in (b"tEXt", b"zTXt", b"iTXt"):
-            removed.append("text")
-        else:
+        if kind in _PNG_KEPT:
             out += data[index:end]
+        else:
+            removed.append(_PNG_REMOVED.get(kind, "other chunks"))
         index = end
         if kind == b"IEND":
             if index < len(data):
@@ -709,20 +759,19 @@ def _webp(data: bytes) -> tuple[bytes, int, int, list[str], int | None]:
             size = ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
         if kind == b"EXIF":
             orientation = _exif_orientation(body)
-            removed.append("EXIF")
-        elif kind == b"XMP ":
-            removed.append("XMP")
+        if kind not in _WEBP_KEPT:
+            removed.append(_WEBP_REMOVED.get(kind, "other chunks"))
+        elif kind == b"VP8X" and length >= 1:
+            body = bytes([body[0] & ~0x0C]) + body[1:]   # no EXIF (0x08), no XMP (0x04) any more
+            chunks.append(data[index:index + 8] + body + data[index + 8 + length:end])
         else:
-            if kind == b"VP8X" and length >= 1:
-                body = bytes([body[0] & ~0x0C]) + body[1:]   # no EXIF (0x08), no XMP (0x04) any more
-                chunks.append(data[index:index + 8] + body + data[index + 8 + length:end])
-            else:
-                chunks.append(data[index:end])
+            chunks.append(data[index:end])
         index = end
     if size is None or not size[0] or not size[1]:
         raise ArgumentError("not a WebP this server can read (no frame header)")
     payload = b"WEBP" + b"".join(chunks)
-    return b"RIFF" + len(payload).to_bytes(4, "little") + payload, size[0], size[1], removed, orientation
+    return (b"RIFF" + len(payload).to_bytes(4, "little") + payload, size[0], size[1], sorted(set(removed)),
+            orientation)
 
 
 def prepare_image(data: bytes, suffix: str, name: str) -> tuple[bytes, str, int, int, list[str]]:
@@ -962,7 +1011,7 @@ def _rate_wait(headers: httpx.Headers, attempt: int) -> float:
     """Seconds until a rate limit resets: ratelimit-reset (Unix time) or Retry-After, else a backoff."""
     for key, now in (("ratelimit-reset", time.time()), ("retry-after", 0.0)):
         value = headers.get(key, "").strip()
-        if value.isdigit():
+        if value.isascii() and value.isdigit() and len(value) <= 12:   # (str.isdigit also takes superscripts)
             return max(int(value) - now, 0.5)
     return float(2 ** attempt)
 
@@ -1688,17 +1737,24 @@ async def get_post_thread(uri: str, depth: int = 6, parent_height: int = 5) -> d
         if top is None:
             raise BlueskyError("get_post_thread: Bluesky returned no post")
         rows.append(top)
-        queue = [(reply, 1) for reply in (root.get("replies") or [])] if isinstance(root, dict) else []
+        replies = root.get("replies") if isinstance(root, dict) else None
+        replies = replies if isinstance(replies, list) else []
+        truncated = len(replies) > MAX_THREAD_NODES
+        queue = collections.deque((reply, 1) for reply in replies[:MAX_THREAD_NODES])
+        visited = 0
         while queue:
-            value, level = queue.pop(0)
-            if len(rows) >= MAX_POSTS_IN_THREAD:
+            value, level = queue.popleft()
+            visited += 1
+            if len(rows) >= MAX_POSTS_IN_THREAD or visited > MAX_THREAD_NODES:
                 truncated = True
                 break
             found = node(value, level)
             if found:
                 rows.append(found)
-            if isinstance(value, dict) and level < levels:
-                queue.extend((reply, level + 1) for reply in (value.get("replies") or []))
+            nested = value.get("replies") if isinstance(value, dict) else None
+            if isinstance(nested, list) and level < levels:
+                truncated = truncated or len(nested) > MAX_THREAD_NODES
+                queue.extend((reply, level + 1) for reply in nested[:MAX_THREAD_NODES])
         return {"thread": rows, "count": len(rows), "truncated": truncated, "note": OTHERS}
     return await _guarded(work())
 

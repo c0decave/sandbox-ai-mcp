@@ -486,8 +486,8 @@ class Bluesky(unittest.TestCase):
         self.assertIn("COPY src/server.py /opt/mcp/", (self.folder / "Dockerfile").read_text())
         self.assertEqual(sorted(p.name for p in (self.folder / "src").iterdir() if p.name != "__pycache__"), ["server.py"])
         imports = set(re.findall(r"^(?:import|from) ([a-z0-9_.]+)", (self.folder / "src" / "server.py").read_text(), re.M))
-        self.assertEqual(imports - {"__future__", "asyncio", "base64", "datetime", "json", "logging", "os", "random",
-                                    "re", "stat", "sys", "time", "unicodedata", "urllib.parse"},
+        self.assertEqual(imports - {"__future__", "asyncio", "base64", "collections", "datetime", "json", "logging",
+                                    "os", "random", "re", "stat", "sys", "time", "unicodedata", "urllib.parse"},
                          {"httpx", "mcp.server.fastmcp", "mcp.types"})
 
     def test_only_the_pds_and_the_public_appview(self):

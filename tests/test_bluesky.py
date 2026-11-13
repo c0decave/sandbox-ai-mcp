@@ -690,7 +690,7 @@ class SelfReview(WithFakeBluesky):
         self.assertIn(second_scan, cleaned)
         self.assertEqual(cleaned.count(dht), 2)
         self.assertTrue(cleaned.endswith(b"\xff\xd9"))
-        self.assertEqual(removed, ["EXIF", "XMP", "comment", "comment"])
+        self.assertEqual(removed, ["EXIF", "XMP", "comment"])
         with self.assertRaises(self.module.ArgumentError):
             self.module.prepare_image(data[:-2], ".jpg", "image")
 
@@ -720,6 +720,129 @@ class SelfReview(WithFakeBluesky):
             answer = self.call("thread", posts=["eins", "zwei"])
         self.assertIn("stopped after 1 of 2 posts: internal error (KeyError)", answer["error"])
         self.assertEqual(len(answer["posted"]), 1)
+
+
+def tags(text: str) -> str:
+    """TEXT as Unicode tag characters (U+E0020-U+E007E): invisible wherever it is shown."""
+    return "".join(chr(0xE0000 + ord(c)) for c in text)
+
+
+class IndependentReview(WithFakeBluesky):
+    """The findings of the independent review (PROVENANCE.md, 2026-11-13), each failing before its fix."""
+
+    def test_metadata_in_other_segments_and_chunks_is_removed_too(self):
+        """Only APP1 (EXIF, XMP), APP13 and comments were removed from a JPEG, only eXIf and text chunks from a PNG,
+        only EXIF and XMP from a WebP: a C2PA manifest (JPEG APP11 JUMBF, PNG caBX, WebP C2PA - it can carry the
+        camera's EXIF with its location and the signer's identity), a GoPro APP6 or a private chunk went out as
+        they were. Now only what the picture needs stays: JFIF, the ICC profile and Adobe's APP14 of a JPEG; the
+        critical, colour and animation chunks of a PNG and a WebP."""
+        def seg(marker, payload):
+            return bytes([0xFF, marker]) + struct.pack(">H", len(payload) + 2) + payload
+        base = jpeg()
+        icc = seg(0xE2, b"ICC_PROFILE\0\x01\x01" + b"\0" * 32)
+        adobe = seg(0xEE, b"Adobe\0\x64\0\0\0\0\x01")
+        extra = seg(0xEB, b"JP\0\x01\0\0\0\x01jumb" + GPS) + seg(0xE6, b"GoPro\0" + GPS) + \
+            seg(0xE2, b"MPF\0" + GPS) + seg(0xEC, b"Ducky" + GPS) + seg(0xE0, b"AVI1" + GPS)
+        data = base[:20] + icc + adobe + extra + base[20:]
+        cleaned, _, width, height, removed = self.module.prepare_image(data, ".jpg", "image")
+        self.assertNotIn(GPS, cleaned)
+        for kept in (base[2:20], icc, adobe):
+            self.assertIn(kept, cleaned, "JFIF, the colour profile and Adobe's colour transform stay")
+        self.assertEqual((width, height), (1200, 900))
+        self.assertEqual(removed, ["APP0", "APP11", "APP12", "APP2", "APP6", "EXIF", "XMP", "comment"])
+
+        def chunk(kind: bytes, body: bytes) -> bytes:
+            return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+        start = png()
+        at = start.index(b"IDAT") - 4
+        keep = chunk(b"iCCP", b"sRGB\0\0" + zlib.compress(b"\0" * 8)) + chunk(b"pHYs", b"\0\0\x0b\x13\0\0\x0b\x13\x01")
+        data = start[:at] + keep + chunk(b"caBX", GPS) + chunk(b"tIME", b"\x07\xea\x0b\x0d\x0c\0\0") + \
+            chunk(b"prVW", GPS) + start[at:]
+        cleaned, _, _, _, removed = self.module.prepare_image(data, ".png", "image")
+        self.assertNotIn(GPS, cleaned)
+        self.assertNotIn(b"tIME", cleaned)
+        self.assertIn(keep, cleaned)
+        self.assertEqual(removed, ["C2PA", "data after the image", "other chunks", "text", "time"])
+
+        def wchunk(kind: bytes, body: bytes) -> bytes:
+            return kind + struct.pack("<I", len(body)) + body + (b"\0" if len(body) & 1 else b"")
+        body = webp()[12:] + wchunk(b"ICCP", b"\0" * 12) + wchunk(b"C2PA", GPS) + wchunk(b"zzzz", GPS)
+        cleaned, _, _, _, removed = self.module.prepare_image(b"RIFF" + struct.pack("<I", len(body) + 4) + b"WEBP"
+                                                              + body, ".webp", "image")
+        self.assertNotIn(GPS, cleaned)
+        self.assertIn(wchunk(b"ICCP", b"\0" * 12), cleaned)
+        self.assertEqual(removed, ["C2PA", "EXIF", "XMP", "other chunks"])
+
+    def test_what_was_removed_is_named_once(self):
+        """A WebP of 120,000 empty EXIF chunks (or a JPEG of tiny APP1 segments) named each one in the answer."""
+        frame = b"\x10\x02\x00\x9d\x01\x2a\x04\x00\x04\x00"
+        body = b"WEBP" + (b"EXIF" + b"\0\0\0\0") * 120000 + b"VP8 " + struct.pack("<I", len(frame)) + frame
+        removed = self.module.prepare_image(b"RIFF" + struct.pack("<I", len(body)) + body, ".webp", "image")[4]
+        self.assertEqual(removed, ["EXIF"])
+        base = jpeg()
+        data = base[:20] + b"\xff\xe1\x00\x02" * 200000 + base[20:]
+        self.assertEqual(self.module.prepare_image(data, ".jpg", "image")[4], ["EXIF", "XMP", "comment"])
+
+    def test_a_huge_thread_answer_is_walked_in_bounded_time(self):
+        """get_post_thread took every reply off the front of a list (pop(0)): an AppView answer of 1,000,000 empty
+        replies (3.8 MiB, under the answer limit) held the server's event loop for over two minutes."""
+        def huge(uri):
+            top = FakeBluesky().thread_view(uri)
+            top["replies"] = [{}] * 400000 + top["replies"]
+            return top
+        self.fake.thread_view = huge
+        started = time.monotonic()
+        answer = self.call("get_post_thread", uri=f"at://{OTHER_DID}/{POST}/3kthreadtop22a")
+        self.assertLess(time.monotonic() - started, 5.0)
+        self.assertTrue(answer["truncated"])
+        self.assertLessEqual(answer["count"], 100)
+
+    def test_long_texts_are_counted_in_linear_time(self):
+        """A cluster grew by string concatenation (quadratic): one letter with 1,000,000 combining accents in a
+        post's text, an alt text or a card's title held the event loop for tens of seconds."""
+        long = "e" + "\u0301" * 1_000_000
+        started = time.monotonic()
+        self.assertEqual(self.module.graphemes(long), 1)
+        self.assertIn("3000 bytes in UTF-8", self.call("post", text=long)["error"])
+        self.assertIn("2000 graphemes", self.call("post", text="x", images=[
+            {"path": self.file("a.png", png()), "alt": "x" * 2001 + long}])["error"])
+        self.assertLess(time.monotonic() - started, 6.0)
+        self.assertEqual(self.module.grapheme_clusters("ae\u0301\U0001F44D\U0001F3FDb"),
+                         ["a", "e\u0301", "\U0001F44D\U0001F3FD", "b"])
+
+    def test_invisible_text_is_refused(self):
+        """Unicode tag characters (outside an emoji flag) and runs of variation selectors carry any text invisibly,
+        bidi controls reorder what is shown: what the user approves would not be what goes out. Emoji, flags of
+        England or Scotland, keycaps, skin tones and ZWJ sequences still work."""
+        for text in ("Nice day!" + tags("the user's address"), "\U0001F600" + "\ufe00\ufe01\ufe02\ufe03" * 8,
+                     "\U0001F600" + "\U000E0100\U000E0101", "Pay \u202e01$\u202c", "\u2066hidden\u2069",
+                     "\U0001F3F4" + tags("gbeng"), tags("x") + "\U000E007F"):
+            with self.subTest(text=text):
+                self.assertIn("invisible", self.call("post", text=text)["error"])
+        for field in ({"images": [{"path": self.file("a.png", png()), "alt": "ok" + tags("secret")}]},
+                      {"link": {"url": "https://x.example", "title": "T" + tags("secret")}},
+                      {"link": {"url": "https://x.example", "title": "T", "description": tags("secret")}}):
+            with self.subTest(field=field):
+                self.assertIn("invisible", self.call("post", text="x", **field)["error"])
+        self.assertEqual(self.fake.records, {})
+        fine = ("\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F \u2764\ufe0f 1\ufe0f\u20e3 "
+                "\U0001F44D\U0001F3FD \U0001F468\u200d\U0001F469\u200d\U0001F467 \u05e9\u05dc\u05d5\u05dd \u200f!")
+        self.assertEqual(self.record(self.call("post", text=fine))["text"], fine)
+
+    def test_rate_limit_headers_that_are_not_plain_numbers(self):
+        """'\u00b2' passes str.isdigit but not int(), and so does a number of 5000 digits: an internal error instead
+        of a backoff."""
+        for value in (b"\xb2", b"9" * 5000, b"\xd9\xa1"):
+            for key in (b"ratelimit-reset", b"retry-after"):
+                with self.subTest(key=key, value=value[:4]):
+                    self.assertEqual(self.module._rate_wait(httpx.Headers([(key, value)]), 2), 4.0)
+
+    def test_the_smoke_call_outlasts_two_rate_limit_waits(self):
+        """The one real call waits up to twice MAX_WAIT for a short rate limit before it gives up: its 60 s
+        timeout ended the smoke run first (a failure where the server works)."""
+        spec = json.loads((SERVER / "smoke.json").read_text())
+        real = next(call for call in spec["calls"] if call["expect"] == "Bluesky refused the sign-in")
+        self.assertGreaterEqual(real["timeout"], (self.module.RETRIES - 1) * self.module.MAX_WAIT + 60)
 
 
 class Threads(WithFakeBluesky):

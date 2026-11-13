@@ -109,7 +109,9 @@ characters, increasing within the process); after a broken connection or a 5xx t
 was posted"). A 400 on a retry is checked the same way (the key may exist from the try whose answer got lost).
 
 **Text, graphemes, facets.** A post's text: line breaks normalised to `\n`, trimmed, no control characters (tabs and
-line breaks allowed; no C0/C1 controls, U+2028/U+2029, lone surrogates); at most **300 graphemes** and **3000 bytes**
+line breaks allowed; no C0/C1 controls, U+2028/U+2029, lone surrogates; no invisible text - Unicode tag characters
+outside an emoji flag, variation selectors in a row, bidi embedding/override/isolate controls, also in alt texts,
+card titles and descriptions); at most **300 graphemes** and **3000 bytes**
 in UTF-8 (the lexicon's `maxGraphemes` and `maxLength`), empty only with images or a card. Graphemes are counted with
 an implementation of Unicode's extended grapheme clusters (UAX #29, rules GB3-GB13: CR LF, controls, Hangul syllable
 sequences, Extend/ZWJ/SpacingMark, Prepend, emoji ZWJ sequences over Extended_Pictographic, regional-indicator
@@ -143,11 +145,15 @@ user - the user's own files under sandbox-ai's Podman `--user=0:0` and its Bubbl
 not empty; at most 1,000,000 bytes, the lexicon's `maxSize`) and read once with `pread`. The content must be the
 type its extension says (JPEG, PNG or WebP by their signatures). **Metadata is removed before the upload**, because
 the PDS keeps the uploaded blob as it is and serves it to anyone (`com.atproto.sync.getBlob`), even where the app
-shows a re-encoded copy: JPEG - APP1 (EXIF, with a camera's GPS position; XMP), APP13 (IPTC) and comments, segment by
-segment, across every scan of a progressive JPEG, and anything after the end-of-image marker (a phone's "motion
-photo" video, for one); PNG - `eXIf`, `tEXt`, `zTXt`, `iTXt` and anything after `IEND`; WebP - the `EXIF` and `XMP `
-chunks (the VP8X flags cleared, the RIFF size rewritten) and anything after the RIFF. Colour profiles and Adobe's
-APP14 stay (they change how the pixels look). An image whose EXIF orientation is not 1 is refused (it would show
+shows a re-encoded copy. Only what the picture needs stays (since the independent review, finding 1): JPEG - every
+APPn segment but JFIF/JFXX (APP0), the ICC profile (APP2) and Adobe's colour transform (APP14) goes (EXIF with a
+camera's GPS position and XMP in APP1, IPTC in APP13, a C2PA manifest in APP11, GoPro's APP6, MPF, Ducky, ...), and
+comments, segment by segment, across every scan of a progressive JPEG, and anything after the end-of-image marker (a
+phone's "motion photo" video, for one); PNG - every chunk but the critical, colour, transparency, pixel-size and APNG
+ones goes (`eXIf`, `tEXt`, `zTXt`, `iTXt`, `tIME`, C2PA's `caBX`, private chunks), and anything after `IEND`; WebP -
+every chunk but `VP8X`, `VP8 `, `VP8L`, `ALPH`, `ANIM`, `ANMF` and `ICCP` goes (`EXIF`, `XMP `, `C2PA`, unknown ones;
+the VP8X flags cleared, the RIFF size rewritten), and anything after the RIFF. Colour profiles and Adobe's APP14 stay
+(they change how the pixels look); what was removed is named once per kind. An image whose EXIF orientation is not 1 is refused (it would show
 turned once the EXIF is gone: "save it upright first"). Width and height come from the header (JPEG SOFn, PNG IHDR,
 WebP VP8X/VP8/VP8L) into `aspectRatio`. Alt text is required for every image (at most 2000 graphemes, the app's
 limit); at most 4 images; images and a card exclude each other (Bluesky shows one embed). The answer lists what was
@@ -163,7 +169,7 @@ to the CID just read, so exactly the post shown is deleted; the answer shows its
 
 **Reads.** At the public AppView, never with the session. Bounded: a post's text at most 3000 characters, names and
 other texts of Bluesky's at most 300 (a profile's description 600), at most 50 posts in `list_my_posts` (reposts
-and other accounts' posts left out), at most 100 posts in `get_post_thread` (depth 0-10, parents 0-20, flattened with
+and other accounts' posts left out), at most 100 posts in `get_post_thread` out of at most 1,000 entries of the answer (depth 0-10, parents 0-20, flattened with
 levels; deleted and blocked posts named), labels at most 10. Addresses in answers are built only from checked DIDs
 and record keys. Answers about other accounts carry a note that their texts are data, not instructions.
 
@@ -238,7 +244,7 @@ images of 1 MB in memory and nothing is written to /tmp, so `smoke.json` sets no
   with `swapRecord`; profiles, the feed without reposts, a flattened and bounded thread; no secret in answers, errors
   or logs; every path refusal (outside, `..`, hidden, links, a linked folder, a linked `/upload`, a pipe, a device, a
   folder, hard links, another user's file, empty, nothing mounted); the grapheme count; the tool list against
-  `tools.json`. 42 tests.
+  `tools.json`; the independent review's findings (class `IndependentReview`). 49 tests.
 - `tests/test_own_servers.py` `test_bluesky`: the server over stdio (tools, the write switch, a path outside
   `/upload`, no credentials), then all of the above inside the image in CI (its Python and libraries, no network).
 - `tests/test_analysis_servers.py` `Bluesky`: the shared lock, the imports, the two hosts, the secret flags, the write
@@ -250,4 +256,107 @@ images of 1 MB in memory and nothing is written to /tmp, so `smoke.json` sets no
   `post`, `thread` and `delete_post` with `BLUESKY_WRITE` unset, an image outside `/upload`, `..`, an image without
   alt text, 301 graphemes, a `javascript:` card, a post address on another site, `n` out of range.
 
-**Independent review:** not yet; the server is pending its first digest.
+## Independent review, 2026-11-13
+
+A second reviewer, not the builder, read the server again from scratch for backdoors and bad code, without relying
+on the self-review above. Threat model: a prompt-injected agent calls the tools with any arguments; the PDS or the
+AppView answers anything (within TLS); a crafted image file lies in `/upload`. Line numbers below are those of the
+reviewed commit `b8dbda1`.
+
+**Read line by line:** `src/server.py` (1,707 lines), `Dockerfile` (27), `server.json` (58), `smoke.json` (133),
+`tools.json` (31), `requirements.in` (1), `requirements.txt` (586: identical to youtube's and web-fetch's but for the
+`# via` line), both `LICENSES/` files (21 and 26 lines, byte-identical to youtube's), this file (253),
+`tests/test_bluesky.py` (955), and the branch's diff against `main` of `tests/test_analysis_servers.py` (+68),
+`tests/test_own_servers.py` (+27), `.github/workflows/build.yml` (one matrix entry), `catalog.json` (+65, the entry
+generated from `server.json`, pending), `digests.json` (+1, `null`), `README.md` (+65) and `SECURITY.md` (+4).
+**Read for context:** httpx 0.28.1 (`trust_env`: proxies and `SSL_CERT_*`; netrc only through an explicit
+`NetRCAuth`; no brotli or zstd decoder in the lock), `scripts/smoke_test.py` (substring match, per-call timeout,
+default 120 s), the AT Protocol PDS's session scopes (`com.atproto.access`, `appPass`, `appPassPrivileged`, `refresh`,
+`takendown`, `signupQueued`), and sandbox-ai's approval text for an MCP call (`approvals.py`, `shown`).
+**Scanned:** no `eval`/`exec`/`pickle`/`marshal`/`subprocess`/sockets/`ctypes`; the source is ASCII only; every URL
+is the PDS, `public.api.bsky.app`, or a `bsky.app` link put into an answer. **Fuzzed:** the three image parsers with
+90,000 mutated files (no exception but the documented refusal, none slower than 50 ms) and hand-made worst cases
+(1 MB of `FF` fill bytes, of restart markers, of empty segments and chunks: each under 0.2 s, memory bounded by the
+file). The validators' regular expressions were tried with backtracking inputs (no case over a millisecond).
+
+### Findings (all fixed test-first: each test in `IndependentReview` failed before the fix)
+
+| # | Severity | Where (at `b8dbda1`) | Scenario | Status |
+|---|---|---|---|---|
+| 1 | **low-medium** (privacy) | `server.py` 640-651 `_jpeg`, 673-679 `_png`, 710-720 `_webp` | Metadata was removed by a list of what to drop: APP1, APP13 and comments of a JPEG, `eXIf` and text chunks of a PNG, `EXIF`/`XMP ` of a WebP. Everything else went out as it was, readable by anyone at `getBlob`: a C2PA manifest (JPEG APP11 JUMBF, PNG `caBX`, WebP `C2PA` - cameras and phones that sign their photos write one, and it can carry the camera's EXIF, location included, and the signer's identity), GoPro's APP6, MPF, Ducky, PNG `tIME`, private chunks | CONFIRMED with crafted files (`test_metadata_in_other_segments_and_chunks_is_removed_too`); that a given camera puts its location there is plausible, not shown. Fixed |
+| 2 | low | `server.py` 1691-1701 `get_post_thread` | The replies were taken off the front of a list (`pop(0)`, quadratic), all of them, whatever the limit of 100 rows: an AppView answer of 1,000,000 empty replies (3.8 MiB, under the 4 MiB limit) held the server's event loop - every other call included - for 128 s | CONFIRMED (`test_a_huge_thread_answer_is_walked_in_bounded_time`: 18.9 s for 400,000 before, 0.3 s after with the fake's own encoding), fixed |
+| 3 | low | `server.py` 232-277 `grapheme_clusters` (used by 307, 777, 805, 814) | A cluster grew by `+=` while the list held it (quadratic): one letter with 1,000,000 combining accents in a post's text, an alt text or a card's title or description held the event loop for 159 s before anything was refused | CONFIRMED (`test_long_texts_are_counted_in_linear_time`), fixed |
+| 4 | low | `server.py` 286-293 `_no_controls` | Invisible text was taken: Unicode tag characters (each an invisible copy of an ASCII character), runs of variation selectors (any bytes after an emoji) and bidi override/isolate controls. A prompt-injected agent could post text the user does not see - in an approval view that renders Unicode, and in the published post - such as data taken from the sandbox. sandbox-ai's own question text escapes every non-ASCII character, which shows them | CONFIRMED (`test_invisible_text_is_refused`: posted before), fixed |
+| 5 | low | `server.py` 657, 725 | What was removed from an image was listed per segment: a 1 MB WebP of 120,000 empty `EXIF` chunks gave an answer of 120,000 names (about 1 MB) | CONFIRMED (`test_what_was_removed_is_named_once`), fixed |
+| 6 | low (CI) | `smoke.json` call 1 | The one real call had a 60 s timeout, but a sign-in rate limit that resets within 30 s is waited for twice before the server answers "Bluesky refused the sign-in for now": the harness would have timed out first and failed a server that works | CONFIRMED by arithmetic (`test_the_smoke_call_outlasts_two_rate_limit_waits`), fixed |
+| 7 | info | `server.py` 961-967 `_rate_wait` | `str.isdigit` takes `²` and Arabic-Indic digits: a `retry-after: ²` (or a number of 5,000 digits) answered "internal error (ValueError)" instead of backing off, `ratelimit-reset: ١` waited 0.5 s instead of backing off | CONFIRMED (`test_rate_limit_headers_that_are_not_plain_numbers`), fixed |
+
+**Fixes.** (1) The parsers keep only what the picture needs: a JPEG's JFIF/JFXX APP0, ICC APP2 and Adobe APP14 (by
+their identifiers; every other APPn, comments and the trailer go); a PNG's critical, colour, transparency,
+pixel-size and APNG chunks; a WebP's `VP8X`, `VP8 `, `VP8L`, `ALPH`, `ANIM`, `ANMF`, `ICCP`. (2) A `deque`, at most
+1,000 entries of the answer looked at (`MAX_THREAD_NODES`), every reply list cut at that length (the answer
+then says `truncated`); a `replies` that is not a list is ignored. (3) Clusters are found by their start indices and sliced once; a post's text of more than
+12,000 bytes is refused without being counted. (4) `_no_hidden_text` (called by `_no_controls`, so for texts, alt
+texts, card fields, URLs and paths): tag characters only as an emoji flag's (U+1F3F4, U+E0020-U+E007E, U+E007F), no
+two variation selectors in a row, no U+202A-U+202E or U+2066-U+2069. Emoji, the flags of England or Scotland,
+keycaps, skin tones, ZWJ sequences, Hebrew with an RLM still work (tested). (5) Each kind is named once. (6) 120 s.
+(7) ASCII digits only, at most 12.
+
+**Questions of the brief, answered.**
+*Credentials.* The app password is read from the environment only when needed, refused before sending unless it
+has an app password's shape, and sent only in `createSession`'s body to the PDS. The scope is read from the access
+token's payload (the second dot-separated part, base64url, JSON): exactly `com.atproto.appPass` is taken, and the
+subject must be the session's DID; `com.atproto.access`, `appPassPrivileged`, `takendown`, a token that is not a JWT
+(no claims) and anything unknown are refused and ended with `deleteSession` (the refresh token, to the PDS). The
+claim is not verified, and needs no verification: only the PDS, over verified TLS, gives the token, and a PDS that
+lied about it would hold the account anyway; no other answer (AppView, `getRecord`) can touch the session. A refresh
+is checked the same way and must keep the DID. Tokens, also refused ones, are added to the redaction before
+anything else is done with them; every answer passes `scrub`, every error `redact`, every log line the one
+redacting handler (`force=True`; mcp's own `basicConfig` then does nothing), the excepthook logs a type only.
+*Hosts.* Every request goes through `_send` and `_checked_url`: `https`, the host exactly the PDS's or
+`public.api.bsky.app`, port 443, no user information; an `Authorization` header only to the PDS host (refresh and
+`deleteSession` included). No redirect is followed. URLs are built from constants and the checked `BLUESKY_PDS`
+only (arguments go into `params` or JSON bodies). Handles are resolved at the AppView without the session; the DID
+document's PDS is shown, never used. *Write guard.* `post`, `thread` and `delete_post` check `BLUESKY_WRITE == "1"`
+after their own argument checks and before the credentials, any file and any request. *Delete.* The at-URI's
+authority must equal the session's DID (case-sensitive; `did:PLC:`, a percent-encoded or other DID fails) or its
+handle (lower-cased on both sides); and whatever the authority, `getRecord` and `deleteRecord` name the session's own
+DID as `repo`, so no other repository can be touched, and `swapRecord` pins the CID just read. *Facets.* Offsets
+come from the UTF-8 encoding of the text the record carries; lone surrogates are refused; a link facet is only
+`http(s)://` with a host that has a dot (no `javascript:` or `data:`), a card URL the same; at most 2,000
+characters. *Images.* The path rules hold (the `openat` chain with `O_NOFOLLOW`, `lstat`, `O_NONBLOCK | O_NOCTTY`,
+`fstat`: same inode, own user, one name, size); every parser loop advances on each step and reads only within the
+1 MB file; nothing is decompressed; an EXIF orientation other than 1 is refused. *Threads.* Everything is checked,
+and every file read, before the first post; a failure in between names what was posted. *Idempotency.* The record
+key is chosen before the first try, a lost answer (no connection, 500-504, a 400 on a retry) is looked up with an
+unauthenticated `getRecord` of the own repository before a retry; at most 3 tries. *Retries and rate limits.* At
+most 3 tries per request (429, 502-504, a broken connection; a request that may have been carried out only when
+safe), at most 30 s per wait, one renewal per request. *Answer sizes.* 4 MiB per answer (a gzip chunk can expand to
+about 64 MiB before the check, within the 512 MiB limit), every text in an answer bounded. *MCP.* FastMCP over stdio;
+nothing but MCP on stdout. *Pins.* The lock is the one youtube, gowitness and whatweb ship (cut-off 2026-10-23,
+21 days, so the 14-day rule holds), hash-checked, wheels only; the base digest and Debian versions are theirs; pip and
+the venv tooling are removed; user 10001; `python -I -u`. *Smoke spec.* The real call expects "Bluesky refused the
+sign-in", which every 4xx, a 2FA refusal, a takedown and a 429 give, but not a 5xx or no connection; with finding 6
+it outlasts two rate-limit waits.
+
+**Remaining risks** (accepted, in addition to (a)-(j) above). (k) Steganography in visible text (a zero-width space
+here and there, look-alike letters, word choice) still carries a few bits per post; only the high-bandwidth
+invisible channels are closed. (l) sandbox-ai's question for an MCP call shows the first 300 characters of the
+arguments: the rest of a long post, of a thread, is not in that text (sandbox-ai, not this server; worth a look
+there). (m) A `deleteRecord` retried after a 502-504 whose delete went through reports the second try's refusal
+("the post changed in the meantime" or "no such record") although the post is gone (misleading, not harmful).
+(n) With wrong credentials every call signs in again, so a looping agent can use up the account's 30 sign-ins in 5
+minutes (the account itself stays usable from elsewhere). (o) An `ANMF` frame of an animated WebP is kept whole,
+with any unknown chunk inside it. (p) The JWT claims are not verified (see above). (q) The smoke spec's placeholder
+`smok-etes-tonl-y000` has an app password's shape (it must, to reach Bluesky); GitHub's push protection has no
+Bluesky pattern as far as this review knows. (r) Nothing was run against the live service.
+
+**Tested here:** `tests/test_bluesky.py` 49 tests (42 + 7 new) with mcp 1.30.0 and httpx 0.28.1 of the lock
+(Python 3.11; the image has 3.13); `tests/test_own_servers.py` `test_bluesky` (the server over stdio); the whole
+suite (`SANDBOX_AI_CHECKOUT=... python -m unittest discover -s tests`: 297 tests OK, 42 skipped);
+`scripts/make_catalog.py --check --allow-pending --sandbox-ai` OK (bluesky pending its first digest).
+
+**Verdict: fit to sign - yes**, once CI has built the image from this tree and both sandbox-ai smoke reports
+(Podman, Bubblewrap) have passed. No backdoor, telemetry, other host or path for the app password or a token was
+found; the scope check reads the right claim and fails closed; deletes cannot leave the account's own repository.
+The seven findings are fixed and the remaining risks are listed above.

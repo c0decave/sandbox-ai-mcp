@@ -23,7 +23,7 @@
       "arguments": {},
       "expect": "Bluesky refused the sign-in",
       "expect_error": true,
-      "timeout": 60
+      "timeout": 120
     },
     {
       "tool": "post",

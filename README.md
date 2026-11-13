@@ -320,8 +320,8 @@ What to know: a post has at most **300 graphemes** (an emoji, a flag or a letter
 3000 bytes, checked before anything is sent; links (`https://...`), `@mentions` of existing handles and `#hashtags`
 become clickable facets, placed by their UTF-8 byte offsets as Bluesky needs them (a mention of an unknown handle
 stays plain text, and the answer says so). Images: JPEG, PNG or WebP of `/upload`, at most 1,000,000 bytes and 4 per
-post, **alt text required**; their EXIF (a phone's location among it), XMP, IPTC, comments and anything after the
-image are removed before the upload (Bluesky keeps the original upload, readable by anyone), and a photo turned
+post, **alt text required**; their EXIF (a phone's location among it), XMP, IPTC, C2PA manifests, comments, any other
+metadata and anything after the image are removed before the upload (Bluesky keeps the original upload, readable by anyone), and a photo turned
 only by its EXIF orientation is refused (save it upright). A link card is built from the title, description and
 optional thumbnail the agent gives: the server never fetches the linked site. `delete_post` deletes only the
 account's own posts and shows what it deleted. Bluesky limits writes per account (about 1,600 posts an hour,
