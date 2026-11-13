@@ -1,0 +1,131 @@
+{
+  "name": "code-search",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "seed": [
+        {
+          "path": "escape",
+          "symlink": "/etc"
+        },
+        {
+          "path": ".gitignore",
+          "text": "build/\n"
+        },
+        {
+          "path": "build/generated.py",
+          "text": "def parse_args():\n    return 'generated'\n"
+        },
+        {
+          "path": "app/cli.py",
+          "text": "import sys\n\n\nclass Cli:\n    def run(self, argv):\n        return parse_args(argv)\n\n\ndef parse_args(argv):\n    \"\"\"Parse the command line.\"\"\"\n    return list(argv)\n\n\nif __name__ == '__main__':\n    Cli().run(sys.argv[1:])\n"
+        },
+        {
+          "path": "web/server.ts",
+          "text": "export class Server {\n  start(port: number): void {\n    listen(port);\n  }\n}\n\nexport function listen(port: number) {\n  return port;\n}\n"
+        },
+        {
+          "path": "go/main.go",
+          "text": "package main\n\ntype Store struct {\n\tpath string\n}\n\nfunc (s *Store) Load(key string) string {\n\treturn key\n}\n"
+        }
+      ]
+    }
+  ],
+  "expect_tools": [
+    "find_definition",
+    "find_files",
+    "find_references",
+    "find_text",
+    "outline",
+    "project_map",
+    "read_symbol"
+  ],
+  "calls": [
+    {
+      "tool": "project_map",
+      "arguments": {},
+      "expect": "  cli.py  "
+    },
+    {
+      "tool": "find_definition",
+      "arguments": {
+        "name": "parse_args"
+      },
+      "expect": "1 definition of 'parse_args' in 3 code files under /work\napp/cli.py:9-11  def parse_args(argv)"
+    },
+    {
+      "tool": "read_symbol",
+      "arguments": {
+        "path": "app/cli.py",
+        "name": "Cli.run"
+      },
+      "expect": "app/cli.py:5-6  method Cli.run (Python)\n5|     def run(self, argv):\n6|         return parse_args(argv)"
+    },
+    {
+      "tool": "outline",
+      "arguments": {
+        "path": "go/main.go"
+      },
+      "expect": "func (s *Store) Load(key string) string"
+    },
+    {
+      "tool": "find_references",
+      "arguments": {
+        "name": "listen"
+      },
+      "expect": "web/server.ts:3 (in Server.start): listen(port);"
+    },
+    {
+      "tool": "find_text",
+      "arguments": {
+        "pattern": "return",
+        "glob": "*.py"
+      },
+      "expect": "app/cli.py\n  6 (in Cli.run): return parse_args(argv)\n  11 (in parse_args): return list(argv)"
+    },
+    {
+      "tool": "find_files",
+      "arguments": {
+        "name_or_glob": "server"
+      },
+      "expect": "web/server.ts"
+    },
+    {
+      "tool": "find_text",
+      "arguments": {
+        "pattern": "(a+)+$",
+        "regex": true
+      },
+      "expect": "can take forever",
+      "expect_error": true
+    },
+    {
+      "tool": "outline",
+      "arguments": {
+        "path": "../etc/passwd"
+      },
+      "expect": "'..' is not allowed in a path",
+      "expect_error": true
+    },
+    {
+      "tool": "read_symbol",
+      "arguments": {
+        "path": "escape/os-release",
+        "name": "x"
+      },
+      "expect": "is a link to /etc, outside /work: links out of the mounted folders are never followed",
+      "expect_error": true
+    },
+    {
+      "tool": "find_text",
+      "arguments": {
+        "pattern": "root",
+        "path": "/etc"
+      },
+      "expect": "is outside the folders this server can reach",
+      "expect_error": true
+    }
+  ]
+}

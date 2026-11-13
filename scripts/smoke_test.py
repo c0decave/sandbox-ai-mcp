@@ -27,7 +27,8 @@ gets a new empty folder of its own (removed afterwards), for a server that keeps
 writable (a note, a memory) and must write, search and read it back in its smoke run without touching anything else.
 Its ``"seed"`` puts things into it first: ``{"path": "notes/a.md", "text": "..."}`` a file,
 ``{"path": "escape", "symlink": "/etc"}`` a symbolic link (for a server that must refuse to follow it); paths are
-relative, without ``..``.
+relative, without ``..``. A seeded fresh mount may leave out ``"writable"``: it is then mounted read-only, for a server
+that only reads its folder (code-search) and must never be given it writable, not even in its smoke run.
 
 A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, ``"cpus": 2``,
 ``"tmp": "768m"`` - the size of its /tmp, a tmpfs, so at most the memory): the run line then has these instead of
@@ -230,8 +231,9 @@ def spec_mounts(spec: dict, variables: dict[str, str], fresh: list[str]) -> list
     mounts = []
     for mount in spec.get("mounts", []):
         if mount.get("fresh"):
-            if "host" in mount or not mount.get("writable"):
-                raise ValueError(f"mount {mount.get('target')}: a fresh folder has no host and is writable")
+            if "host" in mount or not (mount.get("writable") or mount.get("seed")):
+                raise ValueError(f"mount {mount.get('target')}: a fresh folder has no host and is writable (or "
+                                 "seeded: then it may be read-only)")
             host = tempfile.mkdtemp(prefix=f"smoke-{spec.get('name', 'server')}-")
             # A throwaway folder: whoever the container's user is (root without CAP_DAC_OVERRIDE under Docker, the
             # image's user, a subordinate ID of rootless Podman) may write it, as the user's own folder is theirs.

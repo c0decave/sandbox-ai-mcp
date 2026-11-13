@@ -461,6 +461,70 @@ class Files(unittest.TestCase):
             self.assertIn(f"`{tool}`", provenance)
 
 
+class CodeSearch(unittest.TestCase):
+    """The code search server: our own code on the shared lock, the standard library besides the MCP SDK, no network,
+    the project read-only at /work, nothing written (tests/test_code_search.py has the server's own tests)."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "code-search"
+        self.entry = read_json("servers", "code-search", "server.json")
+        self.spec = read_json("servers", "code-search", "smoke.json")
+        self.source = (self.folder / "src" / "server.py").read_text()
+
+    def test_the_shared_lock_and_the_standard_library_only(self):
+        self.assertEqual((self.folder / "requirements.txt").read_bytes().replace(b"servers/code-search/", b""),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                             b"servers/web-fetch/", b""))
+        self.assertEqual((self.folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+        self.assertIn("COPY src/server.py /opt/mcp/server.py", (self.folder / "Dockerfile").read_text())
+        self.assertEqual(sorted(p.name for p in (self.folder / "src").iterdir() if p.name != "__pycache__"),
+                         ["server.py"])
+        imports = set(re.findall(r"^(?:import|from) ([A-Za-z_.]+)", self.source, re.M))
+        self.assertEqual(imports - {"__future__", "ast", "contextlib", "difflib", "errno", "fnmatch", "logging", "os",
+                                    "re", "signal", "stat", "sys", "threading", "time", "typing", "warnings"},
+                         {"mcp.server.fastmcp", "mcp.server.fastmcp.exceptions", "mcp.types"})
+        self.assertNotRegex(self.source, r"https?://", "no request anywhere")
+
+    def test_nothing_is_written_executed_or_followed_out(self):
+        for word in ("subprocess", "import socket", "socket.", "urllib", "eval(", "exec(", "compile(", "pickle", "ctypes", "os.system",
+                     "os.write", "O_WRONLY", "O_RDWR", "O_CREAT", "os.mkdir", "os.makedirs", "os.remove", "os.unlink",
+                     "os.rename", "os.replace", "os.rmdir", "shutil", "open(", "follow_symlinks=True",
+                     "os.path.realpath", "os.chmod", "os.chown"):
+            hits = [line for line in self.source.splitlines() if word in line and "os.open(" not in line
+                    and "re.compile(" not in line]
+            self.assertEqual(hits, [], word)
+        self.assertIn("DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW", self.source)
+        self.assertIn("READ_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK", self.source)
+
+    def test_no_network_and_the_folders_read_only(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("none", "none"))
+        self.assertNotIn("hosts", self.entry)
+        self.assertNotIn("env", self.entry)
+        mounts = {m["target"]: m for m in self.entry["mounts"]}
+        self.assertEqual(list(mounts), ["/work", "/ref1", "/ref2", "/ref3"])
+        self.assertTrue(mounts["/work"].get("required"))
+        for mount in mounts.values():
+            self.assertIn(":ro", mount["description"])
+            self.assertIn("read-only", mount["description"])
+        self.assertIn('WORK = "/work"', self.source)
+        self.assertIn('REFS = ("/ref1", "/ref2", "/ref3")', self.source)
+        self.assertEqual([m["target"] for m in self.spec["mounts"]], ["/work"])
+        self.assertNotIn("writable", self.spec["mounts"][0], "even the smoke run mounts the project read-only")
+
+    def test_the_smoke_run_finds_reads_and_refuses(self):
+        refused = " ".join(call["expect"] for call in self.spec["calls"] if call.get("expect_error"))
+        for expected in ("'..' is not allowed", "never followed", "outside the folders", "can take forever"):
+            self.assertIn(expected, refused)
+        self.assertIn({"path": "escape", "symlink": "/etc"}, self.spec["mounts"][0]["seed"])
+        tools = read_json("servers", "code-search", "tools.json")
+        self.assertEqual(tools["tools"], tools["read_only_tools"])
+        self.assertEqual({call["tool"] for call in self.spec["calls"] if not call.get("expect_error")},
+                         set(tools["tools"]), "every tool is called for real")
+        provenance = (self.folder / "PROVENANCE.md").read_text()
+        for tool in tools["tools"]:
+            self.assertIn(f"`{tool}`", provenance)
+
+
 class YouTube(unittest.TestCase):
     """The upload server: our own code on the shared lock, Google's two API hosts and nothing else, /upload read-only
     and optional, a smoke run without an account (tests/test_youtube.py has the server's own tests)."""

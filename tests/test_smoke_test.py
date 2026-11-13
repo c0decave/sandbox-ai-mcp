@@ -287,6 +287,18 @@ class SmokeTest(unittest.TestCase):
                 smoke.spec_mounts({"name": "x", "mounts": [{"target": "/w", "fresh": True, "writable": True,
                                                             "seed": bad}]}, {}, fresh)
 
+    def test_a_seeded_fresh_mount_may_be_read_only(self):
+        fresh = []
+        self.addCleanup(lambda: [__import__("shutil").rmtree(f, True) for f in fresh])
+        mounts = smoke.spec_mounts({"name": "x", "mounts": [{
+            "target": "/work", "fresh": True, "seed": [{"path": "src/a.py", "text": "def a(): pass\n"}]}]}, {}, fresh)
+        self.assertEqual(mounts, [(fresh[0], "/work", False)])
+        self.assertEqual(Path(fresh[0], "src/a.py").read_text(), "def a(): pass\n")
+        argv = smoke.run_command("x", "img", mounts=mounts)
+        self.assertIn(f"--volume={fresh[0]}:/work:ro", argv)
+        with self.assertRaises(ValueError):  # an empty folder read-only is of no use
+            smoke.spec_mounts({"name": "x", "mounts": [{"target": "/work", "fresh": True, "seed": []}]}, {}, fresh)
+
     def test_list_only_mounts_no_fresh_folder(self):
         spec = self.spec(mounts=[{"target": "/data", "fresh": True, "writable": True}])
         before = set(Path(tempfile.gettempdir()).glob("smoke-duckduckgo-*"))

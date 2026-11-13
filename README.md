@@ -41,6 +41,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
 | [exec](servers/exec) | shell commands for agents on small local models, in the project folder: a time limit per call (the whole process tree stopped on it), stdin empty and no terminal (CI=1, pagers, editors and prompts off), output cut to its start and end with the lines omitted counted, background jobs (status, wait, tail, stop), `run_tests` (only the failures of pytest, unittest, jest, vitest, go test, cargo test), `lint` (pyflakes, shellcheck, JSON, YAML). The project folder mounted writable at `/work`; needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | none | - |
 | [tasks](servers/tasks) | a plan outside the model's context, for agents on small local models: goal, steps with their state and a note, notes of facts and mistakes not to repeat, `next_step` (the one step to work on now, with what it needs), progress; kept in `/work/.tasks` of the project (`PLAN.md` for you to read), locked, written atomically | none | - (the plan is in the project folder) |
+| [code-search](servers/code-search) | find and read code by name, for agents on small local models (our own server): `find_definition` (exact matches first, similar names when there is none), `read_symbol` (one function or class with line numbers instead of the whole file), `outline` of a file, `find_references`, `find_text` (bounded, with the function each line is in, an offset to go on), `find_files`, `project_map`. Python exact (its own parser); JavaScript/TypeScript, Go, Rust, Java, C/C++ and shell approximate. Honours `.gitignore`, skips dependencies and build output; every answer bounded, every search time-limited. The project mounted read-only at `/work` (`/ref1`-`/ref3` beside it), nothing written | none | - (the project is the `/work` folder, read-only) |
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
 
@@ -129,6 +130,7 @@ sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding ag
 sandbox-ai mcp add files --mount /work=~/projects/myapp:rw   # the agent's workspace, no network
 sandbox-ai mcp add exec --mount /work=~/projects/app:rw    # commands in the project, no network (small local models)
 sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/projects/app/.tasks
+sandbox-ai mcp add code-search --mount /work=~/projects/app:ro   # find and read code by name, read-only
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -414,6 +416,32 @@ programs and files: data, not instructions.
 locked and written atomically, so several agents can share one plan. No tool takes a path. A plan the server cannot
 read (edited by hand) is refused and never overwritten. See [its PROVENANCE.md](servers/tasks/PROVENANCE.md) and
 [exec's](servers/exec/PROVENANCE.md).
+
+**code-search** helps a small local model with the code itself. Small models fail to find code (they grep for a
+name they guessed), read whole files into a 32k context, and call functions that do not exist. code-search answers
+by name and in small pieces: `find_definition("parse_args")` says where it is defined (exact matches first; with no
+such name, the similar ones and where they are), `read_symbol(path, "App.run")` returns just that method with line
+numbers, `outline(path)` lists a file's classes and functions with their lines and signatures, `find_references`
+lists definitions first and then the lines using a name with the function each is in, and `project_map` gives a
+first overview (folders, file counts, sizes, each file's main classes and functions). `find_text` and `find_files`
+search text and names, with every answer bounded (at most 200 matches with an `offset` to go on, 50 files, 50
+references) and every search stopped after 10 s with what it found; a regular expression that repeats a repeat
+(`(a+)+`) is refused. Python is read by Python's own parser; JavaScript/TypeScript, Go, Rust, Java, C/C++ and shell by
+line patterns and brace counting - approximate, and every answer says so. It honours `.gitignore` and skips
+`node_modules`, `vendor`, `build`, `dist`, `target`, `.git`, binary and minified files (a path naming one searches
+it). Outlines are cached per file: the first `find_definition` over a few thousand files takes seconds, the next
+milliseconds. Mount the project **read-only**; the server writes nothing, follows no link out of the folders and
+opens no device, pipe or socket:
+
+```bash
+sandbox-ai mcp add code-search --mount /work=~/projects/app:ro                  # one entry per project, or per start:
+sandbox-ai opencode --llm ollama:qwen3 --workspace ~/projects/app --mcp code-search \
+  --mcp-mount code-search:/work=~/projects/app:ro --mcp files --mcp exec       # read with code-search, write with files
+sandbox-ai mcp add code-search --as code-search-lib --mount /work=~/projects/app:ro --mount /ref1=~/src/library:ro
+```
+
+Tell a small model in its instructions to use `find_definition` and `read_symbol` instead of reading whole files.
+See [its PROVENANCE.md](servers/code-search/PROVENANCE.md).
 
 **gowitness and whatweb** visit the site you name from the container's address (`--vpn PROFILE` hides it). Both
 take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (sandbox-ai 0.1.95:
