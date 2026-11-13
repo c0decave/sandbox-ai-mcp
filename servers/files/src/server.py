@@ -42,6 +42,7 @@ import stat as st
 import sys
 import threading
 import time
+import unicodedata
 from datetime import datetime, timezone
 
 from mcp.server.fastmcp import FastMCP
@@ -397,6 +398,12 @@ def locate(value, name: str = "path", *, follow: bool = True, write: bool = Fals
             os.close(fd)
 
 
+def plain_name(part: str) -> str:
+    """PART as a file system that folds case, compatibility forms or ignores invisible characters (HFS+, some
+    network shares) may take it: NFKC, without format characters (zero-width, soft hyphen), case-folded."""
+    return "".join(c for c in unicodedata.normalize("NFKC", part) if unicodedata.category(c) != "Cf").casefold()
+
+
 def writable(root: str, names: list[str], name: str, from_trash: bool = False) -> None:
     """Refused unless a write tool may change ROOT/NAMES."""
     if readonly():
@@ -405,11 +412,11 @@ def writable(root: str, names: list[str], name: str, from_trash: bool = False) -
         raise Refused(f"{name}: {root} is read-only: only {WORK} is written")
     if not names:
         raise Refused(f"{name}: {WORK} itself cannot be written, moved or deleted: name a file or folder in it")
-    if names[0] == TRASH and not (from_trash and len(names) > 2):
+    if plain_name(names[0]) == TRASH and not (from_trash and names[0] == TRASH and len(names) > 2):
         raise Refused(f"{name}: {WORK}/{TRASH} keeps what delete removed: it is the user's to empty or restore "
                       "from (move a file out of it to restore it)")
     for part in names:
-        if part.lower() in PROTECTED:
+        if plain_name(part) in PROTECTED:
             raise Refused(f"{name}: {part} is git's own folder: it changes through git, not through file writes")
 
 
@@ -650,6 +657,15 @@ def time_limit(seconds: float = TIME_LIMIT):
 
 # --- writing: atomically, never over a file that changed --------------------------------------------------------
 
+def temp_name(name: str) -> str:
+    """A new temporary name next to NAME: its first characters (at most 100 bytes, so the whole name stays far
+    below the 255 bytes a name may have), a random part."""
+    stem = name[:100]
+    while len(stem.encode("utf-8", "surrogatepass")) > 100:
+        stem = stem[:-1]
+    return f".{stem}.{secrets.token_hex(6)}.files-tmp"
+
+
 def commit(place: Place, data: bytes, before: os.stat_result | None, mode: int | None = None) -> None:
     """Write DATA as PLACE's file: a new temporary file in the same folder (O_EXCL, O_NOFOLLOW), written, its mode
     set, fsynced, then renamed over the name and the folder fsynced. BEFORE: the file as it was read - it must
@@ -660,7 +676,7 @@ def commit(place: Place, data: bytes, before: os.stat_result | None, mode: int |
     folder, name = place.dirfd, place.name
     if mode is None:
         mode = st.S_IMODE(before.st_mode) & 0o777 if before is not None else 0o666 & ~UMASK
-    temp = f".{name[:100]}.{secrets.token_hex(6)}.files-tmp"
+    temp = temp_name(name)
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=folder)
     try:
         try:
@@ -1335,6 +1351,8 @@ NO_SPACE_HEADING = re.compile(r"^( {0,3})(#{1,6})([^#\s].*)$")
 NOT_A_HEADING = re.compile(r"^(?:!|[0-9]|(?:include|define|undef|ifn?def|if|elif|else|endif|pragma|import|error|"
                            r"warning|region|endregion|line)\b|[0-9a-fA-F]{3,8}\s*$)")
 DELIMITER_ROW = re.compile(r"^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$")
+#: An HTML block whose lines are raw text up to its end tag (CommonMark's HTML block type 1): never repaired.
+RAW_HTML = re.compile(r"^ {0,3}<(pre|script|style|textarea)(?=[\s>]|$)", re.I)
 RISKY_HTML = re.compile(r"<\s*(script|iframe|object|embed|style|form|meta|base|link)\b|\bon[a-z]{3,}\s*=\s*[\"']"
                         r"|javascript\s*:", re.I)
 HTML_TAG = re.compile(r"</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>")
@@ -1350,17 +1368,34 @@ def _lines_text(numbers: list[int]) -> str:
         f"lines {shown_numbers}" + (f" and {len(numbers) - 15} more" if len(numbers) > 15 else "")
 
 
+def _columns(prefix: str) -> int:
+    return len(prefix.expandtabs(4))
+
+
+def _opens(match) -> tuple[str, int] | None:
+    """(marker, indentation) of the code fence a FENCE match opens (None: a backtick fence with a backtick in its
+    info string is no fence)."""
+    if not match or (match.group(2)[0] == "`" and "`" in match.group(3)):
+        return None
+    return match.group(2), _columns(match.group(1))
+
+
+def _closes(match, fence: tuple[str, int]) -> bool:
+    """Whether the FENCE match closes the open FENCE (marker, indentation): the same character, at least as long,
+    no info string, and indented at most 3 columns more than the opening (CommonMark; more is code inside it)."""
+    return bool(match) and match.group(2)[0] == fence[0][0] and len(match.group(2)) >= len(fence[0]) \
+        and not match.group(3).strip() and _columns(match.group(1)) <= fence[1] + 3
+
+
 def _fences_balanced(lines: list[str]) -> bool:
     open_fence = None
     for line in lines:
         match = FENCE.match(line)
         if not match:
             continue
-        marker, info = match.group(2), match.group(3)
         if open_fence is None:
-            if not (marker[0] == "`" and "`" in info):
-                open_fence = marker
-        elif marker[0] == open_fence[0] and len(marker) >= len(open_fence) and not info.strip():
+            open_fence = _opens(match)
+        elif _closes(match, open_fence):
             open_fence = None
     return open_fence is None
 
@@ -1469,7 +1504,7 @@ def repair_markdown(content: str, title: str | None = None) -> tuple[str, list[s
             decoded = json.loads(stripped)
         except ValueError:
             decoded = None
-        if isinstance(decoded, str):
+        if isinstance(decoded, str) and "\n" in decoded:  # a whole document as one JSON string, not a quoted line
             text = decoded
             repairs.append("the content was a JSON string (in quotes, with escapes): decoded it")
     crlf, cr = text.count("\r\n"), text.count("\r") - text.count("\r\n")
@@ -1507,7 +1542,9 @@ def repair_markdown(content: str, title: str | None = None) -> tuple[str, list[s
             body_start = end + 1
 
     out: list[str] = lines[:body_start]
-    fence = None          # (marker, line number, info) of the open code fence
+    fence = None          # (marker, indentation, line number, info, indentation as written) of the open code fence
+    raw_html = None       # the tag of an open <pre>, <script>, <style> or <textarea> block
+    indented_code = False  # the line before is a line of an indented code block (or blank, or the start)
     comment_open = None   # line of an HTML comment not closed yet
     trailing: list[int] = []
     headings_fixed: list[int] = []
@@ -1526,15 +1563,37 @@ def repair_markdown(content: str, title: str | None = None) -> tuple[str, list[s
         line = lines[index]
         match = FENCE.match(line)
         if fence is not None:
-            if match and match.group(2)[0] == fence[0][0] and len(match.group(2)) >= len(fence[0]) \
-                    and not match.group(3).strip():
+            if _closes(match, fence[:2]):
                 fence = None
             out.append(line)
             continue
-        if match and not (match.group(2)[0] == "`" and "`" in match.group(3)):
-            fence = (match.group(2), number, match.group(3).strip())
+        after_blank = indented_code or index == body_start or not lines[index - 1].strip()
+        indented_code = not line.strip()
+        if raw_html is not None:  # raw HTML up to its end tag: nothing in it is Markdown
+            if f"</{raw_html}" in line.lower():
+                raw_html = None
+            out.append(line)
+            continue
+        opening = _opens(match) if comment_open is None else None
+        if opening:
+            fence = (*opening, number, match.group(3).strip(), match.group(1))
             code_blocks += 1
             out.append(line.rstrip())
+            continue
+        if comment_open is None and line.strip() and line.startswith(("    ", "\t")) and after_blank:
+            indented_code = True  # an indented code block: kept exactly as written
+            out.append(line)
+            continue
+        raw = RAW_HTML.match(line) if comment_open is None else None
+        if raw:
+            risk = RISKY_HTML.search(line)
+            if risk:
+                risky.append((number, risk.group(0)[:30]))
+            else:
+                html_lines.append(number)
+            if f"</{raw.group(1).lower()}" not in line.lower()[raw.end():]:
+                raw_html = raw.group(1).lower()
+            out.append(line)
             continue
         # outside code
         stripped_line = line.rstrip(" \t")
@@ -1584,8 +1643,8 @@ def repair_markdown(content: str, title: str | None = None) -> tuple[str, list[s
             ref_uses.append((number, use.group(2) or use.group(1)))
         out.append(line)
     if fence is not None:
-        out.append(fence[0])
-        repairs.append(f"the code fence opened at line {fence[1]} ({fence[0]}{fence[2]}) was not closed: closed it "
+        out.append(fence[4] + fence[0])
+        repairs.append(f"the code fence opened at line {fence[2]} ({fence[0]}{fence[3]}) was not closed: closed it "
                        "at the end (move the closing fence if the code ends earlier)")
     if trailing:
         repairs.append(f"removed trailing whitespace outside code on {_lines_text(trailing)}")
@@ -1648,13 +1707,12 @@ def repair_markdown(content: str, title: str | None = None) -> tuple[str, list[s
         line = out[index]
         match = FENCE.match(line)
         if in_code is not None:
-            if match and match.group(2)[0] == in_code[0] and len(match.group(2)) >= len(in_code) \
-                    and not match.group(3).strip():
+            if _closes(match, in_code):
                 in_code = None
             index += 1
             continue
-        if match:
-            in_code = match.group(2)
+        if _opens(match):
+            in_code = _opens(match)
             index += 1
             continue
         if "|" in line and index + 1 < len(out) and DELIMITER_ROW.match(out[index + 1]) and "|" in out[index + 1]:
@@ -2298,7 +2356,7 @@ def copy(src: str, dst: str, overwrite: bool = False, create_dirs: bool = False)
                             raise Refused(f"dst: {target.path} is {_kind_text(there.st_mode)}")
                         if not replace:
                             raise Refused(f"dst: {target.path} exists already (overwrite=true replaces it)")
-                    temp = f".{target.name[:100]}.{secrets.token_hex(6)}.files-tmp"
+                    temp = temp_name(target.name)
                     try:
                         size = _copy_file(source.dirfd, source.name, target.dirfd, temp, budget)
                         if there is None:
@@ -2315,7 +2373,7 @@ def copy(src: str, dst: str, overwrite: bool = False, create_dirs: bool = False)
                 else:
                     if there is not None:
                         raise Refused(f"dst: {target.path} exists already")
-                    temp = f".{target.name[:100]}.{secrets.token_hex(6)}.files-tmp"
+                    temp = temp_name(target.name)
                     os.mkdir(temp, 0o700, dir_fd=target.dirfd)
                     try:
                         src_fd = open_dir(source, "src")
@@ -2372,13 +2430,10 @@ def _trash_folder(place: Place) -> tuple[int, str]:
     try:
         try:
             os.mkdir(TRASH, 0o700, dir_fd=root)
-            fd = os.open(f"{TRASH}/.gitignore", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-                         0o644, dir_fd=root)
-            with os.fdopen(fd, "w") as handle:
-                handle.write("# what the files MCP server's delete removed; restore with move, empty by hand\n*\n")
+            made = True
         except FileExistsError:
-            pass
-        try:
+            made = False
+        try:  # opened without following a link: one swapped in after the mkdir is refused, never written through
             trash = os.open(TRASH, DIR_FLAGS, dir_fd=root)
         except OSError:
             raise Refused(f"{WORK}/{TRASH} is not a folder (a link?): the user removes it, or sets FILES_TRASH=0 "
@@ -2386,6 +2441,12 @@ def _trash_folder(place: Place) -> tuple[int, str]:
     finally:
         os.close(root)
     try:
+        if made:
+            with contextlib.suppress(FileExistsError):
+                fd = os.open(".gitignore", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                             0o644, dir_fd=trash)
+                with os.fdopen(fd, "w") as handle:
+                    handle.write("# what the files MCP server's delete removed; restore with move, empty by hand\n*\n")
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3)
         os.mkdir(stamp, 0o700, dir_fd=trash)
         fd = os.open(stamp, DIR_FLAGS, dir_fd=trash)

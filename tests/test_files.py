@@ -460,7 +460,7 @@ class Markdown(Base):
         out, repairs, _, _ = self.repair('"# Title\\n\\nBody with \\"quotes\\"\\n"')
         self.assertEqual(out, '# Title\n\nBody with "quotes"\n')
         self.assertIn("JSON string", repairs[0])
-        self.assertEqual(self.repair('"just quoted"')[0], "just quoted\n")
+        self.assertEqual(self.repair('"just quoted"')[0], '"just quoted"\n')  # one quoted line: kept
         self.assertEqual(self.repair('"not" and "json"\n')[0], '"not" and "json"\n')
 
     def test_line_breaks_trailing_whitespace_and_the_end(self):
@@ -869,6 +869,73 @@ class Limits(Base):
         for name in recorded["read_only_tools"]:
             self.assertTrue(tools[name].annotations.readOnlyHint, name)
         self.assertEqual(set(recorded["write_tools"]) | set(recorded["read_only_tools"]), set(recorded["tools"]))
+
+
+class IndependentReview(Base):
+    """Found by the independent review of 2026-11-13 (servers/files/PROVENANCE.md); each failed before its fix."""
+
+    def test_an_over_indented_fence_line_does_not_close_a_code_block(self):
+        # a line indented 4 spaces or more inside a fence is code (CommonMark), not its closing fence: what follows
+        # stays code - no '# ' added to a comment, no trailing spaces removed, no extra fence at the end
+        text = "# T\n\n```text\n    ```\n#comment in code   \n```\n"
+        out, repairs, _, structure = self.m.repair_markdown(text)
+        self.assertEqual((out, repairs), (text, []))
+        self.assertTrue(structure["code_fences_balanced"])
+        # a fence inside a list item may be indented; its closing fence too
+        text = "- item\n\n  ```sh\n  #x   \n  ```\n"
+        self.assertEqual(self.m.repair_markdown(text)[0], text)
+        # an open fence is closed at its own indentation
+        self.assertEqual(self.m.repair_markdown("- a\n\n  ```sh\n  ls\n")[0], "- a\n\n  ```sh\n  ls\n  ```\n")
+
+    def test_raw_html_blocks_and_indented_code_are_left_alone(self):
+        for text in ("# T\n\n<pre>\n#notheading\nkeep   \n</pre>\n",
+                     "# T\n\n<script>\n#x  \n</script>\n",
+                     "# T\n\nText\n\n    #!/bin/sh\n    #comment   \n\tindented\t\n"):
+            with self.subTest(text=text):
+                out, repairs, _, _ = self.m.repair_markdown(text)
+                self.assertEqual((out, repairs), (text, []))
+        # a tab-indented line right after a paragraph line continues the paragraph: still repaired
+        self.assertEqual(self.m.repair_markdown("end\n\tcode\t\n")[0], "end\n\tcode\n")
+
+    def test_one_quoted_line_is_not_taken_for_a_json_string(self):
+        for text in ('"To be or not to be"', '"C:\\temp"', '"\\u0041"'):
+            with self.subTest(text=text):
+                self.assertEqual(self.m.repair_markdown(text)[0], text + "\n")
+        out, repairs, _, _ = self.m.repair_markdown('"# Title\\n\\nBody\\n"')
+        self.assertEqual(out, "# Title\n\nBody\n")
+
+    def test_long_names_beyond_ascii_are_written_and_copied(self):
+        name = "\u6587" * 84  # 252 bytes: a valid name, but a temporary name of 100 such characters is not
+        self.ok(self.m.write_file(name + ".md", "hi\n"))
+        self.ok(self.m.write_markdown(name[:-1] + ".md", "# hi\n"))
+        self.put("tree/a.txt", "a\n")
+        self.ok(self.m.copy("tree", name))
+        self.ok(self.m.copy(name + ".md", name[:-1] + "x"))
+        self.assertEqual(Path(self.work, name, "a.txt").read_text(), "a\n")
+
+    def test_the_trash_gitignore_is_never_written_through_a_link(self):
+        # .trash swapped for a link between its mkdir and the .gitignore's creation (an agent racing the server)
+        real_mkdir = os.mkdir
+        outside = self.outside
+
+        def racing(path, mode=0o777, *, dir_fd=None):
+            real_mkdir(path, mode, dir_fd=dir_fd)
+            if path == ".trash":
+                os.rmdir(path, dir_fd=dir_fd)
+                os.symlink(outside, path, dir_fd=dir_fd)
+
+        self.put("a.txt", "x")
+        with mock.patch.object(self.m.os, "mkdir", racing):
+            self.refused(self.m.delete("a.txt"), "is not a folder")
+        self.assertEqual(sorted(os.listdir(self.outside)), ["secret.txt"])
+        self.assertEqual(self.raw("a.txt"), b"x")
+
+    def test_git_spelled_with_invisible_or_compatibility_characters_is_still_git(self):
+        # on a file system that ignores or folds such characters (HFS+, some network shares) these are .git
+        for path in (".git\u200c/hooks/pre-commit", ".\uff47it/config", "sub/.G\u00ADIT/hooks/x", ".Trash/x"):
+            with self.subTest(path=path):
+                self.assertIn("error", self.m.write_file(path, "x", create_dirs=True))
+        self.assertEqual(os.listdir(self.work), [])
 
 
 if __name__ == "__main__":

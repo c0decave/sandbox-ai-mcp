@@ -426,7 +426,7 @@ class Files(unittest.TestCase):
         imports = {a or b for a, b in imports}
         self.assertEqual(imports - {"__future__", "contextlib", "difflib", "errno", "fnmatch", "hashlib", "json",
                                     "logging", "os", "re", "secrets", "shutil", "signal", "stat", "sys", "threading",
-                                    "time", "datetime"}, {"mcp.server.fastmcp", "mcp.types"})
+                                    "time", "unicodedata", "datetime"}, {"mcp.server.fastmcp", "mcp.types"})
         for word in ("subprocess", "import socket", "socket.", "urllib", "eval(", "exec(", "pickle", "ctypes", "os.system",
                      "os.chown", "follow_symlinks=True", "os.path.realpath"):
             self.assertNotIn(word, self.source, word)
