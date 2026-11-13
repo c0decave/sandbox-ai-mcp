@@ -862,7 +862,7 @@ class SandboxAiAgrees(unittest.TestCase):
             self.assertEqual(definition["network"], "none")
             self.assertEqual(definition["image"], f"{make_catalog.IMAGE_PREFIX}{name}@{digest}")
             self.assertEqual(definition["mounts"], [{"target": "/work", "host": str(tmp), "mode": "ro"}])
-            command = mcp.image_command(definition)
+            command = load("smoke_test").image_command(mcp, definition, name)
             self.assertIn("--network=none", command)
             self.assertIn(f"--volume={tmp}:/work:ro", command)
             self.assertIn("--read-only", command)
@@ -878,7 +878,7 @@ class SandboxAiAgrees(unittest.TestCase):
                 resources = smoke.limits(read_json("servers", name, "smoke.json"))
                 definition = mcp.validated_image({"image": f"{make_catalog.IMAGE_PREFIX}{name}@sha256:{'ab' * 32}",
                                                   "network": "full", **resources}, name)
-                command = mcp.image_command(definition)
+                command = smoke.image_command(mcp, definition, name)
                 self.assertIn(f"--memory={resources.get('memory', '512m')}", command)
                 self.assertIn(f"--pids-limit={resources.get('pids', 128)}", command)
 

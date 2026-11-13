@@ -265,6 +265,14 @@ def annotation(report: dict) -> str:
     return f"::error title=smoke {report.get('name')} ({report.get('runner')})::{escape_annotation(chr(10).join(lines))}"
 
 
+def image_command(mcp, definition, name="smoke"):
+    """sandbox-ai's podman run line for DEFINITION: from its network plan (mcp.server_network, the one way a
+    sandbox-ai since 0.1.94 builds it), or from the definition itself for an older checkout."""
+    if hasattr(mcp, "server_network"):
+        return mcp.image_command(mcp.server_network(name, definition))
+    return mcp.image_command(definition)
+
+
 def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts, env: dict,
                     rootfs: str | None = None, meta: dict | None = None,
                     resources: dict | None = None) -> tuple[list[str], dict, dict]:
@@ -286,7 +294,7 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     environment = {**os.environ, **env}
     if runner == "sandbox-ai-podman":
         definition = mcp.validated_image({**definition, "image": image}, "smoke")
-        return mcp.image_command(definition), environment, {"image": image}
+        return image_command(mcp, definition), environment, {"image": image}
     rootfs_module = mcp.rootfs_module()
     meta = meta or {}
     tree = rootfs_module.install(os.path.abspath(rootfs), meta["sha256"])
