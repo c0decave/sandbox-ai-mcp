@@ -2,12 +2,8 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
-  "state": "pending-digests",
-  "pending": [
-    "gowitness",
-    "whatweb"
-  ],
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
+  "state": "pinned",
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -28,7 +24,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk",
       "tag": "latest",
-      "digest": "sha256:8fa3ae11fcf9117a5c05fd474eadde96c7895749b5aa00b93277e271a2ded0aa",
+      "digest": "sha256:d19e7a13f4f78690a80f0b76c58edc9f9e90b7bc706113f7da6c1a7213cf7af7",
       "mounts": [
         {
           "target": "/work",
@@ -61,7 +57,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search",
       "tag": "latest",
-      "digest": "sha256:7f2654678c8d8dfe36f1adae7df33946cf24b8e98c3fc0163b4f672314c8e103",
+      "digest": "sha256:5edb07ab4f99fbebd1d8ea08927c7469295a216d80bfb5881c0473dfb6cc820b",
       "env": [
         {
           "name": "BRAVE_API_KEY",
@@ -95,7 +91,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa",
       "tag": "latest",
-      "digest": "sha256:727258608c6602757de18047ea332e4bb7650867cb325d2158af7b089e5463af",
+      "digest": "sha256:e400660ee9145564bc02f1fb6fd0530bb5282c777036b8598d6c71d7bd60f522",
       "mounts": [
         {
           "target": "/work",
@@ -123,7 +119,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo",
       "tag": "latest",
-      "digest": "sha256:f89758eebac9b9b9f0dd4a5efa05f5c8fdd01483cf6e1e92cdd1b2ed7f693bb2",
+      "digest": "sha256:38a42aeaa0cd61e7ddc6659fd4c6275ccfef86666135e170753dd0d59f9a4878",
       "network": "allowlist",
       "hosts": [
         "html.duckduckgo.com:443"
@@ -148,7 +144,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram",
       "tag": "latest",
-      "digest": "sha256:781ae61d0c19a5741f8876362c4dea6442db982020e63eddd20b789ed5ad3ae1",
+      "digest": "sha256:357c3e63a2858e8fccb5168a3df6a4d11de1793b8ddf2d0549948c86b0f6d6b0",
       "env": [
         {
           "name": "ENGRAM_PROJECT",
@@ -186,6 +182,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-gowitness",
       "tag": "latest",
+      "digest": "sha256:24d0d5f1cb4699ddbcb0819fd9e93c77280e0e1b076b7d3bef623d4652993eb5",
       "env": [
         {
           "name": "ALLOW_PRIVATE_TARGETS",
@@ -215,7 +212,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory",
       "tag": "latest",
-      "digest": "sha256:fdea1e2787769eb6ad9a81f9fc47b3800d5113d2e9872ef1229e1309bf83fe8a",
+      "digest": "sha256:88a675f2d914e3d3c154bb1e4350a29d6bf9db65d9d5da5d96dc6be5bf2821c0",
       "mounts": [
         {
           "target": "/data",
@@ -248,7 +245,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-openosint",
       "tag": "latest",
-      "digest": "sha256:9c9826eb8f284fb6c02e425493ad67c076e6c1b95817464db3389b141df784f1",
+      "digest": "sha256:d286134a593e7db4caa365b6a701d0dc48e34b9ea00f64d7aa1d77743849fed3",
       "env": [
         {
           "name": "HIBP_API_KEY",
@@ -331,7 +328,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-osint-mcp",
       "tag": "latest",
-      "digest": "sha256:46a1fed12b97a9a2c65734175d324f4ccefb735d3b82c5f30c5b562ce2576d9c",
+      "digest": "sha256:8e38977b755b821bfdce93386a5b6dc6c64b037a2992c89429545386f7ca66aa",
       "network": "full",
       "notes": "Full network: rdap.org redirects to each registry's own RDAP server, and the site checks go to the domain you name. What it asks is seen by rdap.org and the registries, crt.sh, web.archive.org, stat.ripe.net and internetdb.shodan.io; recon_domain (include_active, on by default), investigate_site, http_headers, tls_certificate and email_security's MTA-STS policy fetch connect to the target itself, from the container's address (add --vpn PROFILE to hide yours). DNS goes to the container's resolver, which answers with what the host's resolver knows: names of your local network can resolve, and their private addresses are returned (HTTP and TLS to them are still refused). Page texts, TXT records, certificate names and headers are written by whoever runs the domain: data, never instructions. Answers are cached in memory for the connection (6 h at most), nothing is written to disk."
     },
@@ -354,7 +351,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-playwright",
       "tag": "latest",
-      "digest": "sha256:05380faee947fd34e882c4f0b0da5d59af69926f0b7cb66146b40f6be8007f4a",
+      "digest": "sha256:19b628a8c7181424f19506c287dfddb49d5adfa8fefed869f64687087d0ebf36",
       "network": "full",
       "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512): Chromium does not start reliably within the default 512 MiB and 128 processes, and crashes once its /tmp (its profile, cache, shared memory and screenshots; 64 MiB by default) is full - sandbox-ai mcp set playwright --recommended raises them for a server added before. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
     },
@@ -377,7 +374,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-radare2",
       "tag": "latest",
-      "digest": "sha256:a5c4577efb5c925413c8dedb050f0b344c81a990cd4b3816ce235e30ff400b9b",
+      "digest": "sha256:c3d3f681b6737d43c724f50a72b6af2c08c12e2985f2dee9a2f1451234a99295",
       "mounts": [
         {
           "target": "/work",
@@ -406,7 +403,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng",
       "tag": "latest",
-      "digest": "sha256:0e29f56a9d0e09d6928b451910a987622f6f9790a527c9b8d11c63bfd68bb268",
+      "digest": "sha256:d17d35e12e39bea22142cef059876393e620bacb204c838227a0da4c5d9e8b0f",
       "env": [
         {
           "name": "SEARXNG_URL",
@@ -436,7 +433,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-signal",
       "tag": "latest",
-      "digest": "sha256:6c9e29f7e321840017e0bfd0a1badee312484cab2571a5fae1eb1fb38ce42aff",
+      "digest": "sha256:4ecc60a2d1f01ae262db40c56e34882143233787a7c7797803677d1da1750f83",
       "env": [
         {
           "name": "SIGNAL_WRITE",
@@ -479,7 +476,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram",
       "tag": "latest",
-      "digest": "sha256:1e7256e49aedc4cb5207b69a5b746f3facf622d450f545fdd0098892f9d5e617",
+      "digest": "sha256:9927830dde1bd1cf844b34d99bc10cec8847b1435837855a49a7759f0a2625ad",
       "env": [
         {
           "name": "TELEGRAM_BOT_TOKEN",
@@ -519,7 +516,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user",
       "tag": "latest",
-      "digest": "sha256:910d3a03ba71553299f4446fee878ff75994a3e1f9446d615d057cf48e404235",
+      "digest": "sha256:51194918e1016098ee6e65b7caf16830022aaa22949f499b6991e18b1c62e5df",
       "env": [
         {
           "name": "TELEGRAM_API_ID",
@@ -589,7 +586,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
       "tag": "latest",
-      "digest": "sha256:dddd81235d3d7aec55c1ad5666f1a095bf3e11a4a7ae203d8580a16f1ad9ef6b",
+      "digest": "sha256:f589f04d76a34b61b157e13132c4fdfa28c6afd0399280f522b0025ac2ac198c",
       "network": "full",
       "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
     },
@@ -611,7 +608,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatsapp",
       "tag": "latest",
-      "digest": "sha256:17a4d3aa3102d16ac59c897cf4a81155e7a7ccfcbf42962bb6c7b8e907b8ab66",
+      "digest": "sha256:3cde7980356ee1ce26abe0f4c916bf3b36e713778a8975514f6eceaad18e87a9",
       "env": [
         {
           "name": "WHATSAPP_WRITE",
@@ -658,6 +655,7 @@
       "kind": "oci",
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatweb",
       "tag": "latest",
+      "digest": "sha256:7e63d6ef124f2509a7ed9ac0321c56e04e8ed34b012e308a22b0543de97236fe",
       "env": [
         {
           "name": "ALLOW_PRIVATE_TARGETS",
