@@ -51,16 +51,17 @@ One file of our own on the SDK this repository already ships is smaller than rev
 
 - the whole content wrapped in a code fence: ```` ```markdown ````/`md`/`mdx`/`gfm` (or a bare fence around text with
   a heading), unwrapped when the fences inside it are balanced; an opening ```` ```markdown ```` that is never
-  closed (a cut-off answer) dropped; a document that is a code block (```` ```python ````, a bare fence around code)
-  stays one;
+  closed (a cut-off answer) dropped; a document that is a code block (```` ```python ````, a bare fence around code
+  without a `# ...` line) stays one - a bare fence around a script with `# comment` lines is taken for a wrapped
+  document and unwrapped (reported);
 - literal escape sequences: when the text has **no** real line break but `\n`, the JSON escapes `\n`, `\t`, `\r`,
   `\"`, `\\` are decoded, except inside inline code spans; a text with real line breaks is never decoded (a
   literal `\n` outside code is reported instead);
-- the whole content as a JSON string (`"# Title\n..."`): decoded;
+- the whole content as a JSON string (`"# Title\n..."`): decoded when it holds a line break (one quoted line stays);
 - CRLF and lone CR line breaks: normalised to LF; an existing file written with CRLF keeps CRLF;
 - a byte order mark at the start removed (an existing file's BOM is kept);
 - trailing spaces and tabs outside code removed, except a hard line break (two spaces before a following line);
-  code blocks untouched;
+  code blocks (fenced and indented) and raw `<pre>`, `<script>`, `<style>`, `<textarea>` blocks untouched;
 - `#Heading` without a space: fixed outside code, front matter and HTML comments; not for `#!`, `#include` and the
   other preprocessor words, `#123`, hex colours, or lines with several `#tags`;
 - a code fence left open: closed at the end (with its line named);
@@ -183,3 +184,56 @@ copies of one `FILES_MAX_BYTES` file and writes nothing to `/tmp`, so `smoke.jso
   `escape/passwd` (the link escape), `/etc/cron.d/x`; then `delete` into the trash. The same calls were run against the
   server natively (`--runner`-less, roots pointed at a seeded folder) before the first CI run; the image itself is
   built and run by CI.
+
+## Independent review, 2026-11-13
+
+A second reviewer, not the builder, read the server and everything shipped with it from scratch for backdoors and bad
+code, without relying on the self-review above. Threat model: the agent calling the tools is a confused small model
+or a prompt-injected one, and it may also have a shell of its own in the same folder (exec, or its sandbox) to plant
+links, pipes, deep trees or racing swaps. Line numbers are those of the reviewed commit `612fdd5`.
+
+**Read line by line:** `src/server.py` (2,460 lines), `Dockerfile` (29), `server.json` (60), `smoke.json` (124),
+`tools.json` (44), `requirements.in` (1), `requirements.txt` (586: identical to web-fetch's but for its `# via` line),
+both `LICENSES/` files (identical to youtube's), this file (185), `tests/test_files.py` (875), and the branch's diff of
+`scripts/smoke_test.py` (+26, the `seed`), `tests/test_analysis_servers.py` (+55), `tests/test_own_servers.py` (+24),
+`tests/test_smoke_test.py` (+15), `.github/workflows/build.yml`, `README.md` (+43), `SECURITY.md` (+4), `catalog.json`
+(the entry, generated) and `digests.json` (pending). **Read for context:** mcp 1.30's FastMCP (synchronous tools are
+called on the event loop's main thread, so the `SIGALRM` limits apply; CPython's regular expression engine checks for
+signals, so a backtracking pattern is stopped - tried). **Scanned:** standard library and the SDK only; no
+`subprocess`, sockets, URLs, `eval`, `pickle` or `realpath`; the base digest, Debian pins and lock are web-fetch's.
+**Tried against the code:** `..` in paths and in link targets at every depth, absolute links into and out of each
+root, link loops, a folder or file swapped for a link (the builder's race tests), pipes, sockets and folders as files,
+hard links (a write replaces the name, never the shared inode), unicode spellings of `.git` and `.trash`, very long
+names, the trash as a link and swapped for one, 20,000 random Markdown documents for crashes and for a second repair
+changing the first one's result.
+
+### Findings (all fixed test-first: each test failed before its fix)
+
+| # | Severity | Where (at `612fdd5`) | Scenario | Status |
+|---|---|---|---|---|
+| F1 | low-medium | `server.py` 1353-1365 `_fences_balanced`, 1527-1538, 1649-1659 | A line indented 4 or more columns inside a fenced block (code that shows a fence) was taken for its closing fence: the rest of the code was then "repaired" as prose - `#comment` became the heading `# comment`, trailing spaces were cut - and an extra fence was added at the end, all reported as heading and fence repairs | CONFIRMED (`test_an_over_indented_fence_line_does_not_close_a_code_block`), fixed: a closing fence is indented at most 3 columns more than its opening (CommonMark); an open fence is closed at its own indentation |
+| F2 | low | `server.py` 1539-1558 | Raw HTML blocks (`<pre>`, `<script>`, `<style>`, `<textarea>`: raw text in CommonMark) and indented code blocks were repaired as prose: `#x` in a `<pre>` became `# x`, trailing spaces in indented code were cut as "outside code" | CONFIRMED (`test_raw_html_blocks_and_indented_code_are_left_alone`), fixed: kept exactly as written (still reported as HTML) |
+| F3 | low | `server.py` 1466-1474 | One quoted line, `"To be or not to be"`, was taken for a JSON-encoded document: its quotes removed and escapes decoded (`"C:\temp"` got a tab) | CONFIRMED (`test_one_quoted_line_is_not_taken_for_a_json_string`; the builder's test expected the old behaviour and was changed), fixed: decoded only when the result holds a line break |
+| F4 | low | `server.py` 663, 2301, 2318 | The temporary name `.{name[:100]}.<random>.files-tmp` cut the name by characters: for a name of more than about 76 CJK characters it exceeded 255 bytes, so `write_file`, `write_markdown` and `copy` failed with "File name too long" for valid names | CONFIRMED (`test_long_names_beyond_ascii_are_written_and_copied`), fixed: `temp_name` keeps at most 100 bytes |
+| F5 | low (hardening) | `server.py` 2374-2378 `_trash_folder` | `.trash/.gitignore` was created by the path `.trash/.gitignore` from `/work`, so a `.trash` swapped for a link between the `mkdir` and that `open` (an agent racing the server) was followed: the fixed text was written into the folder the link names (in the container only `/work` and its own `/tmp` are writable) | CONFIRMED with a racing `mkdir` (`test_the_trash_gitignore_is_never_written_through_a_link`), fixed: the trash is opened with `O_NOFOLLOW` first and the file made inside that descriptor |
+| F6 | low (hardening) | `server.py` 408-413 `writable` | `.git` and `.trash` were compared after `lower()` only. A file system that ignores invisible characters or folds compatibility forms (HFS+, some network shares) may take `.git\u200c` or `.\uff47it` for git's folder | plausible (not on Linux file systems, nor APFS), hardened: `plain_name` (NFKC, format characters removed, case-folded) |
+
+**Checked and found sound:** every path walked one name at a time from the root's descriptor with `O_NOFOLLOW`,
+links followed by reads only inside their root (`..` of a target goes up the folders actually walked), never by
+writes; regular files only, opened `O_NONBLOCK | O_NOCTTY` and `fstat`ed; nothing written to `/ref1`-`/ref3`, a
+read-only `/work`, `.git` or the trash; atomic writes that refuse a file changed since it was read (identity, size,
+mtime, ctime) and a name that appeared (`link(2)`); errors carry `strerror` only, never a path outside the roots; all
+answers bounded; no network.
+
+**Remaining risks** (accepted): the `.git` rule does not cover an embedded bare repository - the agent can write
+`HEAD`, `config` (`core.fsmonitor`, `core.hooksPath`), `objects/`, `refs/` and `hooks/` into any other folder, and git
+(by default `safe.bareRepository=all`) runs them when the human runs git inside it; that is no more than the agent's
+own write access to `/work` allows, and a human should not run git in folders an agent made. A call stopped by the
+120 s limit just after a write's `rename` reports a time-out although the file was written (a retry with
+`expected_sha256` is refused, not doubled). `copy` takes up to 1 GiB per call, so repeated calls can fill the disk.
+A document whose first line is blank and whose next line is `---` becomes front matter once the blank line is
+removed (reported); `#word` at a line's start becomes a heading (reported, by design). Clients with short limits
+(Codex: 60 s) can lose the answer of a long `copy`. `scripts/smoke_test.py`'s `seed` follows a link an earlier seed
+item made (only the repository's own `smoke.json` uses it).
+
+**Verdict: fit to sign - yes.** No backdoor, no network code, nothing written or read outside the mounted folders.
