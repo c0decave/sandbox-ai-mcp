@@ -1,0 +1,150 @@
+{
+  "name": "exec",
+  "network": "none",
+  "memory": "2g",
+  "pids": 512,
+  "tmp": "512m",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "job_status",
+    "lint",
+    "list_jobs",
+    "run_command",
+    "run_tests",
+    "start_job",
+    "stop_job"
+  ],
+  "calls": [
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "echo smoke-$((6*7)) && pwd"
+      },
+      "expect": "smoke-42\n/work"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "seq 1 50000"
+      },
+      "expect": "[... 49900 lines omitted ...]"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "read -r answer; echo \"answer:[$answer] status:$?\""
+      },
+      "expect": "answer:[] status:1"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "sleep 600",
+        "timeout_seconds": 2
+      },
+      "expect": "TIMED OUT after 2.0 s: stopped, with every process it started",
+      "timeout": 60
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "cat /proc/$PPID/environ"
+      },
+      "expect": "Permission denied"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "python3 -c \"import socket; socket.create_connection(('192.0.2.1', 80), 3)\""
+      },
+      "expect": "OSError"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "mkdir -p proj && printf 'def add(a, b):\\n    return a + b\\n\\n\\ndef test_right():\\n    assert add(1, 2) == 3\\n\\n\\ndef test_wrong():\\n    assert add(2, 2) == 5\\n' > proj/test_calc.py && printf '#!/bin/sh\\nrm $1\\n' > proj/clean.sh && printf '{\"a\": 1,}' > proj/bad.json && ls proj"
+      },
+      "expect": "bad.json\nclean.sh\ntest_calc.py"
+    },
+    {
+      "tool": "run_tests",
+      "arguments": {
+        "path": "proj"
+      },
+      "expect": "FAILED test_calc.py::test_wrong",
+      "timeout": 180
+    },
+    {
+      "tool": "lint",
+      "arguments": {
+        "path": "proj"
+      },
+      "expect": "clean.sh:2:4: [shellcheck SC2086 info]",
+      "timeout": 180
+    },
+    {
+      "tool": "start_job",
+      "arguments": {
+        "command": "sleep 1; echo job-done"
+      },
+      "expect": "job 1 started"
+    },
+    {
+      "tool": "job_status",
+      "arguments": {
+        "job_id": 1,
+        "wait_seconds": 60
+      },
+      "expect": "job-done",
+      "timeout": 120
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "ls",
+        "cwd": "../etc"
+      },
+      "expect": "'../etc' is outside /work",
+      "expect_error": true
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "ln -s /etc etc-link"
+      },
+      "expect": "exit 0"
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
+        "command": "ls",
+        "cwd": "etc-link"
+      },
+      "expect": "leads outside /work through a symbolic link",
+      "expect_error": true
+    },
+    {
+      "tool": "job_status",
+      "arguments": {
+        "job_id": 9
+      },
+      "expect": "there is no job 9",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "Unknown tool: read_file",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

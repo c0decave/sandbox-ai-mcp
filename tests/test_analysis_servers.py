@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 FILE_ANALYSIS = ("binwalk", "capa", "radare2")
 #: Servers that keep an agent's memory in a folder the user mounts writable at /data.
 BRAINS = ("engram", "memory")
+#: Servers that work in the agent's own project folder, which they need writable at /work (run commands in it, keep a
+#: plan in it): the only ones that may mount /work writable.
+WORKSPACE_SERVERS = ("exec", "tasks")
 
 
 def load(name: str):
@@ -129,7 +132,7 @@ class EveryServer(unittest.TestCase):
                 for mount in spec.get("mounts", []):
                     self.assertIn(mount["target"], declared,
                                   f"{name}: the smoke mounts {mount['target']}, the entry does not offer it")
-                    if mount.get("writable"):
+                    if mount.get("writable") and name not in WORKSPACE_SERVERS:
                         self.assertNotEqual(mount["target"], "/work",
                                             f"{name}: input is mounted read-only")
                 for target, mount in declared.items():
@@ -465,6 +468,64 @@ class YouTube(unittest.TestCase):
         provenance = (self.folder / "PROVENANCE.md").read_text()
         for tool in read_json("servers", "youtube", "tools.json")["tools"]:
             self.assertIn(f"`{tool}`", provenance)
+
+
+class WorkspaceServers(unittest.TestCase):
+    """exec and tasks: our own code on the shared lock, the standard library besides the MCP SDK, no network, the
+    project folder writable at /work and nothing else (tests/test_exec.py and tests/test_tasks.py test the servers)."""
+
+    STDLIB = {"__future__", "asyncio", "contextlib", "ctypes", "fcntl", "functools", "itertools", "json", "os", "re",
+              "secrets", "selectors", "shutil", "signal", "stat", "subprocess", "sys", "tempfile", "threading", "time",
+              "xml.etree.ElementTree"}
+
+    def test_the_shared_lock_and_no_other_package(self):
+        for name in WORKSPACE_SERVERS:
+            with self.subTest(server=name):
+                folder = ROOT / "servers" / name
+                self.assertEqual((folder / "requirements.txt").read_bytes().replace(f"servers/{name}/".encode(), b""),
+                                 (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                                     b"servers/web-fetch/", b""))
+                self.assertEqual((folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+                self.assertIn("COPY src/server.py /opt/mcp/server.py", (folder / "Dockerfile").read_text())
+                source = (folder / "src" / "server.py").read_text()
+                imports = set(re.findall(r"^(?:import|from) ([A-Za-z_.]+)", source, re.M))
+                self.assertEqual(imports - self.STDLIB, {"mcp.server.fastmcp", "mcp.types"})
+                self.assertNotRegex(source, r"https?://", "no request anywhere")
+
+    def test_no_network_and_the_project_folder_writable(self):
+        for name in WORKSPACE_SERVERS:
+            with self.subTest(server=name):
+                entry = read_json("servers", name, "server.json")
+                spec = read_json("servers", name, "smoke.json")
+                self.assertEqual((entry["network"], spec["network"]), ("none", "none"))
+                self.assertNotIn("hosts", entry)
+                self.assertEqual([(m["target"], m["required"]) for m in entry["mounts"]], [("/work", True)])
+                self.assertIn("writable", entry["mounts"][0]["description"])
+                self.assertEqual(spec["mounts"], [{"target": "/work", "fresh": True, "writable": True}])
+                self.assertFalse([v for v in entry.get("env", []) if v["secret"] or v["required"]],
+                                 "no secret, nothing required")
+                recorded = read_json("servers", name, "tools.json")
+                self.assertEqual(sorted(recorded["tools"]), sorted(list(recorded["write_tools"])
+                                                                   + recorded["read_only_tools"]))
+                provenance = (ROOT / "servers" / name / "PROVENANCE.md").read_text()
+                for tool in recorded["tools"]:
+                    self.assertIn(f"`{tool}`", provenance)
+
+    def test_exec_gets_the_limits_its_commands_need_and_pins_its_tools(self):
+        spec = read_json("servers", "exec", "smoke.json")
+        self.assertEqual({key: spec[key] for key in ("memory", "pids", "tmp")}, {"memory": "2g", "pids": 512,
+                                                                              "tmp": "512m"})
+        dockerfile = (ROOT / "servers" / "exec" / "Dockerfile").read_text()
+        for package in ("git=", "make=", "procps=", "python3-pytest=", "python3-pyflakes=", "python3-yaml=",
+                        "shellcheck=", "nodejs="):
+            self.assertIn(package, dockerfile)
+        self.assertNotIn("npm=", dockerfile)
+        refused = {call["expect"] for call in spec["calls"] if call.get("expect_error")}
+        for expected in ("is outside /work", "leads outside /work through a symbolic link"):
+            self.assertTrue(any(expected in text for text in refused), expected)
+        texts = {call["expect"] for call in spec["calls"]}
+        for expected in ("TIMED OUT after", "lines omitted", "Permission denied", "FAILED test_calc.py::test_wrong"):
+            self.assertTrue(any(expected in text for text in texts), expected)
 
 
 class OpenOsint(unittest.TestCase):

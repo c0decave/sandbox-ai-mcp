@@ -1,0 +1,28 @@
+{
+  "id": "mcp:tasks",
+  "name": "tasks",
+  "title": "A plan outside the model's context (goal, steps, notes)",
+  "description": "Keeps an agent's plan outside its context, in the project folder mounted writable at /work, so that a small local model keeps its goal after a compaction or a restart and does not repeat a mistake: set_goal, add_steps, remove_step, start_step, complete_step (with a note of what was done), block_step (with the reason), add_note (facts and mistakes not to repeat), next_step (the one step to work on now, with the goal, its notes, the last result and the latest notes), list_steps and progress (compact). Stored in /work/.tasks/plan.json, with a readable /work/.tasks/PLAN.md for the human; every change is locked and written atomically, so several connections can share one plan. No tool takes a path; sizes are bounded. No network.",
+  "category": "Developer tools",
+  "tags": [
+    "planning",
+    "todo",
+    "tasks",
+    "local-llm",
+    "memory"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/tasks",
+  "license": "MIT (MCP server, sandbox-ai-mcp)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-tasks",
+  "tag": "latest",
+  "mounts": [
+    {
+      "target": "/work",
+      "description": "The project folder, writable (--mount /work=PROJECT:rw): the plan goes to PROJECT/.tasks",
+      "required": true
+    }
+  ],
+  "network": "none",
+  "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions."
+}
