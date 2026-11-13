@@ -149,7 +149,8 @@ def read_plan(folder: int | None) -> dict:
     if folder is None:
         return empty_plan()
     try:
-        fd = os.open(PLAN, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=folder)
+        # O_NONBLOCK: a named pipe in its place must not hold this thread (and the lock) until someone writes
+        fd = os.open(PLAN, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOCTTY, dir_fd=folder)
     except FileNotFoundError:
         return empty_plan()
     except OSError:
@@ -162,7 +163,7 @@ def read_plan(folder: int | None) -> dict:
         data = handle.read(MAX_FILE + 1)
     try:
         return checked_plan(json.loads(data.decode("utf-8")))
-    except (ValueError, UnicodeDecodeError, TypeError) as error:
+    except (ValueError, UnicodeDecodeError, TypeError, OverflowError, RecursionError) as error:
         raise ArgumentError(f"{WORKSPACE}/{FOLDER}/{PLAN} is not a plan this server can read ({error}); it was changed "
                             f"by hand? Fix it, or move it away to start a new plan ({VIEW} beside it shows the last "
                             "state this server wrote)") from None

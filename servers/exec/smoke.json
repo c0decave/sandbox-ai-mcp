@@ -54,6 +54,14 @@
     {
       "tool": "run_command",
       "arguments": {
+        "command": "setsid sh -c 'sleep 601 >/dev/null 2>&1 &'; sleep 602 >/dev/null 2>&1 & echo started"
+      },
+      "expect": "It left processes running in the background; they were stopped when it ended",
+      "timeout": 60
+    },
+    {
+      "tool": "run_command",
+      "arguments": {
         "command": "cat /proc/$PPID/environ"
       },
       "expect": "Permission denied"

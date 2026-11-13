@@ -7,6 +7,7 @@ server over stdio (tools, refusals, the server's own /proc entries closed to the
 image too (tests/test_own_servers.py test_exec), where python3 has pytest, pyflakes and yaml and shellcheck is there."""
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import json
 import os
@@ -658,6 +659,101 @@ class Lint(ExecBase):
             ["a.py:2:1: [pyflakes] 'os' imported but unused"])
 
 
+class IndependentReview(ExecBase):
+    """Found by the independent review of 2026-11-13 (servers/exec/PROVENANCE.md); each failed before its fix."""
+
+    def tearDown(self):
+        # whatever a failing test left behind: only processes that are exactly "sleep 32NN" (never a shell or the
+        # test runner whose command line merely mentions one)
+        for name in os.listdir("/proc"):
+            if name.isdigit():
+                try:
+                    with open(f"/proc/{name}/cmdline", "rb") as handle:
+                        argv = handle.read().split(b"\0")
+                except OSError:
+                    continue
+                if argv[:1] == [b"sleep"] and len(argv) > 1 and argv[1].startswith(b"32"):
+                    with contextlib.suppress(OSError):
+                        os.kill(int(name), 9)
+
+    def test_a_background_process_with_its_output_elsewhere_is_stopped_when_the_command_ends(self):
+        # the most common way to leave something running: it does not hold the output pipe, so it was never found
+        text = self.run_command("sleep 3201 >/dev/null 2>&1 & echo started")
+        self.assertIn("started", text)
+        self.assertIn("It left processes running in the background", text)
+        self.assertEqual(alive("sleep 3201"), [])
+
+    def test_a_daemon_that_double_forks_into_a_new_session_is_stopped_too(self):
+        for command, marker in (("setsid sh -c 'sleep 3202 >/dev/null 2>&1 &'; echo done", "sleep 3202"),
+                                ("(sleep 3203 </dev/null >/dev/null 2>&1 &); echo done", "sleep 3203")):
+            with self.subTest(command=command):
+                self.run_command(command)
+                time.sleep(0.2)
+                self.assertEqual(alive(marker), [])
+        m = self.module
+        ident, job = m.JOBS.start("setsid sh -c 'sleep 3204 >/dev/null 2>&1 &'; sleep 3205", self.work)
+        time.sleep(0.5)
+        self.assertTrue(alive("sleep 3204"))
+        job.stop()
+        job.done.wait(10)
+        self.assertEqual(alive("sleep 3204") + alive("sleep 3205"), [])
+
+    def test_a_job_that_keeps_starting_new_sessions_is_stopped_with_all_of_them(self):
+        m = self.module
+        ident, job = m.JOBS.start("while :; do setsid sleep 3206 >/dev/null 2>&1 & sleep 0.02; done", self.work)
+        time.sleep(0.6)
+        self.assertTrue(alive("sleep 3206"))
+        job.stop()
+        job.done.wait(15)
+        time.sleep(0.2)
+        self.assertEqual(alive("sleep 3206"), [])
+
+    def test_a_named_pipe_in_the_project_never_blocks_the_server(self):
+        import threading
+        os.mkfifo(os.path.join(self.work, "package.json"))
+        os.mkfifo(os.path.join(self.work, "pytest.ini"))
+        outcome = []
+        worker = threading.Thread(target=lambda: outcome.append(self.error(
+            lambda: self.module.detect_framework(self.work))), daemon=True)
+        worker.start()
+        worker.join(5)
+        try:
+            self.assertFalse(worker.is_alive(), "detect_framework blocked on a named pipe")
+            self.assertIn("no tests found", outcome[0])
+        finally:
+            for name in ("package.json", "pytest.ini"):  # a reader still blocked is let go
+                with contextlib.suppress(OSError):
+                    os.close(os.open(os.path.join(self.work, name), os.O_WRONLY | os.O_NONBLOCK))
+            worker.join(5)
+
+    def test_unittest_output_is_parsed_in_linear_time(self):
+        text = ("=" * 20 + "\nFAIL: x\n") * 8000 + "Ran 1 test in 0.1s\n\nFAILED (failures=1)\n"
+        started = time.monotonic()
+        self.module.parse_unittest(text)
+        self.assertLess(time.monotonic() - started, 1.0)
+
+    def test_commands_are_refused_where_pid_1_shows_an_environment_the_server_was_not_given(self):
+        # Bubblewrap's PID 1 is a fork of bwrap and keeps the environment bwrap was started with (sandbox-ai's whole
+        # environment), readable by every command at /proc/1/environ; Podman's catatonit has the server's own
+        m = self.module
+        own = {b"PATH": b"/usr/bin", b"HOME": b"/tmp", b"EXEC_TIMEOUT": b"30"}
+        environ = os.path.join(self.folder, "environ")
+        Path(environ).write_bytes(b"PATH=/usr/bin\0HOME=/tmp\0EXEC_TIMEOUT=30\0")
+        self.assertIsNone(m.init_exposure(environ, own, pid=2))
+        Path(environ).write_bytes(b"PATH=/usr/bin\0HOME=/home/me\0OPENAI_API_KEY=x\0GH_TOKEN=y\0")
+        text = m.init_exposure(environ, own, pid=2)
+        self.assertIn("3 environment variables", text)
+        self.assertNotIn("OPENAI_API_KEY", text)  # never named, never shown
+        self.assertIsNone(m.init_exposure(environ, own, pid=1))  # the server itself is PID 1: nothing else is
+        self.assertIsNone(m.init_exposure(os.path.join(self.folder, "unreadable"), own, pid=2))
+        with mock.patch.object(m, "EXPOSED", "exec refuses to run commands here: PID 1 ..."):
+            for call in (lambda: self.run_command("echo hi"),
+                         lambda: m.answer(lambda: m.JOBS.start(m.checked_command("echo hi"), self.work)),
+                         lambda: m.answer(lambda: m.run_tests_in(self.work, "unittest", [], 10)),
+                         lambda: m.answer(lambda: m.lint_path(self.work, 10))):
+                self.assertIn("refuses to run commands here", self.error(call))
+
+
 def capabilities() -> int:
     with open("/proc/self/status") as handle:
         for line in handle:
@@ -750,6 +846,24 @@ class OverStdio(unittest.TestCase):
         self.assertIn("no tests found in .", text(9))
         self.assertTrue(answers[10]["result"]["isError"])
         self.assertIn("timeout_seconds: a whole number of seconds from 1 to 600", text(10))
+
+
+    def test_orphans_come_to_the_server_and_are_reaped_without_stealing_an_exit_code(self):
+        # independent review 2026-11-13: the server is its commands' subreaper, so a daemon whose parent died is
+        # reparented to it (also when it runs as PID 1); the reaper waits for those, never for its own children
+        work = os.path.realpath(tempfile.mkdtemp(prefix="exec-stdio-"))
+        self.addCleanup(shutil.rmtree, work, True)
+        count = ("cat /proc/[0-9]*/stat 2>/dev/null | "
+                 "awk -v me=$PPID '$3 == \"Z\" && $4 == me {n++} END {print \"zombies\", n + 0}'")
+        answers = self.rpc([("run_command", {"command": "setsid sh -c 'sleep 0.1 >/dev/null 2>&1 &'; sleep 0.5; "
+                                                        "grep PPid /proc/self/status >/dev/null; echo ok"}),
+                            ("run_command", {"command": "sleep 1.6; " + count}),
+                            *[("run_command", {"command": f"exit {code}"}) for code in (3, 4, 5, 6)]], work)
+        texts = [answers[index]["result"]["content"][0]["text"] for index in range(2, 8)]
+        self.assertIn("ok", texts[0])
+        self.assertIn("zombies 0", texts[1])
+        for code, text in zip((3, 4, 5, 6), texts[2:]):
+            self.assertTrue(text.startswith(f"exit {code} (failed)"), text)
 
 
 if __name__ == "__main__":

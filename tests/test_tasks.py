@@ -243,6 +243,40 @@ class Plan(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(os.path.join(self.work, ".tasks"))), [".lock", "PLAN.md", "plan.json"])
 
 
+    def test_a_named_pipe_in_place_of_the_plan_never_blocks_the_server(self):
+        # independent review 2026-11-13: opening a pipe to read waits for a writer - with the lock held, so every
+        # later call would have waited behind it
+        m = self.module
+        m.do_set_goal("a goal", False)
+        plan = os.path.join(self.work, ".tasks", "plan.json")
+        os.unlink(plan)
+        os.mkfifo(plan)
+        outcome = []
+        worker = threading.Thread(target=lambda: outcome.append(self.error(lambda: m.do_read(m.next_text))),
+                                  daemon=True)
+        worker.start()
+        worker.join(5)
+        try:
+            self.assertFalse(worker.is_alive(), "reading the plan blocked on a named pipe")
+            self.assertIn("is not a plan file", outcome[0])
+            self.assertIn("is not a plan file", self.error(lambda: m.do_add_note("x", None)))
+        finally:
+            try:
+                os.close(os.open(plan, os.O_WRONLY | os.O_NONBLOCK))  # a reader still blocked is let go
+            except OSError:
+                pass
+            worker.join(5)
+
+    def test_a_plan_file_nested_without_end_or_with_infinity_is_refused_by_name(self):
+        m = self.module
+        m.do_set_goal("a goal", False)
+        plan = Path(self.work, ".tasks", "plan.json")
+        for content in ("[" * 200000, '{"version": 1, "dropped_notes": Infinity}'):
+            with self.subTest(content=content[:40]):
+                plan.write_text(content)
+                self.assertIn("is not a plan this server can read", self.error(lambda: m.do_read(m.compact)))
+                self.assertEqual(plan.read_text(), content)  # kept as it is
+
 @unittest.skipIf(mcp is None, "the server's requirements are not installed")
 class OverStdio(unittest.TestCase):
     def rpc(self, calls, workspace):

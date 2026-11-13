@@ -23,15 +23,18 @@ container (read-only root, no capabilities, only /work mounted, no network), wit
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import ctypes
 import functools
 import itertools
 import json
 import os
 import re
+import secrets
 import selectors
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -48,6 +51,9 @@ WORKSPACE = "/work"
 MOUNT_REQUIRED = True
 SHELL = "/bin/bash"
 COMMAND_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+#: Every process of a command carries this variable with the command's own random value: a process that left the
+#: command's session and lost its parent (a double-forked daemon) is still found by it and stopped with the command.
+TAG = "EXEC_MCP_COMMAND"
 #: The command runs inside this wrapper: it asks the kernel to kill it (not the server) first when memory runs out.
 WRAPPER = 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec "$0" -c "$1"'
 
@@ -343,12 +349,30 @@ def proc_table() -> dict[int, tuple[int, int, int, str]]:
     return table
 
 
-def members(leader: int) -> set[int]:
-    """The processes of a command whose shell is LEADER: its session, its process group, and every descendant (also
-    one that started a session of its own), never this server. Zombies are left out: they are gone already."""
+def tagged(tag: str, pids) -> set[int]:
+    """Those of PIDS whose environment carries TAG=TAG (a process of another user, or one that cleared its
+    environment, cannot be told)."""
+    needle = f"{TAG}={tag}".encode()
+    found = set()
+    for pid in pids:
+        try:
+            with open(f"/proc/{pid}/environ", "rb") as handle:
+                if needle in handle.read(1 << 20).split(b"\0"):
+                    found.add(pid)
+        except OSError:
+            continue
+    return found
+
+
+def members(leader: int, tag: str | None = None) -> set[int]:
+    """The processes of a command whose shell is LEADER: its session, its process group, every process carrying its
+    TAG (also a double-forked daemon in a session of its own whose parent is gone), and every descendant of these,
+    never this server. Zombies are left out: they are gone already."""
     table = proc_table()
     found = {pid for pid, (_, group, session, _) in table.items() if session == leader or group == leader}
     found.add(leader)
+    if tag:
+        found |= tagged(tag, [pid for pid, entry in table.items() if entry[3] != "Z"])
     children: dict[int, list[int]] = {}
     for pid, (parent, _, _, _) in table.items():
         children.setdefault(parent, []).append(pid)
@@ -360,6 +384,74 @@ def members(leader: int) -> set[int]:
                 queue.append(child)
     me = os.getpid()
     return {pid for pid in found if pid != me and pid in table and table[pid][3] != "Z"}
+
+
+#: Why no command may run in this sandbox (init_exposure, checked once at the start), or None.
+EXPOSED: str | None = None
+
+
+def init_exposure(path: str = "/proc/1/environ", own=None, pid: int | None = None) -> str | None:
+    """Why commands must not run here, or None. PID 1 of the sandbox, when it is not this server (Podman's catatonit,
+    Bubblewrap's own PID 1), runs as the same user and stays dumpable: every command can read its environment at
+    /proc/1/environ. Podman's init has exactly the environment this server got; Bubblewrap's PID 1 is a fork of
+    bwrap and keeps the environment bwrap was started with - the launcher's, secrets included. Any variable there
+    that this server was not given (OWN, its own environment) is one a command must not see: refuse."""
+    if (os.getpid() if pid is None else pid) == 1:
+        return None
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read(4 << 20)
+    except OSError:
+        return None  # not readable: not for the commands either
+    own = os.environb if own is None else own
+    mine = {name + b"=" + value for name, value in own.items()}
+    foreign = [item for item in data.split(b"\0") if item and item not in mine]
+    if not foreign:
+        return None
+    return (f"exec refuses to run commands here: PID 1 of its sandbox (not this server) shows {len(foreign)} "
+            "environment variables this server was not given, and every command could read them in "
+            "/proc/1/environ (Bubblewrap's PID 1 keeps the environment of the program that started bwrap). Run exec "
+            "with Podman until sandbox-ai starts Bubblewrap with an empty environment: sandbox-ai mcp add exec "
+            "--backend podman ...")
+
+
+#: The children this server waits for itself (Popen): the reaper leaves them alone. Held while one is started.
+CHILDREN_LOCK = threading.Lock()
+CHILDREN: set[int] = set()
+
+
+def spawn(argv: list[str], **options) -> subprocess.Popen:
+    """subprocess.Popen(ARGV), registered so that reap_orphans never reaps it in place of its own wait."""
+    with CHILDREN_LOCK:
+        process = subprocess.Popen(argv, **options)
+        CHILDREN.add(process.pid)
+    return process
+
+
+def waited(process: subprocess.Popen) -> None:
+    """PROCESS has been waited for (or will never be): the reaper may take its pid again."""
+    with CHILDREN_LOCK:
+        CHILDREN.discard(process.pid)
+
+
+def reap_orphans() -> int:
+    """Wait for the ended processes that became this server's children when their parent died (it is their
+    subreaper, or PID 1); never for one of its own Popen children. How many were reaped."""
+    me, reaped = os.getpid(), 0
+    with CHILDREN_LOCK:
+        for pid, (parent, _, _, state) in proc_table().items():
+            if parent == me and state == "Z" and pid not in CHILDREN:
+                with contextlib.suppress(ChildProcessError):
+                    if os.waitpid(pid, os.WNOHANG)[0]:
+                        reaped += 1
+    return reaped
+
+
+def reaper() -> None:
+    while True:
+        time.sleep(1.0)
+        with contextlib.suppress(OSError):
+            reap_orphans()
 
 
 class Command:
@@ -374,9 +466,13 @@ class Command:
         self.done = threading.Event()
         self.eof = threading.Event()
         self.stop_reading = threading.Event()
-        self.popen = subprocess.Popen(
-            [SHELL, "-c", WRAPPER, SHELL, command], cwd=cwd, env=command_env(), stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
+        if EXPOSED:
+            raise ArgumentError(EXPOSED)
+        self.tag = secrets.token_hex(12)
+        self.popen = spawn(
+            [SHELL, "-c", WRAPPER, SHELL, command], cwd=cwd, env={**command_env(), TAG: self.tag},
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+            close_fds=True)
         self.reader = threading.Thread(target=self._read, name=f"exec-read-{self.popen.pid}", daemon=True)
         self.reader.start()
 
@@ -415,31 +511,48 @@ class Command:
                 if not self.eof.wait(GRACE):
                     self.stop_reading.set()
                     self.eof.wait(1.0)
+            elif members(self.popen.pid, self.tag) - {self.popen.pid}:
+                # the shell ended and left something running without the output (redirected, a daemon): it goes too
+                self.leftover = True
+                self.kill()
         finally:
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self.popen.wait(timeout=1.0)
+            if self.popen.returncode is not None:
+                waited(self.popen)
             self.ended = time.monotonic()
             self.done.set()
 
-    def kill(self) -> None:
-        """SIGTERM to every process of the command, SIGKILL after GRACE seconds to what is left."""
+    def targets(self) -> set[int]:
         leader = self.popen.pid
-        for sig, wait in ((signal.SIGTERM, GRACE), (signal.SIGKILL, GRACE)):
-            targets = members(leader) - ({leader} if self.popen.poll() is not None else set())
+        return members(leader, self.tag) - ({leader} if self.popen.poll() is not None else set())
+
+    def kill(self) -> None:
+        """SIGTERM to every process of the command; after GRACE seconds what is left is stopped (SIGSTOP: a stopped
+        process cannot start another) and killed (SIGKILL), round after round, until nothing of it is found."""
+        leader = self.popen.pid
+        targets = self.targets()
+        if targets or self.popen.poll() is None:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(leader, signal.SIGTERM)
+            for pid in targets:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGTERM)
+            deadline = time.monotonic() + GRACE
+            while time.monotonic() < deadline and (self.popen.poll() is None or self.targets()):
+                time.sleep(0.05)
+        deadline = time.monotonic() + GRACE
+        while time.monotonic() < deadline:
+            targets = self.targets()
             if not targets and self.popen.poll() is not None:
                 break
-            try:
-                os.killpg(leader, sig)
-            except (ProcessLookupError, PermissionError):
-                pass
-            for pid in targets:
-                try:
-                    os.kill(pid, sig)
-                except (ProcessLookupError, PermissionError):
-                    pass
-            deadline = time.monotonic() + wait
-            while time.monotonic() < deadline:
-                if self.popen.poll() is not None and not (members(leader) - {leader}):
-                    return
-                time.sleep(0.05)
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(leader, signal.SIGKILL)
+            for sig in (signal.SIGSTOP, signal.SIGKILL):
+                for pid in targets:
+                    with contextlib.suppress(ProcessLookupError, PermissionError):
+                        os.kill(pid, sig)
+            time.sleep(0.02)
         try:
             self.popen.wait(timeout=1.0)
         except subprocess.TimeoutExpired:
@@ -610,19 +723,33 @@ def has_python_module(module: str) -> bool:
     if not python:
         return False
     try:
-        return subprocess.run([python, "-I", "-c", f"import {module}"], stdin=subprocess.DEVNULL,
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
-                              env=command_env()).returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
+        process = spawn([python, "-I", "-c", f"import {module}"], stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=command_env())
+    except OSError:
         return False
+    try:
+        return process.wait(timeout=30) == 0
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        return False
+    finally:
+        waited(process)
 
 
 def read_small(path: str, limit: int = 1 << 20) -> str:
+    """The start of the regular file PATH; "" for anything else (a named pipe would block the server's thread)."""
     try:
-        with open(path, "rb") as handle:
-            return handle.read(limit).decode("utf-8", "replace")
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC)
     except OSError:
         return ""
+    with os.fdopen(fd, "rb") as handle:
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return ""
+            return handle.read(limit).decode("utf-8", "replace")
+        except OSError:
+            return ""
 
 
 def package_json(folder: str) -> dict:
@@ -748,7 +875,7 @@ def parse_junit(text: str) -> tuple[dict, list[Failure]]:
     return counts, failures
 
 
-UNITTEST_BLOCK = re.compile(r"^={20,}\n(FAIL|ERROR): (.+?)\n-{20,}\n(.*?)(?=^={20,}\n|^-{20,}\nRan |\Z)", re.M | re.S)
+UNITTEST_BLOCK = re.compile(r"^={20,}\n(FAIL|ERROR): ([^\n]+)\n-{20,}\n(.*?)(?=^={20,}\n|^-{20,}\nRan |\Z)", re.M | re.S)
 
 
 def parse_unittest(text: str) -> tuple[dict, list[Failure]]:
@@ -993,11 +1120,7 @@ def lint_files(target: str) -> tuple[dict[str, list[str]], bool]:
         nonlocal cut
         kind = LINT_KINDS.get(os.path.splitext(path)[1].lower())
         if kind is None and not os.path.splitext(path)[1]:
-            try:
-                with open(path, "rb") as handle:
-                    kind = "shell" if SHELL_NAMES.match(handle.read(64)) else None
-            except OSError:
-                kind = None
+            kind = "shell" if SHELL_NAMES.match(read_small(path, 64).encode("utf-8", "replace")) else None
         if kind:
             if sum(len(v) for v in found.values()) >= MAX_LINT_FILES:
                 cut = True
@@ -1080,6 +1203,8 @@ def parse_shellcheck(text: str) -> list[Problem]:
 
 
 def lint_path(target: str, limit: int) -> str:
+    if EXPOSED:
+        raise ArgumentError(EXPOSED)
     root = os.path.realpath(WORKSPACE)
     files, cut = lint_files(target)
     problems: list[Problem] = []
@@ -1338,16 +1463,25 @@ async def lint(path: str = "", timeout_seconds: int | None = None) -> str:
 
 def harden() -> None:
     """Make this process non-dumpable: commands run as the same user, but cannot open its /proc entries (its stdin
-    and stdout are the MCP connection), read its memory or ptrace it. Linux only; a failure is logged."""
+    and stdout are the MCP connection), read its memory or ptrace it. And make it the subreaper of its commands: a
+    process whose parent died comes to this server (not to PID 1), which reaps it (reap_orphans) - the same whether
+    this server runs as PID 1 or under an init. Linux only; a failure is logged."""
     try:
         libc = ctypes.CDLL(None, use_errno=True)
         if libc.prctl(4, 0, 0, 0, 0) != 0:  # PR_SET_DUMPABLE
             raise OSError(ctypes.get_errno(), "prctl(PR_SET_DUMPABLE) failed")
+        if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER
+            raise OSError(ctypes.get_errno(), "prctl(PR_SET_CHILD_SUBREAPER) failed")
     except (OSError, AttributeError) as error:
-        print(f"exec-mcp: could not make the server non-dumpable: {error}", file=sys.stderr)
+        print(f"exec-mcp: could not harden the server: {error}", file=sys.stderr)
+    threading.Thread(target=reaper, name="exec-reaper", daemon=True).start()
 
 
 def main() -> None:
+    global EXPOSED
+    EXPOSED = init_exposure()
+    if EXPOSED:
+        print(f"exec-mcp: {EXPOSED}", file=sys.stderr)
     harden()
     try:
         mcp.run("stdio")
