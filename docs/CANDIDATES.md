@@ -1,7 +1,9 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-11 (playwright moved to `servers/`; openosint, osint-mcp, signal and whatsapp added; memory and
-engram added, Basic Memory looked at and left out).
+State: 2026-11-13 (exec and tasks added, our own servers for agents on small local models; mcp-server-git,
+sequential-thinking, serena, the ast-grep MCP server and codebase-memory reviewed for them in
+[LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)). 2026-11-11: playwright moved to `servers/`; openosint, osint-mcp, signal
+and whatsapp added; memory and engram added, Basic Memory looked at and left out.
 
 **Pinning rule (supply-chain cooldown):** a candidate pins an upstream release published at
 least 14 days before it is prepared or re-pinned (npm or PyPI upload time, GitHub release date,
@@ -84,6 +86,8 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | whatsapp | a WhatsApp account linked as a device: edouard-claude/whatsapp-mcp at `f3fe07f2` (2026-10-20, MIT; Rust MCP server wa-mcp, Go bridge wa-bridge on whatsmeow `8b41cfe6`) with five patches of this repository (read-only unless `WHATSAPP_WRITE=1`, no pairing or logout tools, files sent only from `/send`, no Status or broadcast sending, libsignal's log off stdout, media capped, sender checks on edits and deletions, the account's folder owner-only); 12 read tools by default, 37 with `WHATSAPP_WRITE=1` | full; `/data` writable (the session and the message database), `/send` read-only optional | the bridge compiled and its patch unit-tested here with Go 1.26.10 and the go.sum-verified modules; the Rust patches not compiled here (no Rust toolchain); offline tests (pins, patches, tools, mounts); the smoke spec in CI (tools/list without an account, a real call, refused calls); no live call (that would need an account) |
 | binwalk | what is inside a firmware file: signature scan, extraction, entropy, hex dump; Debian binwalk 2.4.3 with pinned extractors; FuzzingLabs wrapper, patched (paths under `/work`, no option injection, `/out` or `/tmp` for extraction) | none; `/work` read-only (required), `/out` writable optional | ported from axross-mcp-hub, where it was audited and smoke-tested; here: offline tests and the smoke spec in CI |
 | memory | the official MCP Knowledge Graph memory server 2.0.1 (modelcontextprotocol/servers `src/memory`, Apache-2.0/MIT; npm release built by upstream CI from commit `194cc86e`, provenance-attested): entities, observations, relations in `/data/memory.jsonl`, 9 tools (create, add, delete, search by substring, open, read graph); server read line by line (its 1,280 TypeScript lines and the shipped JavaScript compared), the MCP SDK 2.4.0 on its whole stdio path (14,200 lines), zod and the bundled Ajv on their risky surfaces; no patch; `node --disallow-code-generation-from-strings` | none; `/data` writable (required), one folder per case | the smoke spec run locally through `scripts/smoke_test.py` against the reviewed packages on Node.js 26 (write, search, read back; four refused calls); offline tests; not built here (no container engine) |
+| exec | our own server (`src/server.py`, the shared lock) for agents on small local models: `run_command` (bash with a time limit, the whole process tree stopped on it, stdin empty, no terminal, a fixed non-interactive environment, output cut to start and end), background jobs, `run_tests` (only the failures), `lint` (read-only); Debian's git, make, pytest, pyflakes, PyYAML, shellcheck and Node.js 20 for the commands | none; `/work` writable (required: the project); `--memory 2g --pids 512`, a 512m /tmp | `tests/test_exec.py` (43 offline tests: limits and kills, output bounds, input, environment, paths and links, jobs, recorded test reports, real test runs, lint, stdio); `test_exec` inside the image and the smoke spec in CI; not built here (no container engine) |
+| tasks | our own server (`src/server.py`, the shared lock): a plan outside the model's context in `/work/.tasks` (goal, steps, notes, `next_step`), flock-locked atomic writes, `PLAN.md` for the human | none; `/work` writable (required: the project) | `tests/test_tasks.py` (persistence, bounds, plans changed by hand, links, six processes and four threads at once, stdio); `test_tasks` inside the image and the smoke spec in CI; not built here |
 | engram | Engram 3.6.0 (Gentleman-Programming/engram, MIT, commit `98912f81`), only its MCP server: an own entry point (`src/main.go`) built inside Engram's module links internal/mcp and internal/store and what they import (31,134 lines in 61 files, every one read line by line and pinned by SHA-256; the build proves nothing else of Engram is linked); mcp-go 0.44.0 read line by line; the other Go modules (modernc sqlite/libc, x/sys, x/text, uuid, jsonschema, ...) on their risky surfaces. 23 agent tools; `directory`/`cwd` arguments removed (they scan folders and would run git); arguments bounded, panics recovered, memory in `/data` with Engram's own limits | none; `/data` writable (required), one project per folder (`ENGRAM_PROJECT`, default `brain`) | `src/main_test.go` runs in the image build; smoke spec in CI (save, search, read back; four refused calls); offline tests; not built here (no Go toolchain, no container engine) |
 
 ### The three file-analysis servers, and the cooldown rule
@@ -265,7 +269,11 @@ next to this one, so they are not duplicated here.
 
 ## Next candidates
 
-- **sequential-thinking, time** (modelcontextprotocol/servers, MIT): small, no network (memory: `servers/memory`).
-- **git** (mcp-server-git, MIT): of little use in sandbox-ai, whose agents have git themselves.
+- **code-search** (our own, for small local models): text and structural search (the `ast-grep` 0.51.0 binary) and
+  file outlines, bounded, `/work` read-only - instead of serena or the ast-grep MCP server
+  ([LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)).
+- **sequential-thinking** (modelcontextprotocol/servers): reviewed, small and clean, but of little use for small
+  models; 2.1.1 from 2026-11-18 if asked for. **time**: small, no network.
+- **git** (mcp-server-git, MIT): reviewed, not packaged - exec runs git with pagers, editors and prompts off.
 - **SearXNG** client: search through your own SearXNG instance (allowlist of that host).
 - **arXiv / Wikipedia** search: own small servers, allowlist.
