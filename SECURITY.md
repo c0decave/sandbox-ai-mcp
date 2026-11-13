@@ -22,6 +22,10 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 - youtube: a token, the client secret or an upload session reaching a tool answer, a log line or a host other
   than `oauth2.googleapis.com` and `www.googleapis.com`; a file uploaded from outside `/upload` (a link, a
   device, another user's file); a public video without `YOUTUBE_ALLOW_PUBLIC=1`;
+- bluesky: the app password or a session token reaching a tool answer, a log line or a host other than the PDS
+  (`BLUESKY_PDS`, default `bsky.social`); a request to any host but the PDS and `public.api.bsky.app`; a write
+  without `BLUESKY_WRITE=1`; a post deleted that is not the account's own; an image uploaded from outside `/upload`
+  (a link, a device, another user's file) or with its EXIF location;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull

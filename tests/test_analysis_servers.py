@@ -467,6 +467,74 @@ class YouTube(unittest.TestCase):
             self.assertIn(f"`{tool}`", provenance)
 
 
+class Bluesky(unittest.TestCase):
+    """The posting server: our own code on the shared lock, the PDS and Bluesky's public AppView and nothing else,
+    read-only unless BLUESKY_WRITE=1, /upload read-only and optional, a smoke run without an account
+    (tests/test_bluesky.py has the server's own tests)."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "bluesky"
+        self.entry = read_json("servers", "bluesky", "server.json")
+        self.spec = read_json("servers", "bluesky", "smoke.json")
+        self.tools = read_json("servers", "bluesky", "tools.json")
+
+    def test_the_shared_lock_and_no_other_package(self):
+        self.assertEqual((self.folder / "requirements.txt").read_bytes().replace(b"servers/bluesky/", b""),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                             b"servers/web-fetch/", b""))
+        self.assertEqual((self.folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+        self.assertIn("COPY src/server.py /opt/mcp/", (self.folder / "Dockerfile").read_text())
+        self.assertEqual(sorted(p.name for p in (self.folder / "src").iterdir() if p.name != "__pycache__"), ["server.py"])
+        imports = set(re.findall(r"^(?:import|from) ([a-z0-9_.]+)", (self.folder / "src" / "server.py").read_text(), re.M))
+        self.assertEqual(imports - {"__future__", "asyncio", "base64", "datetime", "json", "logging", "os", "random",
+                                    "re", "stat", "sys", "time", "unicodedata", "urllib.parse"},
+                         {"httpx", "mcp.server.fastmcp", "mcp.types"})
+
+    def test_only_the_pds_and_the_public_appview(self):
+        hosts = ["bsky.social:443", "public.api.bsky.app:443"]
+        self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", hosts))
+        self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", hosts))
+        source = (self.folder / "src" / "server.py").read_text()
+        self.assertEqual(set(re.findall(r"https://([a-z0-9-]+(?:\.[a-z0-9-]+)+)", source)) - {"bsky.social", "public.api.bsky.app"},
+                         {"bsky.app"}, "links in answers only: requests go to the PDS and the AppView (checked per "
+                                       "request)")
+        self.assertIn('DEFAULT_PDS = "https://bsky.social"', source)
+        self.assertIn('APPVIEW_HOST = "public.api.bsky.app"', source)
+        self.assertIn("follow_redirects=False", source)
+
+    def test_the_secret_the_write_switch_and_the_upload_folder(self):
+        env = {var["name"]: var for var in self.entry["env"]}
+        self.assertTrue(env["BLUESKY_APP_PASSWORD"]["secret"] and env["BLUESKY_APP_PASSWORD"]["required"])
+        self.assertTrue(env["BLUESKY_HANDLE"]["required"])
+        self.assertFalse(env["BLUESKY_HANDLE"]["secret"], "a handle is public")
+        for name in ("BLUESKY_WRITE", "BLUESKY_PDS"):
+            self.assertFalse(env[name]["secret"] or env[name]["required"], name)
+        self.assertEqual([m["target"] for m in self.entry["mounts"]], ["/upload"])
+        self.assertIn("read-only", self.entry["mounts"][0]["description"])
+        self.assertFalse(self.entry["mounts"][0].get("required"), "text posts and reads need no files")
+        self.assertEqual(self.tools["write_switch"], "BLUESKY_WRITE")
+        self.assertEqual(sorted(self.tools["write_tools"]), ["delete_post", "post", "thread"])
+        self.assertEqual(sorted([*self.tools["write_tools"], *self.tools["read_only_tools"]]), self.tools["tools"])
+        rules = self.tools["recommended_rules"]["mcp"]
+        self.assertEqual(next(r for r in rules if r["decision"] == "ask")["tool"], ["post", "thread", "delete_post"])
+
+    def test_the_smoke_spec_refuses_without_an_account(self):
+        for value in self.spec["env"].values():
+            self.assertIn("smoke", value.replace("-", ""), "the smoke run has no account: placeholders only")
+        self.assertTrue(self.spec["env"]["BLUESKY_HANDLE"].endswith(".example"), "a name no one can register")
+        self.assertNotIn("BLUESKY_WRITE", self.spec["env"], "the write switch stays off in the smoke run")
+        refused = [call["expect"] for call in self.spec["calls"] if call.get("expect_error")]
+        self.assertEqual(len(refused), len(self.spec["calls"]))
+        real = [call for call in self.spec["calls"] if call["expect"] == "Bluesky refused the sign-in"]
+        self.assertEqual(len(real), 1, "one call reaches the real service")
+        for expected in ("writing is off", "only files under /upload", "without . or .. in the path",
+                         "alt text is required", "at most 300 graphemes"):
+            self.assertTrue(any(expected in text for text in refused), expected)
+        provenance = (self.folder / "PROVENANCE.md").read_text()
+        for tool in self.tools["tools"]:
+            self.assertIn(f"`{tool}`", provenance)
+
+
 class OpenOsint(unittest.TestCase):
     """OpenOSINT's reviewed modules only, each pinned by SHA-256 at the pinned commit; passive tools only."""
 

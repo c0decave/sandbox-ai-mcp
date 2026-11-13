@@ -2,8 +2,11 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
-  "state": "pinned",
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
+  "state": "pending-digests",
+  "pending": [
+    "bluesky"
+  ],
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -38,6 +41,64 @@
       ],
       "network": "none",
       "notes": "binwalk_extract is the one tool that writes: into /out when a writable folder is mounted there, else into the container's /tmp. Extraction runs third-party extractors on data someone else made, inside the container (no capabilities, no network, read-only root, noexec /tmp); mount /work read-only so an extractor cannot touch the image it read. What the scan reports is that data: treat it as data, not instructions."
+    },
+    {
+      "id": "mcp:bluesky",
+      "name": "bluesky",
+      "title": "Bluesky posts (your account, the app password stays in the server)",
+      "description": "Posts to your Bluesky account through the AT Protocol without the agent ever seeing your credentials: your handle and an app password (never the account password) live only in this server's container, which signs in at your PDS itself and keeps the session in memory. post (up to 300 graphemes counted as Bluesky counts them; links, @mentions and #hashtags as facets; languages; a reply; up to 4 JPEG, PNG or WebP images of /upload with alt text and their metadata - EXIF, location - removed, or a link card from the title and description you give, the site is never fetched), thread (2-10 posts, each answering the one before) and delete_post (only the account's own posts) WRITE to the account and are refused unless BLUESKY_WRITE=1 - read-only by default; have sandbox-ai ask for each call. get_profile, list_my_posts and get_post_thread read through Bluesky's public AppView, never with the session. A sign-in with the account password or an app password with access to direct messages is refused and ended. Files only from a folder mounted read-only at /upload, no links, devices or other users' files. Needs BLUESKY_HANDLE, BLUESKY_APP_PASSWORD (a secret) and network: Allowlist with bsky.social:443 (your PDS; another with BLUESKY_PDS) and public.api.bsky.app:443.",
+      "category": "Social",
+      "tags": [
+        "bluesky",
+        "atproto",
+        "social",
+        "publishing",
+        "posts"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/bluesky",
+      "page": "https://docs.bsky.app/",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-bluesky",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "BLUESKY_HANDLE",
+          "description": "Your handle (alice.bsky.social) or DID (did:plc:...): the account the server signs in to",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "BLUESKY_APP_PASSWORD",
+          "description": "An app password of that account (xxxx-xxxx-xxxx-xxxx, Settings, Privacy and security, App passwords; without DM access), never the account password",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "BLUESKY_WRITE",
+          "description": "1 lets post, thread and delete_post write to the account (unset: read-only, every write refused)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "BLUESKY_PDS",
+          "description": "The https:// address of your PDS if it is not Bluesky's (default https://bsky.social, which serves every Bluesky-hosted account)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/upload",
+          "description": "The images (and link-card thumbnails) to post, read-only (--mount /upload=DIR:ro); without it posts carry no images"
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "bsky.social:443",
+        "public.api.bsky.app:443"
+      ],
+      "notes": "The app password stays in the server's container (environment, memory), as do the session tokens it gets for it: never returned, never logged, never sent anywhere but your PDS; the agent never sees them. An app password can post, delete and change the profile and follows, but not change the account's e-mail or password, delete the account or read direct messages; revoke it any time under App passwords. Ask for every write: a ruleset with {\"server\": \"bluesky\", \"tool\": [\"post\", \"thread\", \"delete_post\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call (tools.json has the whole recommended ruleset). Posts are public at once. Bluesky limits writes per account (about 1,600 posts an hour, 11,600 a day) and sign-ins (30 in 5 minutes, 300 a day): the server signs in once per connection and keeps the session. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to your PDS and public.api.bsky.app only."
     },
     {
       "id": "mcp:brave-search",
