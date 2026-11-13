@@ -85,13 +85,20 @@ MAX_MAP_FILES = 25               # files project_map shows per folder
 MAX_GITIGNORE_BYTES = 64 << 10
 MAX_RULES = 500                  # .gitignore rules in force at once
 MAX_CACHED_FILES = 20_000
-MAX_CACHED_SYMBOLS = 300_000
+MAX_CACHED_SYMBOLS = 200_000     # at most about 870 bytes each (the caps below): under 180 MiB when full
 MAX_SYMBOLS_PER_FILE = 5_000
 MAX_SIGNATURE = 160
+MAX_NAME = 120                   # characters of a symbol's name kept (a longer one is cut)
+MAX_QUAL = 240                   # characters of a qualified name kept (its end: "...Outer.Inner.name")
+MAX_NESTING = 100                # containers open at once in a brace-language outline
+MAX_BRACES = 100_000             # '{' in a file of a brace language outlined at all
+MAX_PARSE_TOKENS = 100_000       # tokens of a file given to Python's parser (about 1 KB of memory each at worst)
+MAX_GLOB_PARTS = 16              # names of a glob or .gitignore pattern (a/b/**/c: 4)
 SEARCH_SECONDS = 10.0            # find_text, find_files, find_references
 INDEX_SECONDS = 20.0             # find_definition, project_map: the walk and the outlines
 MAP_SYMBOL_SECONDS = 8.0         # project_map: outlines of the files shown
 CALL_SECONDS = 45.0              # any call (below Codex's 60 s)
+PARSE_SECONDS = 5.0              # the outline of one file: given up after this (and remembered until it changes)
 
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 READ_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC
@@ -120,7 +127,9 @@ class TimeLimit(Exception):
 # --- arguments -----------------------------------------------------------------------------------------------------
 
 _CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
-_SHOWN_CONTROLS = re.compile(r"[\x00-\x08\x0a-\x1f\x7f]")  # never in an answer's line: a name or line could fake one
+#: Never in an answer's line: a name or line could fake one. Line breaks of every kind (str.splitlines() breaks at
+#: \x85, \u2028 and \u2029 too) and the other control characters; a tab stays.
+_SHOWN_CONTROLS = re.compile(r"[\x00-\x08\x0a-\x1f\x7f\x85\u2028\u2029]")
 
 
 def _int(value, name: str, low: int, high: int) -> int:
@@ -317,8 +326,8 @@ def locate(value, name: str = "path") -> Place:
                 if target.startswith("/"):
                     inside = _link_parts(root, target)
                     if inside is None:
-                        raise Refused(f"{name}: {here} is a link to {target[:200]}, outside {root}: links out of "
-                                      "the mounted folders are never followed")
+                        raise Refused(f"{name}: {here} is a link to {_SHOWN_CONTROLS.sub('?', target[:200])}, "
+                                      f"outside {root}: links out of the mounted folders are never followed")
                     while len(stack) > 1:
                         os.close(stack.pop())
                     walked = []
@@ -401,6 +410,8 @@ class Glob:
     def __init__(self, pattern: str, ignore_case: bool = False):
         flags = re.I if ignore_case else 0
         self.parts: list[re.Pattern | None] = []
+        if pattern.count("/") >= MAX_GLOB_PARTS:  # matching costs names times parts, for every entry of a walk
+            raise TooManyParts(pattern)
         for part in pattern.split("/"):
             if part == "**":
                 if not self.parts or self.parts[-1] is not None:
@@ -433,6 +444,10 @@ class Glob:
         return ahead[0]
 
 
+class TooManyParts(ValueError):
+    """A glob of more than MAX_GLOB_PARTS names."""
+
+
 class Rule(NamedTuple):
     base: str              # the folder of the .gitignore, relative to the root ("" for the root)
     glob: Glob
@@ -441,14 +456,17 @@ class Rule(NamedTuple):
     anchored: bool         # matched against the path below BASE, else against the name
 
 
-def parse_gitignore(text: str, base: str) -> list[Rule]:
-    rules = []
+def parse_gitignore(text: str, base: str, limit: int = MAX_RULES) -> list[Rule]:
+    rules: list[Rule] = []
+    if limit <= 0:
+        return rules
     for raw in text.split("\n"):
         line = raw.rstrip("\r")
         if not line or line.startswith("#"):
             continue
-        while line.endswith(" ") and not line.endswith("\\ "):
-            line = line[:-1]
+        # trailing spaces are cut unless escaped ("a\\ " keeps one): in one step, not one space at a time
+        kept = line.rstrip(" ")
+        line = kept + " " if kept.endswith("\\") and len(kept) < len(line) else kept
         negate = line.startswith("!")
         if negate or line.startswith("\\!") or line.startswith("\\#"):
             line = line[1:]
@@ -460,17 +478,17 @@ def parse_gitignore(text: str, base: str) -> list[Rule]:
         line = line.lstrip("/")
         try:
             glob = Glob(line)
-        except re.error:
+        except (re.error, TooManyParts):
             continue
         rules.append(Rule(base, glob, negate, dir_only, anchored))
-        if len(rules) >= MAX_RULES:
+        if len(rules) >= limit:
             break
     return rules
 
 
-def read_gitignore(dirfd: int, base: str) -> list[Rule]:
+def read_gitignore(dirfd: int, base: str, limit: int = MAX_RULES) -> list[Rule]:
     text, _, _ = load_text(dirfd, ".gitignore", MAX_GITIGNORE_BYTES)
-    return parse_gitignore(text, base) if text else []
+    return parse_gitignore(text, base, limit) if text else []
 
 
 def ignored(rules, rel: str, name: str, is_dir: bool) -> bool:
@@ -512,11 +530,10 @@ class Budget:
         return self.stopped is None
 
     def tick(self) -> bool:
-        """False once the walk is to stop (checks the clock now and then)."""
+        """False once the walk is to stop (checks the clock at every entry: one entry can cost much, as under the
+        maximum of .gitignore rules)."""
         self.ticks += 1
-        if self.ticks % 64 == 0:
-            self.expired()
-        return self.stopped is None
+        return not self.expired()
 
     def expired(self) -> bool:
         if self.stopped is None and time.monotonic() > self.deadline:
@@ -558,7 +575,7 @@ def _ancestor_rules(root: str, names: list[str]) -> list[Rule]:
     fd = open_root(root)
     try:
         for k in range(len(names)):
-            rules += read_gitignore(fd, "/".join(names[:k]))
+            rules += read_gitignore(fd, "/".join(names[:k]), MAX_RULES - len(rules))
             try:
                 sub = os.open(names[k], DIR_FLAGS, dir_fd=fd)
             except OSError:
@@ -629,7 +646,7 @@ def _walk_dir(fd: int, rel: str, rules: list[Rule], depth: int, budget: Budget, 
         return
     entries.sort(key=lambda e: e.name)
     if any(entry.name == ".gitignore" for entry in entries) and len(rules) < MAX_RULES:
-        rules = rules + read_gitignore(fd, rel)[:MAX_RULES - len(rules)]
+        rules = rules + read_gitignore(fd, rel, MAX_RULES - len(rules))
     for entry in entries:
         if not budget.tick():
             return
@@ -682,26 +699,33 @@ def skipped_note(skipped: set) -> str:
             "search it)")
 
 
+class Timer:
+    """What time_limit yields: FIRED once its own limit (not an enclosing one) stopped the block."""
+    fired = False
+
+
 @contextlib.contextmanager
 def time_limit(seconds: float):
     """TimeLimit raised in the block after SECONDS (a timer signal, which also stops a regular expression that
     backtracks without end). Outside the main thread no timer: the walks check the clock themselves."""
+    timer = Timer()
     if threading.current_thread() is not threading.main_thread():
-        yield
+        yield timer
         return
     outer, _ = signal.getitimer(signal.ITIMER_REAL)
     if outer and outer <= seconds:
-        yield  # an enclosing limit ends first: it stays in charge
+        yield timer  # an enclosing limit ends first: it stays in charge
         return
     started = time.monotonic()
 
     def fire(signum, frame):
+        timer.fired = True
         raise TimeLimit()
 
     previous = signal.signal(signal.SIGALRM, fire)
     signal.setitimer(signal.ITIMER_REAL, seconds)
     try:
-        yield
+        yield timer
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
@@ -785,6 +809,18 @@ def _short(text: str, limit: int = MAX_SIGNATURE) -> str:
 _CONSTANT = re.compile(r"^_*[A-Z][A-Z0-9_]*$")
 
 
+def _name(name: str) -> str:
+    """A symbol's name as kept: at most MAX_NAME characters (no one asks for a longer one: arguments take 200)."""
+    return name if len(name) <= MAX_NAME else name[:MAX_NAME]
+
+
+def _qual(parts: list[str]) -> str:
+    """The qualified name of PARTS as kept: its end, at most MAX_QUAL characters. Without the bound, one long class
+    name repeated in each of 5,000 methods (or classes nested 2,000 deep) took gigabytes."""
+    qual = ".".join(parts[-MAX_NESTING:])
+    return qual if len(qual) <= MAX_QUAL else "..." + qual[-(MAX_QUAL - 3):]
+
+
 def outline_python(text: str) -> list[Symbol]:
     """Python's own parser: exact."""
     with warnings.catch_warnings():  # an invalid escape in a string is the file's business, not stderr's
@@ -816,11 +852,12 @@ def outline_python(text: str) -> list[Symbol]:
                 is_class = isinstance(node, ast.ClassDef)
                 kind = "class" if is_class else "method" if in_class else "function"
                 top = min([node.lineno] + [d.lineno for d in node.decorator_list])
-                out.append(Symbol(kind, node.name, ".".join(parents + [node.name]), node.lineno,
+                name = _name(node.name)
+                out.append(Symbol(kind, name, _qual(parents + [name]), node.lineno,
                                   node.end_lineno or node.lineno, _comments_above(lines, top, ("#",)), depth,
                                   signature(node)))
                 if depth < 8:
-                    visit(node.body, parents + [node.name], depth + 1, is_class)
+                    visit(node.body, parents + [name], depth + 1, is_class)
             elif isinstance(node, blocks):
                 for field in ("body", "orelse", "finalbody"):
                     visit(getattr(node, field, None) or [], parents, depth, in_class)
@@ -830,10 +867,11 @@ def outline_python(text: str) -> list[Symbol]:
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                 for target in targets:
                     if isinstance(target, ast.Name) and _CONSTANT.match(target.id):
-                        out.append(Symbol("const", target.id, target.id, node.lineno, node.end_lineno or node.lineno,
+                        name = _name(target.id)
+                        out.append(Symbol("const", name, name, node.lineno, node.end_lineno or node.lineno,
                                           node.lineno, 0, _short(lines[node.lineno - 1].strip())))
             elif alias is not None and isinstance(node, alias) and isinstance(node.name, ast.Name):
-                out.append(Symbol("type", node.name.id, ".".join(parents + [node.name.id]), node.lineno,
+                out.append(Symbol("type", _name(node.name.id), _qual(parents + [_name(node.name.id)]), node.lineno,
                                   node.end_lineno or node.lineno, node.lineno, depth,
                                   _short(lines[node.lineno - 1].strip())))
 
@@ -866,9 +904,10 @@ def outline_python_lines(text: str) -> list[Symbol]:
         if found and len(out) < MAX_SYMBOLS_PER_FILE:
             is_class = found.group("k") == "class"
             in_class = bool(open_) and open_[-1][3]
-            qual = ".".join([o[2] for o in open_[-1:]] + [found.group("n")]) if open_ else found.group("n")
+            name = _name(found.group("n"))
+            qual = _qual([o[2] for o in open_[-1:]] + [name])
             kind = "class" if is_class else "method" if in_class else "function"
-            out.append(Symbol(kind, found.group("n"), qual, number, number, _comments_above(lines, number, ("#", "@")),
+            out.append(Symbol(kind, name, qual, number, number, _comments_above(lines, number, ("#", "@")),
                               len(open_), _short(stripped.rstrip(":"))))
             open_.append([indent, len(out) - 1, qual, is_class])
         last_code = number
@@ -879,28 +918,30 @@ def outline_python_lines(text: str) -> list[Symbol]:
 # Brace languages: comments and strings blanked out (same length, line breaks kept), then line patterns.
 
 _LINE_C = r"//[^\n]*"
-_BLOCK_C = r"/\*(?:[^*]|\*(?!/))*(?:\*/|\Z)"
-_DQ = r'"(?:[^"\\\n]|\\.)*"?'
-_SQ = r"'(?:[^'\\\n]|\\.)*'?"
+#: Repeats of an alternation are possessive (*+, Python 3.11+): an ordinary one makes the engine keep about 120 bytes
+#: per repetition, 230 MiB for a 2 MiB comment or string; none of these tokens ever needs to give characters back.
+_BLOCK_C = r"/\*(?:[^*]|\*(?!/))*+(?:\*/|\Z)"
+_DQ = r'"(?:[^"\\\n]|\\.)*+"?'
+_SQ = r"'(?:[^'\\\n]|\\.)*+'?"
 _JS_REGEX = (r"(?:(?<=[=(,:;!&|?{}\[\n])|(?<![\s\S]))[ \t]*/(?![/*])"
              r"(?:[^/\\\n\[]|\\.|\[(?:[^\]\\\n]|\\.){0,100}\]){1,300}/")
 TOKENS = {
     "c": re.compile("|".join([_LINE_C, _BLOCK_C,
-                              r'R"(?P<d>[^()\\\s"]{0,16})\((?:[^)]|\)(?!(?P=d)"))*(?:\)(?P=d)"|\Z)', _DQ, _SQ])),
-    "java": re.compile("|".join([_LINE_C, _BLOCK_C, r'"""(?:[^"\\]|\\[\s\S]|"(?!""))*(?:"""|\Z)', _DQ, _SQ])),
+                              r'R"(?P<d>[^()\\\s"]{0,16})\((?:[^)]|\)(?!(?P=d)"))*+(?:\)(?P=d)"|\Z)', _DQ, _SQ])),
+    "java": re.compile("|".join([_LINE_C, _BLOCK_C, r'"""(?:[^"\\]|\\[\s\S]|"(?!""))*+(?:"""|\Z)', _DQ, _SQ])),
     "go": re.compile("|".join([_LINE_C, _BLOCK_C, r"`[^`]*`?", _DQ, _SQ])),
     "rust": re.compile("|".join([_LINE_C, _BLOCK_C,
-                                 r'(?<!\w)b?r(?P<h>#{0,8})"(?:[^"]|"(?!(?P=h)))*(?:"(?P=h)|\Z)',
-                                 r'(?<!\w)b?"(?:[^"\\]|\\[\s\S])*"?',
+                                 r'(?<!\w)b?r(?P<h>#{0,8})"(?:[^"]|"(?!(?P=h)))*+(?:"(?P=h)|\Z)',
+                                 r'(?<!\w)b?"(?:[^"\\]|\\[\s\S])*+"?',
                                  r"(?<!\w)b?'(?:[^'\\\n]|\\(?:u\{[0-9a-fA-F]{1,6}\}|x[0-9a-fA-F]{2}|.))'"])),
-    "javascript": re.compile("|".join([_LINE_C, _BLOCK_C, r"`(?:[^`\\]|\\[\s\S])*`?", _DQ, _SQ, _JS_REGEX])),
+    "javascript": re.compile("|".join([_LINE_C, _BLOCK_C, r"`(?:[^`\\]|\\[\s\S])*+`?", _DQ, _SQ, _JS_REGEX])),
     "shell": re.compile("|".join([
-        r"(?<![^\s;|&()])#[^\n]*", r"\$\{[^}\n]*\}", r"'[^']*'?", r'"(?:[^"\\]|\\[\s\S])*"?'])),
+        r"(?<![^\s;|&()])#[^\n]*", r"\$\{[^}\n]*\}", r"'[^']*'?", r'"(?:[^"\\]|\\[\s\S])*+"?'])),
 }
 TOKENS["cpp"] = TOKENS["c"]
 TOKENS["typescript"] = TOKENS["javascript"]
 _NOT_NEWLINE = re.compile(r"[^\n]")
-_PREPROCESSOR = re.compile(r"^[ \t]*#(?:[^\n\\]|\\[\s\S])*", re.M)
+_PREPROCESSOR = re.compile(r"^[ \t]*#(?:[^\n\\]|\\[\s\S])*+", re.M)
 _SH_OPEN = re.compile(r"(?<=[^\s;)(&|])\{|\{(?=[^\s;])")
 _SH_CLOSE = re.compile(r"(?<=[^\s;&])\}|\}(?=[^\s;)|&<>])")
 _BRACE = re.compile(r"[{}]")
@@ -1066,9 +1107,10 @@ class _Open(NamedTuple):
 
 
 def _braces(lines: list[str]) -> tuple[list[int], dict]:
-    """(the brace depth at the start of each line, {(line, column) of a '{': the line of its '}'})."""
+    """(the brace depth at the start of each line, {(line, column) of a '{': (line, column) of its '}'}; an open
+    one: the end of the last line)."""
     depth_at = [0] * len(lines)
-    close_of: dict[tuple[int, int], int] = {}
+    close_of: dict[tuple[int, int], tuple[int, int]] = {}
     stack: list[tuple[int, int]] = []
     for i, line in enumerate(lines):
         depth_at[i] = len(stack)
@@ -1078,9 +1120,9 @@ def _braces(lines: list[str]) -> tuple[list[int], dict]:
             if found.group() == "{":
                 stack.append((i, found.start()))
             elif stack:
-                close_of[stack.pop()] = i
+                close_of[stack.pop()] = (i, found.start())
     for opened in stack:
-        close_of[opened] = len(lines) - 1
+        close_of[opened] = (len(lines) - 1, len(lines[-1]))
     return depth_at, close_of
 
 
@@ -1194,8 +1236,8 @@ def outline_braces(text: str, lang: str, header: bool = False) -> list[Symbol]:
                 if item:
                     kind = item.group("k") or ("type" if go_group == "type" else "const")
                     has_body, bl, bc = _body(lines, i, indent + item.start("n"), lang)
-                    end = close_of.get((bl, bc), bl) if has_body else bl
-                    out.append(Symbol(kind, item.group("n"), item.group("n"), i + 1, end + 1,
+                    end = close_of.get((bl, bc), (bl, 0))[0] if has_body else bl
+                    out.append(Symbol(kind, _name(item.group("n")), _name(item.group("n")), i + 1, end + 1,
                                       _comments_above(orig, i + 1, markers), 0,
                                       _signature(orig, i, indent, bl, bc if has_body else len(orig[bl]))))
                     i = end + 1 if has_body else i + 1
@@ -1227,13 +1269,13 @@ def outline_braces(text: str, lang: str, header: bool = False) -> list[Symbol]:
                 has_body, bl, bc = False, i, len(orig[i])
             else:
                 has_body, bl, bc = _body(lines, i, start_col, lang)
-                end = close_of.get((bl, bc), bl) if has_body else bl
+                end, end_col = close_of.get((bl, bc), (bl, 0)) if has_body else (bl, 0)
             if rule.flags & BODY and not has_body and not (header or (ctx is not None and ctx.kind in CLASSLIKE)):
                 continue
             if rule.flags & ANON:
                 if not has_body:
                     continue
-                named = _TYPEDEF_NAME.search(lines[end])
+                named = _TYPEDEF_NAME.match(lines[end], end_col, end_col + 400)  # right after its own '}'
                 if not named:
                     continue
                 name = named.group("n")
@@ -1251,7 +1293,7 @@ def outline_braces(text: str, lang: str, header: bool = False) -> list[Symbol]:
                 kind = "method"
             if names.get("r"):  # a Go method: its receiver's type
                 qual_parts = [names["r"]]
-            name = name or ""
+            name = _name(name or "")
             if not hidden:
                 sig_col = indent
                 if lang in ("c", "cpp") and kind in ("function", "method") and not names.get("pre") and i > 0:
@@ -1264,9 +1306,9 @@ def outline_braces(text: str, lang: str, header: bool = False) -> list[Symbol]:
                     sig = _signature(orig, i, sig_col, bl, bc)
                 if rule.flags & ANON:
                     sig = _short(f"{sig} {{...}} {name}")
-                out.append(Symbol(kind, name, ".".join(qual_parts + [name]), i + 1, end + 1,
+                out.append(Symbol(kind, name, _qual(qual_parts + [name]), i + 1, end + 1,
                                   _comments_above(orig, i + 1, markers), len([o for o in stack if not o.hidden]), sig))
-            if has_body:
+            if has_body and len(stack) < MAX_NESTING:  # deeper ones are not containers: no stack without end
                 body_depth = depth_at[bl] + lines[bl][:bc].count("{") - lines[bl][:bc].count("}") + 1
                 stack.append(_Open(kind, name, end, body_depth, hidden))
             break
@@ -1275,14 +1317,33 @@ def outline_braces(text: str, lang: str, header: bool = False) -> list[Symbol]:
     return out
 
 
+_PY_TOKEN = re.compile(r"\w+|\S|\n")
+
+
+def _more_tokens(text: str, limit: int) -> bool:
+    """Whether TEXT has more than LIMIT tokens (words, other characters, line ends); stops counting there."""
+    for count, _ in enumerate(_PY_TOKEN.finditer(text), start=1):
+        if count > limit:
+            return True
+    return False
+
+
 def parse_outline(text: str, lang: str, name: str) -> Outline:
     lines = text.count("\n") + 1
     if lang == "python":
+        # Python's parser cannot be stopped and takes about 1 KB of memory per token: "x\n" * 1,000,000 (2 MB) took
+        # 1.8 GB. A file with more tokens than MAX_PARSE_TOKENS (real code: 400 KB and more) is outlined by indentation.
+        if _more_tokens(text, MAX_PARSE_TOKENS):
+            return Outline(lang, False, tuple(outline_python_lines(text)), lines,
+                           f"approximate: more than {MAX_PARSE_TOKENS:,} tokens for Python's parser, found by "
+                           "indentation")
         try:
             return Outline(lang, True, tuple(outline_python(text)), lines, "exact: Python's own parser")
         except (SyntaxError, ValueError, RecursionError, MemoryError, OverflowError):
             return Outline(lang, False, tuple(outline_python_lines(text)), lines,
                            "approximate: Python's parser refused the file (a syntax error?), found by indentation")
+    if text.count("{") > MAX_BRACES:  # generated code; matching them all took 300 MB for 2 MiB of braces
+        return Outline(lang, False, (), lines, f"not outlined: more than {MAX_BRACES:,} braces (generated code?)")
     return Outline(lang, False, tuple(outline_braces(text, lang, name.lower().endswith(HEADERS))), lines, APPROXIMATE)
 
 
@@ -1340,8 +1401,18 @@ def outline_of(root: str, rel: str, dirfd: int, name: str, info: os.stat_result 
         lang = language_of(name, text)
         outline = None
         if lang is not None:
-            outline = parse_outline(text, lang, name)
             CACHED["parses"] += 1
+            timer = None
+            try:
+                with time_limit(PARSE_SECONDS) as timer:
+                    outline = parse_outline(text, lang, name)
+            except TimeLimit:
+                if timer is None or not timer.fired:
+                    raise  # the call's or the search's limit, not this file's: nothing is remembered
+                # A file made to stall an outline is given up once and remembered until it changes; before, every
+                # find_definition and project_map reached it again and ran into the call's limit without an answer.
+                outline = Outline(lang, False, (), text.count("\n") + 1,
+                                  f"not outlined: it took longer than {PARSE_SECONDS:g} s; find_text searches it")
         _remember(key, fp, outline)
         return outline
 
@@ -1431,13 +1502,20 @@ def _cap(text: str) -> str:
         f"\n... (the answer was cut at {MAX_ANSWER} characters: narrow it with path, glob or a longer name)"
 
 
+def utf8(text: str) -> str:
+    """TEXT as it can be sent: a file or link name that is not UTF-8 comes from the file system with surrogate
+    escapes (or an argument with lone surrogates), which no JSON answer can carry - each becomes '?'."""
+    return text.encode("utf-8", "replace").decode("utf-8")
+
+
 def answer(work) -> str:
-    """WORK()'s text, bounded; a refusal as the tool's error, saying why and what to do instead."""
+    """WORK()'s text, bounded; a refusal as the tool's error, saying why and what to do instead. Either is UTF-8: a
+    lone surrogate in an answer would make the SDK fail to serialize it and end the server."""
     try:
         with time_limit(CALL_SECONDS):
-            return _cap(work())
+            return utf8(_cap(work()))
     except Refused as exc:
-        raise ToolError(str(exc)) from None
+        raise ToolError(utf8(str(exc))) from None
     except TimeLimit:
         raise ToolError(f"this took longer than {CALL_SECONDS:g} s and was stopped: narrow it (path, glob)") from None
     except OSError as exc:
@@ -1513,7 +1591,11 @@ def file_globs(value, name: str = "glob") -> list[tuple[Glob, bool]]:
         if ".." in piece.split("/"):
             raise Refused(f"{name}: '..' is not allowed")
         for expanded in _expand_braces(piece):
-            out.append((Glob(expanded, ignore_case=True), "/" in expanded))
+            try:
+                out.append((Glob(expanded, ignore_case=True), "/" in expanded))
+            except TooManyParts:
+                raise Refused(f"{name}: at most {MAX_GLOB_PARTS} folder levels in a pattern (like src/**/*.ts); "
+                              "path names the folder to start from") from None
     return out[:40]
 
 
@@ -1571,7 +1653,11 @@ def find_text(pattern: str, path: str = "", regex: bool = False, ignore_case: bo
                             not_read[why] = not_read.get(why, 0) + 1
                             continue
                         searched += 1
-                        if not found_by.search(text):
+                        # The whole file at once only for plain text (a literal: no repeat). A regular expression
+                        # is matched line by line, each to MAX_MATCH_LINE characters: the engine looks for the
+                        # timer's signal only now and then, and a single repeat (.*x) over a one-line file of
+                        # 2 MiB held it off for minutes, far past every limit, with the server blocked.
+                        if not regex and not found_by.search(text):
                             continue
                         where = display(scope.root, item.rel.split("/"))
                         outline = None
@@ -2036,6 +2122,8 @@ def read_symbol(path: str, name: str) -> str:
             stop = min(last, first + MAX_SYMBOL_LINES - 1)
             for number in range(first, stop + 1):
                 line = lines_[number - 1]
+                if _SHOWN_CONTROLS.search(line):
+                    line = _SHOWN_CONTROLS.sub("?", line)
                 if len(line) > MAX_SOURCE_LINE:
                     line = line[:MAX_SOURCE_LINE] + " ..."
                 out.append(f"{number:>{width}}| {line}")

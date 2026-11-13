@@ -87,7 +87,8 @@ the timer: the search runs under a `SIGALRM` timer (`setitimer`, 10 s), whose ha
 interrupts the regular expression engine; the answer keeps what was found and says the search stopped. The tool
 runs on the event loop's thread (FastMCP calls a synchronous tool directly), the main thread, where the timer
 works; outside the main thread the walks check the clock themselves. Each line is matched in its first 10,000
-characters. A whole file is first searched in one call (a quick no), then line by line.
+characters. Plain text is first searched in the whole file in one call (a quick no); a regular expression only line
+by line - the engine looks for the signal only now and then (independent review, R10).
 
 **Outlines (`parse_outline`).** Python: `ast.parse` (exact; warnings silenced), classes, functions, methods and
 nested functions with their real end lines, decorators and the comment above, signatures rebuilt from the tree
@@ -114,11 +115,13 @@ methods and nested functions of JavaScript that are not declarations, Kotlin, C#
 outline: `find_text` searches them). Every pattern runs on at most the first 400 characters of a line, with bounded
 repetitions, and every token pattern either always matches once started or is bounded: a 2 MiB hostile file of
 each language (one-line bundles, `{` only, 100,000 unterminated here-documents, nesting without end) is outlined in
-0.3-1.1 s here (the here-documents first took 149 s - fixed, see below). At most 5,000 symbols per file.
+0.3-1.1 s here (the here-documents first took 149 s - fixed, see below). At most 5,000 symbols per file. (The
+independent review below found more such files - memory and time - and added caps and a 5 s limit per file: R2-R7.)
 
 **The outline cache.** Outlines are kept per file - key: folder and path; fingerprint: modification time (ns),
 size, inode and change time of the very descriptor that was read - least recently used first, at most 20,000 files
-and 300,000 symbols (a file without an outline is remembered as such, so it is not read again). `find_definition`
+and 200,000 symbols (300,000 before the independent review, R4; a file without an outline is remembered as such,
+so it is not read again). `find_definition`
 walks the project on every call (`fstatat` only) and parses just the changed files; after a complete walk the
 cache forgets the files of that folder that are gone. One call indexes at most as much as the cache holds and
 says so ("narrow it with path"); the index walk has 20 s and says when it is incomplete ("call again to go on":
@@ -214,3 +217,79 @@ smoke run gives the server its folder read-only as users do (`tests/test_smoke_t
 
 Our own code, reviewed in full; no third-party code beyond the shared lock. Ready for CI; sign once both smoke
 reports pass.
+
+## Independent review, 2026-11-13
+
+A second reviewer, not the builder, read the server and everything shipped with it from scratch for backdoors and bad
+code, without relying on the self-review above. Threat model: the agent calling the tools is a confused small model
+or a prompt-injected one; the project may be a hostile clone whose files, names, links and `.gitignore` files are
+crafted to hang or crash the parsers, exhaust the container's memory (sandbox-ai's default 512 MiB) or fake lines of
+an answer. Line numbers are those of the reviewed commit `3f50437`.
+
+**Read line by line:** `src/server.py` (2,166 lines), `Dockerfile` (29), `server.json` (40), `smoke.json` (131),
+`tools.json` (20), `requirements.in` (1), `requirements.txt` (586: byte-identical to files' but for its `# via` line;
+the same set, comments aside, as every other server of the lock), both `LICENSES/` files (21 and 26 lines, identical
+to files'), this file (216), `tests/test_code_search.py` (955), and the branch's diff against its merge base `11bdf90`:
+`scripts/smoke_test.py` (+5/-3, a seeded fresh mount may be read-only), `tests/test_analysis_servers.py` (+64),
+`tests/test_own_servers.py` (+18), `tests/test_smoke_test.py` (+12), `.github/workflows/build.yml` (the matrix entry),
+`README.md` (+28), `SECURITY.md` (+4), `catalog.json` (the entry, generated), `digests.json` (pending),
+`docs/CANDIDATES.md` and `docs/LOCAL_LLM_TOOLS.md`. **Read for context:** mcp 1.30's `func_metadata.py` (a
+synchronous tool is called directly on the event loop, the main thread, so `SIGALRM` reaches it) and its stdio
+transport (a request with a lone surrogate is refused as invalid JSON before any tool: tried). **Scanned:** the
+imports (standard library and the SDK only), every `os.` call (`open` with `O_RDONLY` only, `read`, `fstat`,
+`stat` without following, `readlink`, `scandir`, `dup`, `close`), no `subprocess`, socket, URL, `eval`, `pickle`,
+environment or file write. **Tried against the code** (each in its own process, memory capped): `..` and absolute
+links at every depth, link loops, a link target with a line break, file names that are not UTF-8 or hold `\u2028`,
+2 MiB files of each language made of one token repeated (`x\n`, `{`, `/*`, a template literal, `#define`,
+`extern "C" {`, `typedef struct {`, one class name of 1.5 MB, 1,500 nested classes, JavaScript regular expression
+literals), `.gitignore` files of 64 KiB (trailing spaces; `**/*/` 199 times), user regular expressions (`.*x`,
+`\w*x`, `[ab]*c`, `(a|aa)*c`, nested repeats) on one-line files and per line, and the smoke spec over stdio against a
+read-only seeded folder (11 of 11 pass).
+
+### Findings (all fixed test-first: each test in `tests/test_code_search.py`, class `IndependentReview`, failed before its fix)
+
+| # | Severity | Where (at `3f50437`) | Scenario | Status |
+|---|---|---|---|---|
+| R1 | medium | `server.py` 199 `display`, 320, 1434 `answer` | A file or link name that is not UTF-8 (`bad\xff.py`, common in old projects) comes from the file system with a surrogate escape; the SDK cannot serialize such an answer and the **whole server ended** (stdout closed, a traceback with paths on stderr) at the first `project_map`, `find_files`, `find_text` or `find_definition` that listed it - for the rest of the session | CONFIRMED over stdio (`test_r1_a_name_that_is_not_utf8_does_not_end_the_server`), fixed: every answer and refusal is made UTF-8 in `answer` (a surrogate becomes `?`) |
+| R2 | medium | 788-792 `outline_python` | `ast.parse` takes about 1 KB of memory per token and cannot be interrupted: a 2 MB Python file of `x\n` peaked at 1.8 GB (400 KB: 367 MB traced; 256 KiB: 230 MB) - beyond the container's 512 MiB, so the server is killed; generated modules of this size are not rare | CONFIRMED (`test_r2_...`), fixed: a file of more than 100,000 tokens (counted by a pattern that stops there; real code: 400 KB and more) is outlined by indentation and says so; worst case now about 100 MB, 0.3 s |
+| R3 | medium | 819, 836, 869, 1243/1267 | A qualified name repeats its containers: one class name of 1.5 MB with 5,000 methods made 5,000 strings of 1.5 MB (7.5 GB); 1,500 nested Java classes with 380-character names took 466 MB for a 1.15 MB file; `read_symbol`'s refusal listed 40 such names (2 MB, not capped) | CONFIRMED (`test_r3_...`), fixed: a name keeps at most 120 characters, a qualified name its last 240 (`...Outer.name`), at most 100 parts |
+| R4 | low-medium | 88 | The cache's bound counted symbols, not bytes: 300,000 symbols of names up to 400 characters and unbounded qualified names took 877 MB (measured per symbol), and even small ones 130 MB | CONFIRMED (`test_r4_...`: a full cache of the largest symbols one file gave: 478 MiB), fixed: with R3's caps a symbol takes at most about 870 bytes; 200,000 of them: 168 MiB |
+| R5 | low-medium | 882-903 `TOKENS`, `_PREPROCESSOR`, 1068 `_braces` | A repeat of an alternation makes the regular expression engine keep about 120 bytes per repetition: a 2 MiB comment, string, template literal or `#define` line took 290-305 MiB; 2 MiB of `{` took 298 MiB of brace positions | CONFIRMED (`test_r5_...`), fixed: those repeats are possessive (`*+`, Python 3.11+; the image has 3.13, results identical since none gives characters back); a file with more than 100,000 `{` is not outlined (said so) |
+| R6 | low | 1236, 1243, 1271 | Hidden containers (`extern "C" {`, anonymous namespaces) piled up without bound and every line walked the pile: 160,000 lines would take about 4 minutes; each `typedef struct {` searched the whole line of its `}`: 100,000 of them likewise | CONFIRMED (`test_r6_...`: 30,000 lines 8.0 s, 24,000 typedefs 4.7 s), fixed: at most 100 containers open; the typedef's name is read right after its own `}` (the brace pass keeps its column) |
+| R7 | low-medium | 1343, 1374 `index`, 2117 | No limit per file: `find_definition` and `project_map` parse files with only the call's 45 s above them, so one file made to stall the outliner (R6, or 2 MiB of JavaScript regular expression literals: 13.8 s) ended every such call in "took longer than 45 s" with nothing remembered - the same file was reached again on each call, contrary to "a second call goes on" | CONFIRMED (`test_r7_...` with a parse that does not end), fixed: one outline has 5 s (its own timer; `time_limit` now yields whether its own limit fired, so an enclosing limit is never blamed on the file); a file given up is remembered until it changes and says so |
+| R8 | low | 123 `_SHOWN_CONTROLS`, 2038, 320 | `read_symbol` showed source lines as they are: a lone `\r` in a line started an answer line of its own; `\x85`, `\u2028` and `\u2029` (line breaks for `str.splitlines()` and many renderers) passed in names and shown lines; a link target with a line break went into a refusal | CONFIRMED (`test_r8_...`), fixed: those characters are `?` everywhere, `read_symbol`'s lines and link targets included (tabs stay) |
+| R9 | low | 450, 395-433 `Glob`, 514-519 `tick` | `.gitignore`: trailing spaces were cut one at a time (64 KiB of them: 60 ms per file per walk, 12 s for 200 such folders); a pattern of 200 parts against a deep path cost 150 ms per entry and the walk looked at the clock every 64 entries (61 entries: 9.6 s); a `glob` argument of 80 parts likewise | CONFIRMED (`test_r9_...`), fixed: trailing spaces cut in one step (same result), patterns of more than 16 names dropped from `.gitignore` and refused as `glob`, the clock read at every entry, each `.gitignore` parsed only up to the rules still allowed |
+| R10 | medium | 1574 | The SIGALRM limit does not hold for a regular expression over a whole file: the engine looks for the signal only now and then, and a single repeat (`.*x`, `\w*x`, `[ab]*c` - ordinary patterns) over a long line runs a whole scan in between; `find_text` matched every file in one call first. On a one-line file of 300 KB a 0.5 s limit fired after 37 s; at 2 MiB (a bundle or JSON not named `.min.js`) the search, the call's 45 s and the client's 60 s all pass while the single-threaded server answers nothing | CONFIRMED (`test_r10_...`), fixed: a regular expression is matched only line by line, each line to 10,000 characters (measured: the limit then holds within about 0.05 s for every pattern tried); plain text keeps the whole-file quick check (a literal has no repeat) |
+
+**Checked and found sound:** every path walked one name at a time from the root's descriptor with `O_NOFOLLOW`;
+a link named in a path followed only inside its root (`..` of a target goes up the folders actually walked, an
+absolute target only below the root, 16 links at most), never by a walk; regular files only, opened `O_NONBLOCK |
+O_NOCTTY` and `fstat`ed (a pipe never blocks); names over 255 bytes, paths over 4,096 characters, `~`, `\` and
+control characters refused before anything is opened; nothing written, created or executed; no network; no
+environment read; errors carry `strerror` only. `Glob`'s per-name regular expressions are `fnmatch`'s, with atomic
+groups. The Dockerfile and lock are files' (same digest, Debian pins and hash-locked set, pip removed, user 10001);
+no new third-party release, so the 14-day rule is met. The smoke spec mounts `/work` read-only, calls every tool and
+the refusals; `smoke_test.py`'s change lets only a seeded fresh mount be read-only. The self-review's eleven
+findings are fixed as described.
+
+**Remaining risks** (accepted): `_NESTED_REPEAT` is a heuristic (`(a?){30}a{30}` and `(a|aa)*c` pass it); what it
+lets through is stopped by the timer, which since R10 holds because no match runs on more than 10,000 characters.
+Python's parser cannot be interrupted; R2 bounds it to about 100 MB and 0.3 s. A file made to stall an outline still
+costs 5 s once per change (several such files make the index incomplete for a few calls; each is then remembered),
+and a file that is merely slow on a loaded machine loses its outline until it changes. Under 500 `.gitignore` rules
+of 16 names each a walk still costs about 8 ms per entry 60 folders deep (1.5 s for 180 files). Names longer than 120
+characters are cut, so a longer one is found only by its start. `find_files` and `project_map` have no timer of their
+own (the walk's budget, read at every entry, and the call's 45 s). Measured worst case of memory after the fixes:
+the full cache under 170 MiB, one file's outline up to about 110 MB above the server's 50 MB: well inside 512 MiB. A
+timer signal between `openat` and the `try` that closes the descriptor leaks one descriptor, and one between the
+cache's update and its symbol count leaves the count slightly off (windows of a few instructions). The code shown is
+the project's: data, not instructions.
+
+**Tests:** `tests/test_code_search.py` 69 tests (ten added), the whole suite (`SANDBOX_AI_CHECKOUT=...
+python -m unittest discover -s tests`: 512 tests, OK) and `make_catalog.py --check --allow-pending` pass; the smoke
+spec passes natively over stdio against a read-only seeded folder.
+
+**Verdict: fit to sign - yes**, for an image built from the fixed code once both CI smoke reports pass. No backdoor,
+no network code, nothing written or read outside the mounted folders; the ten findings were availability and
+answer-integrity bugs (a crash on a name, memory and time beyond the container's limits, faked answer lines), all
+fixed with tests.

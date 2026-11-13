@@ -11,11 +11,13 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import queue
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -892,6 +894,201 @@ class Gitignore(Base):
         self.put("sub/build/inner.py", "def ignored_by_root(): pass\n")
         self.assertNotIn("inner.py", self.m.find_text("ignored_by_root", path="sub"))
 
+
+def traced_peak(call) -> int:
+    """The peak of the memory Python allocated while CALL ran (tracemalloc: objects, the parser's arena, the regular
+    expression engine's stack), in bytes."""
+    import tracemalloc
+    tracemalloc.start()
+    try:
+        call()
+        return tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def stdio_session(work: str, calls: list[tuple[str, dict]]) -> list[dict]:
+    """The server started over stdio on the folder WORK as /work, CALLS made one after another: the result (or error)
+    of each, a missing one when the server ended first."""
+    code = ("import importlib.util\n"
+            f"spec = importlib.util.spec_from_file_location('s', {str(SERVER)!r})\n"
+            "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+            f"m.ROOTS.update({{'/work': {work!r}, '/ref1': '/nonexistent', '/ref2': '/nonexistent', "
+            "'/ref3': '/nonexistent'})\n"
+            "m.mcp.run('stdio')\n")
+    messages = [{"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                 "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                            "clientInfo": {"name": "test", "version": "1"}}},
+                {"jsonrpc": "2.0", "method": "notifications/initialized"}]
+    messages += [{"jsonrpc": "2.0", "id": n, "method": "tools/call", "params": {"name": tool, "arguments": args}}
+                 for n, (tool, args) in enumerate(calls, start=1)]
+    process = subprocess.Popen([sys.executable, "-I", "-c", code], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL)
+    lines: queue.Queue = queue.Queue()
+    threading.Thread(target=lambda: [lines.put(line) for line in process.stdout] + [lines.put(b"")],
+                     daemon=True).start()
+    answers: dict[int, dict] = {}
+    try:
+        for message in messages:
+            process.stdin.write(json.dumps(message).encode() + b"\n")
+            process.stdin.flush()
+            while "id" in message and message["id"] not in answers:
+                line = lines.get(timeout=60)
+                if not line:
+                    return [answers.get(n) for n in range(1, len(calls) + 1)]
+                answer = json.loads(line)
+                if "id" in answer:
+                    answers[answer["id"]] = answer.get("result", answer.get("error"))
+    except (BrokenPipeError, queue.Empty):
+        pass
+    finally:
+        process.stdin.close()
+        try:
+            process.wait(10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        process.stdout.close()
+    return [answers.get(n) for n in range(1, len(calls) + 1)]
+
+
+class IndependentReview(Base):
+    """What the independent review (PROVENANCE.md, "Independent review, 2026-11-13") found: each test failed before
+    its fix."""
+
+    def test_r1_a_name_that_is_not_utf8_does_not_end_the_server(self):
+        with open(os.fsencode(self.work) + b"/bad\xff.py", "w") as handle:
+            handle.write("def latin_one():\n    return 'needle'\n")
+        os.symlink("/etc/\udcfe", os.path.join(self.work, "odd"))
+        # (a client cannot send a lone surrogate: the SDK refuses such a request as invalid JSON before any tool)
+        answers = stdio_session(self.work, [("project_map", {}), ("find_files", {"name_or_glob": "bad"}),
+                                            ("find_text", {"pattern": "return 'needle'"}),
+                                            ("find_definition", {"name": "latin_one"}),
+                                            ("outline", {"path": "odd/x"}), ("outline", {"path": "py/app.py"})])
+        self.assertNotIn(None, answers, "every call is answered: the server is still running")
+        texts = [answer["content"][0]["text"] for answer in answers]
+        self.assertIn("bad?.py", texts[0])
+        self.assertIn("bad?.py", texts[1])
+        self.assertIn("bad?.py\n  2 (in latin_one): return 'needle'", texts[2])
+        self.assertIn("bad?.py:1-2  def latin_one()", texts[3])
+        self.assertTrue(answers[4]["isError"])
+        self.assertIn("is a link to /etc/?", texts[4])
+        self.assertIn("class App(Base)", texts[5])
+
+    def test_r2_a_large_python_file_is_not_given_whole_to_the_parser(self):
+        self.put("big.py", "x\n" * 200_000 + "def at_the_end():\n    pass\n")   # 400 KB: 400,000 tokens
+        found = {}
+        peak = traced_peak(lambda: found.setdefault("text", self.m.outline("big.py")))
+        self.assertLess(peak, 100 << 20, "Python's parser takes about 1 KB per token (2 MiB: 1.8 GB)")
+        self.assertIn("approximate", found["text"])
+        self.assertIn("def at_the_end()", found["text"])
+        self.assertIn("exact", self.m.outline("py/app.py"), "an ordinary file still has Python's own parser")
+
+    def test_r3_long_names_and_deep_nesting_do_not_multiply_in_qualified_names(self):
+        self.put("long.py", "class " + "A" * 50_000 + ":\n" + "".join(f"    def m{n}(self): pass\n"
+                                                                      for n in range(300)))
+        self.put("Deep.java", "".join(f"class {'C' * 300}{n} {{\n" for n in range(300)) + "}\n" * 300)
+        for path in ("long.py", "Deep.java"):
+            with self.subTest(path=path):
+                with self.m.open_scope(path) as scope:
+                    found = self.m.outline_of(scope.root, path, scope.dirfd, scope.file)
+                self.assertEqual(len(found.symbols), 301 if path == "long.py" else 300)
+                self.assertLessEqual(max(len(s.qual) for s in found.symbols), self.m.MAX_QUAL)
+                self.assertLessEqual(max(len(s.name) for s in found.symbols), self.m.MAX_NAME)
+        self.assertLess(len(self.refused(self.m.read_symbol, "long.py", "missing")), 20_000)
+        self.assertIn("9|     def m7(self): pass", self.m.read_symbol("long.py", "m7"))
+
+    def test_r4_the_cache_at_its_bound_fits_the_container(self):
+        """A full cache of the largest symbols one file can hold stays well inside sandbox-ai's 512 MiB."""
+        text = "class " + "C" * 380 + ":\n" + "".join(f"    def {'n' * 380}{k}(self): pass\n" for k in range(4000))
+        self.put("wide.py", text)
+        with self.m.open_scope("wide.py") as scope:
+            found = self.m.outline_of(scope.root, "wide.py", scope.dirfd, scope.file)
+            copy = {}
+            peak = traced_peak(lambda: copy.setdefault("o", tuple(
+                tuple(self.m.Symbol(s.kind, s.name[:-1] + "x", s.qual[:-1] + "y", s.line + 1000, s.end + 1000,
+                                    s.top + 1000, s.depth, s.sig[:-1] + "z") for s in found.symbols))))
+        self.assertEqual(len(found.symbols), 4001)
+        worst = peak / len(found.symbols) * self.m.MAX_CACHED_SYMBOLS
+        self.assertLess(worst, 176 << 20, f"{worst / (1 << 20):.0f} MiB")
+
+    def test_r5_brace_and_comment_bombs_stay_small(self):
+        for name, text in (("braces.c", "{" * 2_000_000), ("comment.c", "/*" + "x" * 2_000_000),
+                           ("template.js", "`" + "x" * 2_000_000), ("define.c", "#define X " + "x" * 2_000_000)):
+            with self.subTest(name=name):
+                self.put(name, text)
+                peak = traced_peak(lambda: self.m.outline(name))
+                self.assertLess(peak, 100 << 20, f"{peak >> 20} MiB")
+
+    def test_r6_hidden_containers_and_typedefs_do_not_make_an_outline_quadratic(self):
+        self.put("extern.c", 'extern "C" {\n' * 30_000)
+        self.put("typedef.c", "typedef struct {\n" * 24_000 + "}" * 24_000 + " T;\nint after(void) { return 0; }\n")
+        for path in ("extern.c", "typedef.c"):
+            with self.subTest(path=path):
+                started = time.monotonic()
+                text = self.m.outline(path)
+                self.assertLess(time.monotonic() - started, 3, text[:200])
+                self.assertNotIn("took longer", text)
+
+    def test_r7_a_file_slow_to_outline_is_given_up_once_and_remembered(self):
+        self.put("aaa/slow.c", "int slow(void) { return 0; }\n")
+        real = self.m.parse_outline
+        tries = []
+
+        def parse(text, lang, name):
+            if name == "slow.c":
+                tries.append(name)
+                while True:   # a parse that does not end (interruptible, like the regular expression engine)
+                    pass
+            return real(text, lang, name)
+
+        with mock.patch.object(self.m, "parse_outline", parse), mock.patch.object(self.m, "CALL_SECONDS", 6), \
+                mock.patch.object(self.m, "PARSE_SECONDS", 0.5, create=True):
+            started = time.monotonic()
+            text = self.m.find_definition("parse_args")
+            self.assertIn("py/app.py:", text, "the files after the slow one are indexed")
+            self.assertIn("aaa/  (1 file)\n  slow.c  29B\n", self.m.project_map())
+            self.assertIn("took longer than 0.5 s", self.m.outline("aaa/slow.c"))
+            self.assertIn("py/app.py:", self.m.find_definition("parse_args"))
+            self.assertLess(time.monotonic() - started, 5)
+        self.assertEqual(tries, ["slow.c"], "given up once, then remembered until the file changes")
+
+    def test_r8_answers_cannot_be_forged_by_line_separators_or_carriage_returns(self):
+        self.put("cr.py", "def f():\n    x = 'needle\rFORGED one'\n    y = 'needle\u2028FORGED two'\n    return x\n")
+        self.put("evil\u2028FORGED three.py", "def g():\n    return 'needle\x85FORGED four'\n")
+        os.symlink("/etc\nFORGED five", os.path.join(self.work, "lnk"))
+        texts = [self.m.read_symbol("cr.py", "f"), self.m.find_text("needle"), self.m.find_files("evil"),
+                 self.m.project_map(), self.m.find_definition("g"), self.refused(self.m.outline, "lnk/x")]
+        for text in texts:
+            self.assertFalse([line for line in text.splitlines() if line.startswith("FORGED")], text)
+
+    def test_r9_a_gitignore_or_glob_made_to_be_slow(self):
+        started = time.monotonic()
+        for _ in range(20):
+            self.m.parse_gitignore("x" + " " * 65_000 + "\n", "")
+        self.assertLess(time.monotonic() - started, 0.5, "trailing spaces are cut in one step")
+        rule = ("**/*/" * 199 + "x")[:1000]
+        self.put(".gitignore", (rule + "\n") * 64)
+        for depth in range(1, 9):
+            self.put("/".join(["d"] * depth) + "/.gitignore", (rule + "\n") * 64)
+        self.put("/".join(["d"] * 60) + "/deep.py", "def deep_down(): pass\n")
+        started = time.monotonic()
+        self.assertIn("deep_down", self.m.find_text("deep_down"))
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertIn("at most", self.refused(self.m.find_text, "x", glob="**/*/" * 40 + "x"))
+
+
+    def test_r10_a_regular_expression_never_runs_over_a_whole_file(self):
+        """The engine checks for the timer's signal only now and then; a single repeat (.*x) scanning a one-line
+        file far longer than a line holds it off for minutes (300 KB: about 20 s; 2 MiB: far longer than the call's
+        45 s). Only lines, each to MAX_MATCH_LINE characters, are matched."""
+        self.put("one-line.json", "ab" * 150_000 + "\n")
+        with mock.patch.object(self.m, "SEARCH_SECONDS", 0.5):
+            started = time.monotonic()
+            text = self.m.find_text(".*zzz", regex=True)
+            self.assertLess(time.monotonic() - started, 5, text)
+        self.assertTrue(text.startswith("no match"), text)
+        self.assertIn("py/app.py\n  25: def parse_args(argv):", self.m.find_text(r"def\s+parse_\w+", regex=True))
 
 @unittest.skipIf(mcp is None, "the server's requirements are not installed")
 class OverStdio(unittest.TestCase):
