@@ -91,7 +91,7 @@
     {
       "tool": "start_job",
       "arguments": {
-        "command": "sleep 1; echo job-done"
+        "command": "sleep 3; echo job-done"
       },
       "expect": "job 1 started"
     },
