@@ -294,7 +294,9 @@ sandbox-ai opencode --workspace ~/projects/app --mcp exec --mcp tasks
 small model cannot get stuck in. Every command has a time limit (`EXEC_TIMEOUT`, default 120 s; at most
 `EXEC_MAX_TIMEOUT`, 600 s) and is stopped with every process it started; stdin is empty and there is no terminal, so
 nothing waits for an answer; the environment is fixed (`CI=1`, `TERM=dumb`, `PAGER=cat`, `EDITOR=true`, the yes
-switches of apt, pip and npm; the server's own variables only as `EXEC_ENV_ALLOW` names them); output is cut to its
+switches of apt, pip and npm; the server's own variables only as `EXEC_ENV_ALLOW` names them - but a command can
+read every variable of the container through PID 1, so give exec no secrets; under Bubblewrap, whose PID 1 keeps
+sandbox-ai's whole environment, exec refuses to run commands: add it with `--backend podman`); output is cut to its
 first and last lines (`EXEC_OUTPUT_LINES`, 100) with the number left out. Long builds and servers go to `start_job`
 (at most `EXEC_MAX_JOBS`, 4, each at most `EXEC_JOB_TIMEOUT`, 3600 s). The commands have the image's tools: bash,
 coreutils, git, make, python3 with pytest, pyflakes and PyYAML, shellcheck, Node.js 20 (no npm); install anything else

@@ -97,3 +97,39 @@ model read come back as text in later answers (data, not instructions).
 
 Our own code, reviewed in full; no third-party code beyond the shared lock. Ready for CI; sign once both smoke
 reports pass.
+
+## Independent review, 2026-11-13
+
+A second reviewer, not the builder, read the server and everything shipped with it from scratch for backdoors and bad
+code, without relying on the self-review above. Threat model: the agent calling the tools is a confused small model
+or a prompt-injected one, and it can also write `/work/.tasks` with its own tools (or with exec). Line numbers are
+those of the reviewed commit `73323fc`.
+
+**Read line by line:** `src/server.py` (606 lines), `Dockerfile` (30), `server.json` (28), `smoke.json` (110),
+`tools.json` (28), `requirements.in` (1), `requirements.txt` (586: identical to web-fetch's but for its `# via` line),
+both `LICENSES/` files (identical to youtube's), this file (99), `tests/test_tasks.py` (324), and the branch's shared
+changes (`tests/test_analysis_servers.py`, `tests/test_own_servers.py`, `README.md`, `SECURITY.md`, the workflow's
+matrix). **Scanned:** standard library and the SDK only; no `subprocess`, sockets, URLs, `eval` or `pickle`; no tool
+takes a path; the base digest, Debian pins and lock are web-fetch's.
+
+### Findings
+
+| # | Severity | Where (at `73323fc`) | Scenario | Status |
+|---|---|---|---|---|
+| T1 | low-medium | `server.py` 152 `read_plan` | `mkfifo /work/.tasks/plan.json` (the agent's own shell or exec can) made every call block for ever in `os.open`, **with the plan's lock held**: each later call waited behind it on `flock`, one worker thread each, until the thread pool was used up and the server answered nothing at all | CONFIRMED (`test_a_named_pipe_in_place_of_the_plan_never_blocks_the_server`), fixed: opened with `O_NONBLOCK \| O_NOCTTY`, the existing `fstat` refuses anything but a regular file |
+| T2 | low | `server.py` 163-168 | a `plan.json` nested without end (`[[[[...`) or holding `Infinity` (`dropped_notes`) failed with `RecursionError`/`OverflowError` - an internal error instead of the documented "is not a plan this server can read ... move it away" | CONFIRMED (`test_a_plan_file_nested_without_end_or_with_infinity_is_refused_by_name`), fixed; the file is kept as it is |
+
+**Checked and found sound:** only `/work/.tasks` is touched, through descriptors: the folder opened with
+`O_DIRECTORY | O_NOFOLLOW` below `/work`, `plan.json` with `O_NOFOLLOW`, `.lock` with `O_CREAT | O_NOFOLLOW` (no
+`O_TRUNC`: a `.lock` hard-linked to a file of the project is never changed), every write a new `O_EXCL | O_NOFOLLOW`
+temporary file renamed over the old name in the same folder (a hard-linked `plan.json` keeps its other name's content);
+nothing it writes is executable or read by a program the human runs (`PLAN.md` is the agent's text as Markdown, which
+the agent could write anyway); every field read back is checked and bounded; read-change-write under an exclusive
+`flock`, reads under a shared one; a plan it cannot read is never overwritten. The texts it returns are the model's
+own notes - data, as documented.
+
+**Remaining risks** (accepted): a file system without `flock` (a network share, possibly a macOS host's folder
+through the Podman machine's virtiofs - not tested here) makes every change fail with the file system's error rather
+than lose a change; the agent can rewrite `.tasks` behind the server's back (checked on reading).
+
+**Verdict: fit to sign - yes.** No backdoor, no network code, no write outside `/work/.tasks`.
