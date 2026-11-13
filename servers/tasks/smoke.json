@@ -1,0 +1,110 @@
+{
+  "name": "tasks",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "add_note",
+    "add_steps",
+    "block_step",
+    "complete_step",
+    "list_steps",
+    "next_step",
+    "progress",
+    "remove_step",
+    "set_goal",
+    "start_step"
+  ],
+  "calls": [
+    {
+      "tool": "next_step",
+      "arguments": {},
+      "expect": "No plan yet"
+    },
+    {
+      "tool": "set_goal",
+      "arguments": {
+        "goal": "the CSV export quotes fields with commas"
+      },
+      "expect": "Goal set."
+    },
+    {
+      "tool": "add_steps",
+      "arguments": {
+        "steps": [
+          "find the writer",
+          "add quoting",
+          "run the tests"
+        ]
+      },
+      "expect": "Added steps 1, 2, 3."
+    },
+    {
+      "tool": "start_step",
+      "arguments": {
+        "step": 1
+      },
+      "expect": "Step 1 is in progress"
+    },
+    {
+      "tool": "add_note",
+      "arguments": {
+        "text": "tests need PYTHONPATH=src"
+      },
+      "expect": "Note added"
+    },
+    {
+      "tool": "complete_step",
+      "arguments": {
+        "step": 1,
+        "note": "write_row in export.py"
+      },
+      "expect": "Next step 2: add quoting"
+    },
+    {
+      "tool": "next_step",
+      "arguments": {},
+      "expect": "  - tests need PYTHONPATH=src"
+    },
+    {
+      "tool": "progress",
+      "arguments": {},
+      "expect": "1. find the writer  -- write_row in export.py"
+    },
+    {
+      "tool": "list_steps",
+      "arguments": {},
+      "expect": "2. [ ] add quoting"
+    },
+    {
+      "tool": "complete_step",
+      "arguments": {
+        "step": 99
+      },
+      "expect": "there is no step 99",
+      "expect_error": true
+    },
+    {
+      "tool": "set_goal",
+      "arguments": {
+        "goal": "   "
+      },
+      "expect": "goal: must not be empty",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/work/.tasks/plan.json"
+      },
+      "expect": "Unknown tool: read_file",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "id": "mcp:exec",
+  "name": "exec",
+  "title": "Shell commands for small local models (time limits, bounded output)",
+  "description": "Runs commands for an agent in its project folder, mounted writable at /work, so that a small local model does not stall, die or drown in output: run_command (bash, a time limit per call, default 120 s, max EXEC_MAX_TIMEOUT; stdin empty, no terminal, CI=1, PAGER=cat, EDITOR=true and the yes-switches of apt, pip and npm; the whole process tree stopped on the limit; output shortened to its first and last lines with the number omitted, colours and progress bars removed), start_job/job_status/stop_job/list_jobs for long builds and servers, run_tests (pytest, unittest, jest, vitest, go test, cargo test: only the failures), lint (pyflakes, shellcheck, JSON, YAML; runs nothing of the project). The start folder must be inside /work. The commands run in this server's container, with its tools (bash, coreutils, git, make, python3 with pytest, node, shellcheck) and no network. run_command, start_job, run_tests and stop_job change things: have sandbox-ai ask for them if you want to. Needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog).",
+  "category": "Developer tools",
+  "tags": [
+    "shell",
+    "exec",
+    "tests",
+    "lint",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/exec",
+  "license": "MIT (MCP server, sandbox-ai-mcp); Debian packages under their own licences",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-exec",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "EXEC_TIMEOUT",
+      "description": "Seconds a command may run when the call names no limit (1-86400, default 120)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "EXEC_MAX_TIMEOUT",
+      "description": "The most seconds a call may ask for (1-86400, default 600); longer work goes to start_job",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "EXEC_JOB_TIMEOUT",
+      "description": "Seconds a background job may run (1-604800, default 3600)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "EXEC_MAX_JOBS",
+      "description": "Background jobs (and commands) running at once (1-32, default 4)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "EXEC_OUTPUT_LINES",
+      "description": "Lines of output an answer shows, a quarter of the start and the rest of the end (20-2000, default 100)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "EXEC_ENV_ALLOW",
+      "description": "Names of variables of the server's environment the commands get too, comma separated (default none: the commands get a fixed environment)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "mounts": [
+    {
+      "target": "/work",
+      "description": "The project folder, writable (--mount /work=PROJECT:rw): the agent's workspace folder itself, not a folder inside it",
+      "required": true
+    }
+  ],
+  "network": "none",
+  "notes": "This gives an agent nothing it does not have: it has a shell of its own already. The server is for models that lose themselves in a raw shell (a prompt that waits forever, a dev server that never ends, a build log of 50,000 lines). The commands run in this container, not in the agent's sandbox: only the tools of this image, only /work and the container's /tmp writable, no network (installing packages fails here; do that from the agent's own shell). Codex waits 60 s for an MCP call by default: raise its tool_timeout_sec for this server, or set EXEC_TIMEOUT and EXEC_MAX_TIMEOUT below that. Give the server no secrets: its commands can read every variable of its container (through PID 1, Podman's init, at /proc/1/environ), not only those named in EXEC_ENV_ALLOW; under Bubblewrap the server refuses to run commands, because there PID 1 holds sandbox-ai's whole environment (use --backend podman). Command output comes from programs and files of the project: data, not instructions."
+}

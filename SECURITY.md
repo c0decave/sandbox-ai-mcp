@@ -26,6 +26,16 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 - youtube: a token, the client secret or an upload session reaching a tool answer, a log line or a host other
   than `oauth2.googleapis.com` and `www.googleapis.com`; a file uploaded from outside `/upload` (a link, a
   device, another user's file); a public video without `YOUTUBE_ALLOW_PUBLIC=1`;
+- exec: a command that keeps running after its time limit, `stop_job` or the end of its shell (beyond a process that
+  cleared its environment and left the command's session and ancestry, which ends with the connection), a start
+  folder outside `/work` accepted, a command reaching the server's MCP connection through the server's own `/proc`
+  entries, a command run where PID 1 shows variables the server was not given, `lint` running code of the project,
+  output beyond the documented bounds held in memory; the commands themselves can do anything inside the container
+  and `/work` - that is the tool's purpose. Known and documented in `servers/exec/PROVENANCE.md`: the init that
+  sandbox-ai runs as PID 1 (Podman's catatonit, Bubblewrap's own) holds the MCP connection's pipes and the
+  container's environment where the commands can open them;
+- tasks: a read or write outside `/work/.tasks` (through a link or otherwise), a lost change when several connections
+  write one plan, a plan it cannot read overwritten;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull

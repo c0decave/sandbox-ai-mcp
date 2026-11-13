@@ -1,0 +1,22 @@
+{
+  "tools": [
+    "job_status",
+    "lint",
+    "list_jobs",
+    "run_command",
+    "run_tests",
+    "start_job",
+    "stop_job"
+  ],
+  "write_tools": {
+    "run_command": "WRITES: runs a shell command in /work, which can change any file there",
+    "start_job": "WRITES: starts a shell command in the background in /work, which can change any file there",
+    "run_tests": "WRITES: runs the project's tests (the project's own code), which can change files in /work",
+    "stop_job": "stops a background job and every process it started"
+  },
+  "read_only_tools": [
+    "job_status",
+    "lint",
+    "list_jobs"
+  ]
+}

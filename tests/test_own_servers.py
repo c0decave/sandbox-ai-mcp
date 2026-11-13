@@ -598,6 +598,43 @@ class Servers(unittest.TestCase):
         self.assertEqual(outcome.skipped, [])
         self.assertGreater(outcome.testsRun, 30)
 
+    def offline_suite(self, module_name, minimum):
+        """The offline suite of tests/MODULE_NAME.py: no failure; inside the image (CI) nothing skipped either."""
+        sys.path.insert(0, str(ROOT / "tests"))
+        module = __import__(module_name)
+        outcome = unittest.TestResult()
+        unittest.defaultTestLoader.loadTestsFromModule(module).run(outcome)
+        problems = [f"{test.id()}: {text[-1500:]}" for test, text in outcome.failures + outcome.errors]
+        self.assertEqual(problems, [], "\n".join(problems))
+        if Path("/opt/mcp/server.py").is_file() and sys.prefix == "/opt/venv":
+            self.assertEqual([(test.id(), why) for test, why in outcome.skipped], [])
+        self.assertGreater(outcome.testsRun, minimum)
+
+    def test_exec(self):
+        """The command server over stdio as the image starts it (without a folder at /work every tool says so), then
+        the offline suite of tests/test_exec.py - in CI with the image's own Python, its pytest, pyflakes, PyYAML and
+        shellcheck, as its unprivileged user, no network."""
+        self.check_tools("exec")
+        if not os.path.ismount("/work"):  # where /work is a mounted folder, the server would run its commands in it
+            answers = rpc("exec", session(("run_command", {"command": "true"}), ("lint", {}),
+                                          ("job_status", {"job_id": 1}), ("list_jobs", {})))
+            for index in (2, 3):
+                self.assertTrue(answers[index]["result"]["isError"])
+                self.assertIn("no folder is mounted at /work", answers[index]["result"]["content"][0]["text"])
+            self.assertIn("there is no job 1", answers[4]["result"]["content"][0]["text"])
+            self.assertIn("no jobs", answers[5]["result"]["content"][0]["text"])
+        self.offline_suite("test_exec", 40)
+
+    def test_tasks(self):
+        """The plan server over stdio as the image starts it (without a folder at /work every tool says so), then the
+        offline suite of tests/test_tasks.py (persistence, bounds, links, concurrency) - in CI inside the image."""
+        self.check_tools("tasks")
+        if not os.path.ismount("/work"):  # where /work is a mounted folder, the server would write its plan into it
+            answers = rpc("tasks", session(("next_step", {}), ("set_goal", {"goal": "x"})))
+            for index in (2, 3):
+                self.assertTrue(answers[index]["result"]["isError"])
+                self.assertIn("no folder is mounted at /work", answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_tasks", 10)
 
     def test_files(self):
         """The workspace file server over stdio (tools, refusals before any file is touched), then the whole offline

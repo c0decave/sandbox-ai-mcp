@@ -1,0 +1,28 @@
+{
+  "tools": [
+    "add_note",
+    "add_steps",
+    "block_step",
+    "complete_step",
+    "list_steps",
+    "next_step",
+    "progress",
+    "remove_step",
+    "set_goal",
+    "start_step"
+  ],
+  "write_tools": {
+    "add_note": "writes a note into /work/.tasks/plan.json",
+    "add_steps": "adds steps to /work/.tasks/plan.json",
+    "block_step": "marks a step blocked in /work/.tasks/plan.json",
+    "complete_step": "marks a step done in /work/.tasks/plan.json",
+    "remove_step": "removes a step from /work/.tasks/plan.json",
+    "set_goal": "sets the goal in /work/.tasks/plan.json (optionally clearing the steps)",
+    "start_step": "marks a step in progress in /work/.tasks/plan.json"
+  },
+  "read_only_tools": [
+    "list_steps",
+    "next_step",
+    "progress"
+  ]
+}

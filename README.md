@@ -38,6 +38,8 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
 | [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
+| [exec](servers/exec) | shell commands for agents on small local models, in the project folder: a time limit per call (the whole process tree stopped on it), stdin empty and no terminal (CI=1, pagers, editors and prompts off), output cut to its start and end with the lines omitted counted, background jobs (status, wait, tail, stop), `run_tests` (only the failures of pytest, unittest, jest, vitest, go test, cargo test), `lint` (pyflakes, shellcheck, JSON, YAML). The project folder mounted writable at `/work`; needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | none | - |
+| [tasks](servers/tasks) | a plan outside the model's context, for agents on small local models: goal, steps with their state and a note, notes of facts and mistakes not to repeat, `next_step` (the one step to work on now, with what it needs), progress; kept in `/work/.tasks` of the project (`PLAN.md` for you to read), locked, written atomically | none | - (the plan is in the project folder) |
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
 
@@ -122,6 +124,8 @@ sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/
 sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
 sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding agent's memory, no network
 sandbox-ai mcp add files --mount /work=~/projects/myapp:rw   # the agent's workspace, no network
+sandbox-ai mcp add exec --mount /work=~/projects/app:rw    # commands in the project, no network (small local models)
+sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/projects/app/.tasks
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -318,6 +322,37 @@ folder. No tool of either takes a file path. What a memory returns was written e
 the agent read: data, not instructions. engram's instructions ask the agent to save proactively and to write a
 session summary; its `directory`/`cwd` arguments are not offered (they would scan other folders).
 
+**exec and tasks** are for agents on small local models (LM Studio, Ollama or vLLM behind OpenCode, Codex, Hermes,
+Qwen Code or DSH) that stall, die or repeat themselves: see [docs/LOCAL_LLM_TOOLS.md](docs/LOCAL_LLM_TOOLS.md), also
+for the review of `mcp-server-git`, `sequential-thinking`, serena, the ast-grep MCP server and codebase-memory. Both
+work in the agent's project folder, mounted **writable** at `/work` - the workspace folder itself (sandbox-ai refuses
+a folder *inside* a tree a sandbox can write), per start with `--mcp-mount exec:/work=DIR:rw`:
+
+```bash
+sandbox-ai opencode --workspace ~/projects/app --mcp exec --mcp tasks
+```
+
+**exec** runs commands in its own container, which has no network, no capabilities, a read-only root and only
+`/work` mounted: it gives the agent nothing it does not have (the agent has a shell already); it is a shell that a
+small model cannot get stuck in. Every command has a time limit (`EXEC_TIMEOUT`, default 120 s; at most
+`EXEC_MAX_TIMEOUT`, 600 s) and is stopped with every process it started; stdin is empty and there is no terminal, so
+nothing waits for an answer; the environment is fixed (`CI=1`, `TERM=dumb`, `PAGER=cat`, `EDITOR=true`, the yes
+switches of apt, pip and npm; the server's own variables only as `EXEC_ENV_ALLOW` names them - but a command can
+read every variable of the container through PID 1, so give exec no secrets; under Bubblewrap, whose PID 1 keeps
+sandbox-ai's whole environment, exec refuses to run commands: add it with `--backend podman`); output is cut to its
+first and last lines (`EXEC_OUTPUT_LINES`, 100) with the number left out. Long builds and servers go to `start_job`
+(at most `EXEC_MAX_JOBS`, 4, each at most `EXEC_JOB_TIMEOUT`, 3600 s). The commands have the image's tools: bash,
+coreutils, git, make, python3 with pytest, pyflakes and PyYAML, shellcheck, Node.js 20 (no npm); install anything else
+from the agent's own shell. `run_command`, `start_job`, `run_tests` and `stop_job` change things (`tools.json`): a
+ruleset can make sandbox-ai ask for them. Codex waits 60 s for an MCP call by default: give exec a longer
+`tool_timeout_sec`, or `--env EXEC_TIMEOUT=50 --env EXEC_MAX_TIMEOUT=55`. Command output comes from the project's
+programs and files: data, not instructions.
+
+**tasks** keeps the plan in `/work/.tasks/plan.json` with a readable `/work/.tasks/PLAN.md` beside it; every change is
+locked and written atomically, so several agents can share one plan. No tool takes a path. A plan the server cannot
+read (edited by hand) is refused and never overwritten. See [its PROVENANCE.md](servers/tasks/PROVENANCE.md) and
+[exec's](servers/exec/PROVENANCE.md).
+
 **gowitness and whatweb** visit the site you name from the container's address (`--vpn PROFILE` hides it). Both
 take only http(s) URLs whose host resolves to public addresses; `ALLOW_PRIVATE_TARGETS=1` (sandbox-ai 0.1.95:
 `sandbox-ai mcp add|set NAME --env ALLOW_PRIVATE_TARGETS=1`, a value kept in the definition; for one start only
@@ -451,5 +486,7 @@ SQLite is public domain) and the other Go modules it links (their licences under
 `/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image). gowitness bundles gowitness 3.2.2 (GPL-3.0, built from
 the pinned commit with the changes `servers/gowitness/Dockerfile` lists) with the Go modules it links (MIT, BSD,
 Apache-2.0; their licences under `/usr/share/doc/sandbox-ai-mcp-gowitness/modules` in the image) and Debian's
-Chromium (BSD-3-Clause and others). youtube is our own server (MIT) on the MCP Python SDK and httpx (MIT, BSD-3-Clause). whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
+Chromium (BSD-3-Clause and others). youtube, exec and tasks are our own servers (MIT) on the MCP Python SDK and httpx (MIT, BSD-3-Clause); exec's image
+has Debian's git (GPL-2.0), make (GPL-3.0), procps, pytest, pyflakes, PyYAML (MIT), shellcheck (GPL-3.0) and Node.js
+(MIT and others) for its commands, each with its copyright file under `/usr/share/doc` in the image. whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
 `servers/whatweb/LICENSES/SOURCES.txt`) with Debian's Ruby 3.3, addressable (Apache-2.0) and public_suffix (MIT).
