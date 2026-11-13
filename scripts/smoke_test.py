@@ -25,6 +25,9 @@ every check passed. Standard library only.
 A mount may be ``{"target": "/data", "fresh": true, "writable": true}`` instead of naming a host folder: the run then
 gets a new empty folder of its own (removed afterwards), for a server that keeps its data in a folder the user mounts
 writable (a note, a memory) and must write, search and read it back in its smoke run without touching anything else.
+Its ``"seed"`` puts things into it first: ``{"path": "notes/a.md", "text": "..."}`` a file,
+``{"path": "escape", "symlink": "/etc"}`` a symbolic link (for a server that must refuse to follow it); paths are
+relative, without ``..``.
 
 A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, ``"cpus": 2``,
 ``"tmp": "768m"`` - the size of its /tmp, a tmpfs, so at most the memory): the run line then has these instead of
@@ -197,6 +200,28 @@ def limits(spec: dict) -> dict:
     return found
 
 
+def seed(host: str, items, target: str) -> None:
+    """Put the files and links of a fresh mount's "seed" into HOST (ValueError for one it does not take)."""
+    if not isinstance(items, list):
+        raise ValueError(f"mount {target}: seed is a list")
+    for item in items:
+        path = item.get("path") if isinstance(item, dict) else None
+        parts = path.split("/") if isinstance(path, str) else []
+        if not parts or path.startswith("/") or any(p in ("", ".", "..") for p in parts) or \
+                not isinstance(item, dict) or len(set(item) & {"text", "symlink"}) != 1 or \
+                not isinstance(item.get("text", item.get("symlink")), str):
+            raise ValueError(f"mount {target}: a seed item is {{\"path\": RELATIVE, \"text\" or \"symlink\": TEXT}}")
+        where = os.path.join(host, *parts)
+        if len(parts) > 1:
+            os.makedirs(os.path.dirname(where), mode=0o777, exist_ok=True)
+        if "symlink" in item:
+            os.symlink(item["symlink"], where)
+        else:
+            with open(where, "x", encoding="utf-8") as handle:
+                handle.write(item["text"])
+            os.chmod(where, 0o666)  # the container's user may replace it, as in the user's own folder
+
+
 def spec_mounts(spec: dict, variables: dict[str, str], fresh: list[str]) -> list[tuple[str, str, bool]]:
     """(host, target, writable) of the spec's mounts; a ``"fresh": true`` mount gets a new empty folder, appended to
     *fresh* (the caller removes them). ValueError for a mount that names both or neither."""
@@ -210,6 +235,7 @@ def spec_mounts(spec: dict, variables: dict[str, str], fresh: list[str]) -> list
             # image's user, a subordinate ID of rootless Podman) may write it, as the user's own folder is theirs.
             os.chmod(host, 0o777)
             fresh.append(host)
+            seed(host, mount.get("seed", []), mount["target"])
         elif "host" in mount:
             host = substitute(mount["host"], variables)
         else:

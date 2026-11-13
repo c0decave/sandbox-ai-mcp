@@ -269,6 +269,21 @@ class SmokeTest(unittest.TestCase):
                                            {"FIXTURES": "/f"}, fresh), [("/f", "/work", False)])
         self.assertEqual(fresh, [])
 
+    def test_a_fresh_mount_can_be_seeded_with_files_and_links(self):
+        fresh = []
+        mounts = smoke.spec_mounts({"name": "x", "mounts": [{
+            "target": "/work", "fresh": True, "writable": True,
+            "seed": [{"path": "docs/a.md", "text": "# A\n"}, {"path": "escape", "symlink": "/etc"}]}]}, {}, fresh)
+        self.addCleanup(lambda: [__import__("shutil").rmtree(f, True) for f in fresh])
+        host = mounts[0][0]
+        self.assertEqual(Path(host, "docs/a.md").read_text(), "# A\n")
+        self.assertEqual(os.readlink(os.path.join(host, "escape")), "/etc")
+        for bad in ([{"path": "../x", "text": ""}], [{"path": "/x", "text": ""}], [{"path": "x"}],
+                    [{"path": "x", "text": "", "symlink": "/"}], {"path": "x"}, [{"path": "a//b", "text": ""}]):
+            with self.subTest(seed=bad), self.assertRaises(ValueError):
+                smoke.spec_mounts({"name": "x", "mounts": [{"target": "/w", "fresh": True, "writable": True,
+                                                            "seed": bad}]}, {}, fresh)
+
     def test_list_only_mounts_no_fresh_folder(self):
         spec = self.spec(mounts=[{"target": "/data", "fresh": True, "writable": True}])
         before = set(Path(tempfile.gettempdir()).glob("smoke-duckduckgo-*"))

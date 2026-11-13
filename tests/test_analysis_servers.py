@@ -129,7 +129,8 @@ class EveryServer(unittest.TestCase):
                 for mount in spec.get("mounts", []):
                     self.assertIn(mount["target"], declared,
                                   f"{name}: the smoke mounts {mount['target']}, the entry does not offer it")
-                    if mount.get("writable"):
+                    # the analysis servers read their input from /work; files writes /work, its workspace, by design
+                    if mount.get("writable") and name != "files":
                         self.assertNotEqual(mount["target"], "/work",
                                             f"{name}: input is mounted read-only")
                 for target, mount in declared.items():
@@ -403,6 +404,58 @@ class WhatWeb(unittest.TestCase):
         self.assertIn('"--", url]', source)
         for option in ("--custom-plugin", "--grep", "--plugins", "--input-file", "--proxy", "--header"):
             self.assertNotIn(f'"{option}', source)
+
+
+class Files(unittest.TestCase):
+    """The workspace file server: our own code on the shared lock, the standard library only, no network, /work the
+    only folder written (tests/test_files.py has the server's own tests)."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "files"
+        self.entry = read_json("servers", "files", "server.json")
+        self.spec = read_json("servers", "files", "smoke.json")
+        self.source = (self.folder / "src" / "server.py").read_text()
+
+    def test_the_shared_lock_and_the_standard_library_only(self):
+        self.assertEqual((self.folder / "requirements.txt").read_bytes().replace(b"servers/files/", b""),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                             b"servers/web-fetch/", b""))
+        self.assertEqual((self.folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+        self.assertIn("COPY src/server.py /opt/mcp/server.py", (self.folder / "Dockerfile").read_text())
+        imports = set(re.findall(r"^(?:import ([a-z_.]+)(?: as \w+)?|from ([a-z_.]+) import .*)$", self.source, re.M))
+        imports = {a or b for a, b in imports}
+        self.assertEqual(imports - {"__future__", "contextlib", "difflib", "errno", "fnmatch", "hashlib", "json",
+                                    "logging", "os", "re", "secrets", "shutil", "signal", "stat", "sys", "threading",
+                                    "time", "unicodedata", "datetime"}, {"mcp.server.fastmcp", "mcp.types"})
+        for word in ("subprocess", "import socket", "socket.", "urllib", "eval(", "exec(", "pickle", "ctypes", "os.system",
+                     "os.chown", "follow_symlinks=True", "os.path.realpath"):
+            self.assertNotIn(word, self.source, word)
+
+    def test_no_network_and_the_folders(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("none", "none"))
+        self.assertNotIn("hosts", self.entry)
+        mounts = {m["target"]: m for m in self.entry["mounts"]}
+        self.assertEqual(list(mounts), ["/work", "/ref1", "/ref2", "/ref3"])
+        self.assertTrue(mounts["/work"].get("required"))
+        self.assertIn('WORK = "/work"', self.source)
+        self.assertIn('REFS = ("/ref1", "/ref2", "/ref3")', self.source)
+        for target in ("/ref1", "/ref2", "/ref3"):
+            self.assertIn("read-only", mounts[target]["description"])
+        self.assertEqual({var["name"] for var in self.entry["env"]}, {"FILES_READONLY", "FILES_MAX_BYTES", "FILES_TRASH"})
+        self.assertFalse(any(var["secret"] for var in self.entry["env"]))
+
+    def test_the_smoke_run_writes_repairs_and_refuses(self):
+        refused = " ".join(call["expect"] for call in self.spec["calls"] if call.get("expect_error"))
+        for expected in ("'..' is not allowed", "never followed", "outside the folders", "exists already"):
+            self.assertIn(expected, refused)
+        self.assertEqual([m["target"] for m in self.spec["mounts"]], ["/work"])
+        self.assertIn({"path": "escape", "symlink": "/etc"}, self.spec["mounts"][0]["seed"])
+        written = {call["tool"] for call in self.spec["calls"] if not call.get("expect_error")}
+        self.assertTrue({"write_markdown", "edit_file", "read_file", "delete"} <= written)
+        tools = read_json("servers", "files", "tools.json")
+        provenance = (self.folder / "PROVENANCE.md").read_text()
+        for tool in tools["tools"]:
+            self.assertIn(f"`{tool}`", provenance)
 
 
 class YouTube(unittest.TestCase):

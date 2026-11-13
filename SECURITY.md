@@ -19,6 +19,10 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 - the file-analysis servers (radare2, capa, binwalk): a path that escapes the folder mounted at
   `/work`, a write outside `/out` and the container's `/tmp`, anything a crafted input file makes
   the server do beyond reporting about it;
+- files: a read, write or listing outside the folders mounted at `/work` and `/ref1`-`/ref3` (`..`, a link followed out
+  of its folder, a link a write goes through, a folder swapped for a link meanwhile), a write to `/ref1`-`/ref3`,
+  to `.git` or the trash, with `FILES_READONLY=1`, or over a file that changed since it was read; a device, pipe or
+  socket opened; a write that leaves a file half written;
 - youtube: a token, the client secret or an upload session reaching a tool answer, a log line or a host other
   than `oauth2.googleapis.com` and `www.googleapis.com`; a file uploaded from outside `/upload` (a link, a
   device, another user's file); a public video without `YOUTUBE_ALLOW_PUBLIC=1`;
