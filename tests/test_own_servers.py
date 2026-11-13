@@ -685,6 +685,24 @@ class Servers(unittest.TestCase):
         self.assertEqual(outcome.skipped, [])
         self.assertGreater(outcome.testsRun, 30)
 
+    def test_code_search(self):
+        """The code search server over stdio as the image starts it (its seven tools; refusals before any file is
+        looked at, so the real /work is never walked), then the offline suite of tests/test_code_search.py on a seeded
+        project in temporary folders - in CI with the image's own Python and libraries, no network."""
+        self.check_tools("code-search")
+        answers = rpc("code-search", session(("outline", {"path": "../etc/passwd"}),
+                                             ("read_symbol", {"path": "/etc/passwd", "name": "root"}),
+                                             ("find_text", {"pattern": "(a+)+$", "regex": True}),
+                                             ("find_definition", {"name": "parse args("}),
+                                             ("find_definition", {"name": "x", "kind": "banana"}),
+                                             ("project_map", {"depth": 9})))
+        expected = ("'..' is not allowed", "outside the folders this server can reach", "can take forever",
+                    "a name like parse_args", "kind: one of", "depth: a whole number from 1 to 6")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_code_search", 50)
+
 
 def osint_mcp_installed():
     try:

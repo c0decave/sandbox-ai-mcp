@@ -6,8 +6,9 @@ Small models served by LM Studio, Ollama or vLLM and driven by OpenCode, Codex, 
 few typical ways: a command that waits for an answer (`npm init`, `apt install`, `git commit` without `-m`) or never
 ends (`npm run dev`, `jest --watch`) stalls the agent until its client gives up; a build or test log of thousands
 of lines fills a 32k context; the one failing test is buried in pages of passing ones; after a context compaction or
-a restart the goal and what was already found out are gone, and the same failing approach is tried again. Two
-servers of our own address this, and this page reviews what exists already.
+a restart the goal and what was already found out are gone, and the same failing approach is tried again; code is
+not found (a guessed name is grepped), whole files are read into the context, and functions that do not exist are
+called. Three servers of our own address this, and this page reviews what exists already.
 
 ## Built here
 
@@ -15,10 +16,11 @@ servers of our own address this, and this page reviews what exists already.
 |---|---|---|---|
 | [exec](../servers/exec) | `run_command` (bash with a time limit, stdin empty, no terminal, CI=1 and pagers/editors/prompts off, the whole process tree stopped on the limit, output cut to its start and end with the lines omitted counted), `start_job`/`job_status`/`stop_job`/`list_jobs` for long builds and servers, `run_tests` (only the failures of pytest, unittest, jest, vitest, go test, cargo test), `lint` (pyflakes, shellcheck, JSON, YAML; runs nothing of the project) | `/work` rw (the project) | none |
 | [tasks](../servers/tasks) | a plan outside the context in `/work/.tasks`: `set_goal`, `add_steps`, `start_step`/`complete_step`/`block_step` with a note, `add_note` (facts, mistakes not to repeat), `next_step` (the one step to do now with what it needs), `list_steps`, `progress`, `remove_step`; `PLAN.md` beside it for the human | `/work` rw (the project) | none |
+| [code-search](../servers/code-search) | `find_definition` (by name, exact first, similar names when none), `read_symbol` (one function or class with line numbers), `outline` (a file's classes and functions with lines and signatures), `find_references` (definitions first, then uses with the function each is in), `find_text` (bounded, an offset to go on), `find_files`, `project_map`; Python exact, JS/TS, Go, Rust, Java, C/C++ and shell approximate; `.gitignore` honoured; every search time-limited | `/work` ro (the project) | none |
 
-Both are our own code on the shared lock (MCP SDK 1.30.0), standard library otherwise, reviewed in full
-(`PROVENANCE.md` of each), with offline tests (`tests/test_exec.py`, `tests/test_tasks.py`) that CI also runs inside
-the images. Design rules for small models, applied to both: few tools with short descriptions and an example each;
+All three are our own code on the shared lock (MCP SDK 1.30.0), standard library otherwise, reviewed in full
+(`PROVENANCE.md` of each), with offline tests (`tests/test_exec.py`, `tests/test_tasks.py`,
+`tests/test_code_search.py`) that CI also runs inside the images. Design rules for small models, applied to all: few tools with short descriptions and an example each;
 plain-text answers (no structured duplicate) whose first line says what happened (`exit 1 (failed) · 2.3 s`,
 `Step 3 done.`); every refusal says what to do instead; answers bounded (100 lines of output by default); the
 servers' instructions say when to call what (`next_step` at the start and when unsure; `start_job` for servers).
@@ -119,7 +121,7 @@ instead of text - is the right one for small models; see the own code search bel
 **Findings.** `project_folder` is any absolute path (no confinement but the container's mounts); `max_results`
 defaults to 0, all matches - a broad pattern floods a small context; the `ast-grep` process has no time limit;
 patterns and YAML rules are hard for small models to write. **Recommendation: write our own small `code-search`
-server** in exec's style: the pinned `ast-grep` 0.51.0 binary by SHA-256 for structural search plus a plain text
+server** (done: [code-search](../servers/code-search), without ast-grep - see below) in exec's style: the pinned `ast-grep` 0.51.0 binary by SHA-256 for structural search plus a plain text
 search (the standard library or Debian's ripgrep), `/work` only, bounded results (file:line and a line of context,
 the count of the rest), time limits, and a file outline (functions and classes of a file) - three tools a small model
 can use without learning a pattern language.
@@ -137,7 +139,11 @@ it would be packaged on a review of its risky surfaces, as the binary analysis t
 
 ## Next
 
-1. `code-search` (own, above): text and structural search and file outlines, bounded, `/work` read-only.
+1. Done: [code-search](../servers/code-search) - text search, file names, outlines, definitions, references, one
+   symbol's source and a project map, bounded, `/work` read-only. Built without ast-grep and without ripgrep: a small
+   model does not write ast-grep's patterns, and outlines by name serve it better; a second walker (ripgrep) would
+   need its own confinement, and the standard library searches 1,000-2,000 files in well under a second. ast-grep
+   0.51.0 stays an option for a structural `find_pattern` tool if capable models ask for one.
 2. sandbox-ai: a long `tool_timeout_sec` for exec under Codex (as for its helpers), and presets that add exec and
    tasks for local-model agents.
 3. sequential-thinking 2.1.1 from 2026-11-18, only if users ask for it.

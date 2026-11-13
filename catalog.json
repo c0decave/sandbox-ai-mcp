@@ -6,6 +6,7 @@
   "state": "pending-digests",
   "pending": [
     "bluesky",
+    "code-search",
     "exec",
     "files",
     "tasks"
@@ -165,6 +166,46 @@
       ],
       "network": "none",
       "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions."
+    },
+    {
+      "id": "mcp:code-search",
+      "name": "code-search",
+      "title": "Code search for small local models (definitions, outlines, bounded search)",
+      "description": "Finds and reads code in a project mounted read-only at /work, so that a small local model finds a function instead of guessing its name and reads that function instead of the whole file: find_definition (where a function, class, method, type or constant is defined, by name, exact matches first, similar names when there is none), read_symbol (the source of one function or class with line numbers), outline (the classes, functions and methods of a file with lines and signatures), find_references (definitions first, then the lines using a name with the function each is in), find_text (plain text or a regular expression, file:line and the function, at most 200 with an offset to go on), find_files (by part of a name or a glob, best first), project_map (a tree with file counts, sizes and each file's main classes and functions). Python is read by Python's own parser; JavaScript/TypeScript, Go, Rust, Java, C/C++ and shell by line patterns and brace counting (approximate, and every answer says so). Honours .gitignore and skips node_modules, build, dist, target, vendor, .git, binary and minified files. Every answer is bounded, every search has a time limit; a regular expression that repeats a repeat is refused. Nothing is written; no link is followed out of the folders, no device, pipe or socket opened. No network.",
+      "category": "Developer tools",
+      "tags": [
+        "code",
+        "search",
+        "outline",
+        "definitions",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/code-search",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-code-search",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The project to search, read-only (--mount /work=PROJECT:ro); never written",
+          "required": true
+        },
+        {
+          "target": "/ref1",
+          "description": "Another folder to search, read-only (--mount /ref1=DIR:ro), named as /ref1/...; never written"
+        },
+        {
+          "target": "/ref2",
+          "description": "Another folder to search, read-only (--mount /ref2=DIR:ro); never written"
+        },
+        {
+          "target": "/ref3",
+          "description": "Another folder to search, read-only (--mount /ref3=DIR:ro); never written"
+        }
+      ],
+      "network": "none",
+      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions."
     },
     {
       "id": "mcp:duckduckgo",

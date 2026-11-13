@@ -269,9 +269,10 @@ next to this one, so they are not duplicated here.
 
 ## Next candidates
 
-- **code-search** (our own, for small local models): text and structural search (the `ast-grep` 0.51.0 binary) and
-  file outlines, bounded, `/work` read-only - instead of serena or the ast-grep MCP server
-  ([LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)).
+- **code-search**: built ([servers/code-search](../servers/code-search)) - definitions, references, outlines, one
+  symbol's source, bounded text search and a project map, `/work` read-only, without ast-grep
+  ([LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)); a structural `find_pattern` on the `ast-grep` 0.51.0 binary only if
+  capable models ask for it.
 - **sequential-thinking** (modelcontextprotocol/servers): reviewed, small and clean, but of little use for small
   models; 2.1.1 from 2026-11-18 if asked for. **time**: small, no network.
 - **git** (mcp-server-git, MIT): reviewed, not packaged - exec runs git with pagers, editors and prompts off.

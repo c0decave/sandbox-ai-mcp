@@ -36,6 +36,10 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   container's environment where the commands can open them;
 - tasks: a read or write outside `/work/.tasks` (through a link or otherwise), a lost change when several connections
   write one plan, a plan it cannot read overwritten;
+- code-search: any write; a read or listing outside the folders mounted at `/work` and `/ref1`-`/ref3` (`..`, a link
+  followed out of its folder, a link followed by a walk at all, a folder swapped for a link meanwhile); a device, pipe
+  or socket opened; a call that runs past its time limit, or a project file, `.gitignore` or pattern that makes one
+  hang or exhaust the container's memory; a project file name or line that fakes a line of an answer;
 - bluesky: the app password or a session token reaching a tool answer, a log line or a host other than the PDS
   (`BLUESKY_PDS`, default `bsky.social`); a request to any host but the PDS and `public.api.bsky.app`; a write
   without `BLUESKY_WRITE=1`; a post deleted that is not the account's own; an image uploaded from outside `/upload`
