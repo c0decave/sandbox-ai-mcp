@@ -39,6 +39,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
 | [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
+| [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
@@ -120,6 +121,7 @@ sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn P
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
 sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
 sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding agent's memory, no network
+sandbox-ai mcp add files --mount /work=~/projects/myapp:rw   # the agent's workspace, no network
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 ```
@@ -267,6 +269,47 @@ YouTube's limits first (title 100 characters, description 5000 bytes, tags 500 c
 least 3 of 10 s). sandbox-ai gives the entry the full network (it cannot limit a server to hosts yet); the server
 sends requests to `oauth2.googleapis.com` and `www.googleapis.com` only. See
 [its PROVENANCE.md](servers/youtube/PROVENANCE.md).
+
+**files** gives an agent - above all one on a small local model (OpenCode, Codex or Hermes with `--llm`) - file
+tools that are hard to get wrong. Small models break files in typical ways: the whole Markdown document inside a
+```` ```markdown ```` fence, `\n` written as two characters, the text sent as a JSON string, a stale copy written over
+newer work, an edit that matches nothing or three places, line numbers from a read copied into the text. The server
+makes each of these either impossible or visible: a whole-file write needs the `sha256` that `read_file` gave (or
+`overwrite=true`), `edit_file` needs exactly one match (a whitespace-tolerant fallback only when it finds exactly one,
+and it says so), `apply_patch` applies all hunks or none and shows the file's lines where one does not fit,
+`write_markdown` repairs the Markdown mistakes and lists every repair (`dry_run=true` only shows them), and every write
+answers lines added and removed and the new `sha256`, so the model can check its own work. Writes are atomic
+(temporary file, `fsync`, `rename`), keep the file's permissions, line breaks and byte order mark, and refuse
+binary-looking content; `delete` moves into `/work/.trash`. Mount the project the agent works in (the very folder;
+sandbox-ai refuses a folder *inside* a tree a sandbox can write) and, if you like, read-only folders beside it:
+
+```bash
+sandbox-ai mcp add files --mount /work=~/projects/myapp:rw            # one entry per project:
+sandbox-ai mcp add files --as files-docs --mount /work=~/projects/docs:rw --mount /ref1=~/reference:ro
+# optional: --env FILES_READONLY (=1: reads only), --env FILES_MAX_BYTES (default 8M), --env FILES_TRASH (=0: no trash)
+sandbox-ai opencode --llm ollama:qwen3 --mcp files --rules ~/.config/sandbox-ai/files.json   # your --llm server
+```
+
+Paths are relative to `/work` or absolute under `/work` and `/ref1`-`/ref3`; `..` is refused, a link is followed by
+the read tools only while it stays inside its folder and by the write tools never, devices, pipes and sockets are
+refused, and `.git` and `.trash` are not written. Recommended approvals - reads and edits allowed (the workspace is the
+agent's anyway), deleting and moving asked for, anything else refused:
+
+```json
+{"version": 1, "mcp": [
+  {"id": "files-reads", "server": "files", "decision": "allow",
+   "tool": ["read_file", "list_dir", "glob", "search", "stat", "diff", "checksum"]},
+  {"id": "files-writes", "server": "files", "decision": "allow",
+   "tool": ["write_file", "write_markdown", "edit_file", "insert_lines", "delete_lines", "append_file", "apply_patch",
+            "mkdir", "copy"]},
+  {"id": "files-removes", "server": "files", "decision": "ask", "reason": "deletes or moves files of the workspace",
+   "tool": ["delete", "move"]},
+  {"id": "files-rest", "server": "files", "tool": "*", "decision": "deny", "priority": 1000}
+]}
+```
+
+Tell a small model in its instructions to use `write_markdown` for `.md` files and `edit_file` for small changes, and to
+read before it writes. See [its PROVENANCE.md](servers/files/PROVENANCE.md).
 
 **memory and engram** are an agent's memory: `network: none`, and everything they keep is in the folder mounted
 **writable** at `/data` (required). Give each case or project a folder of its own (`mkdir -p ~/brains/CASE`, then

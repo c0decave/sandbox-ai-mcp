@@ -599,6 +599,30 @@ class Servers(unittest.TestCase):
         self.assertGreater(outcome.testsRun, 30)
 
 
+    def test_files(self):
+        """The workspace file server over stdio (tools, refusals before any file is touched), then the whole offline
+        suite of tests/test_files.py against temporary folders - in CI with the image's own Python and libraries, no
+        network."""
+        self.check_tools("files")
+        answers = rpc("files", session(("read_file", {"path": "../etc/passwd"}),
+                                       ("read_file", {"path": "/etc/passwd"}),
+                                       ("write_file", {"path": "notes.md", "content": "x"}),
+                                       ("write_markdown", {"path": "notes.txt", "content": "x"})),
+                      env={"FILES_READONLY": "1"})
+        self.assertIn("'..' is not allowed", result(answers[2])["error"])
+        self.assertIn("outside the folders this server can reach", result(answers[3])["error"])
+        self.assertIn("FILES_READONLY=1", result(answers[4])["error"])
+        self.assertIn("use write_file for other files", result(answers[5])["error"])
+        sys.path.insert(0, str(ROOT / "tests"))
+        import test_files
+        outcome = unittest.TestResult()
+        unittest.defaultTestLoader.loadTestsFromModule(test_files).run(outcome)
+        problems = [f"{test.id()}: {text[-1500:]}" for test, text in outcome.failures + outcome.errors]
+        self.assertEqual(problems, [], "\n".join(problems))
+        self.assertEqual(outcome.skipped, [])
+        self.assertGreater(outcome.testsRun, 50)
+
+
 def osint_mcp_installed():
     try:
         return importlib.util.find_spec("osint_mcp") is not None

@@ -97,7 +97,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        server: [binwalk, brave-search, capa, duckduckgo, engram, gowitness, memory, openosint, osint-mcp, playwright,
+        server: [binwalk, brave-search, capa, duckduckgo, engram, files, gowitness, memory, openosint, osint-mcp, playwright,
                  radare2, searxng, signal, telegram, telegram-user, web-fetch, whatsapp, whatweb, youtube]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

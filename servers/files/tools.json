@@ -1,0 +1,44 @@
+{
+  "tools": [
+    "append_file",
+    "apply_patch",
+    "checksum",
+    "copy",
+    "delete",
+    "delete_lines",
+    "diff",
+    "edit_file",
+    "glob",
+    "insert_lines",
+    "list_dir",
+    "mkdir",
+    "move",
+    "read_file",
+    "search",
+    "stat",
+    "write_file",
+    "write_markdown"
+  ],
+  "write_tools": {
+    "append_file": "WRITES: adds text at the end of a file in /work (creates it when missing)",
+    "apply_patch": "WRITES: applies a unified diff to a file in /work (all hunks or nothing)",
+    "copy": "WRITES: copies a file or folder into /work (an existing file replaced only with overwrite=true)",
+    "delete": "WRITES: deletes a file, link or folder in /work (moved into /work/.trash unless FILES_TRASH=0)",
+    "delete_lines": "WRITES: deletes a range of lines of a file in /work",
+    "edit_file": "WRITES: replaces one exact piece of text in a file in /work (or every occurrence with replace_all)",
+    "insert_lines": "WRITES: inserts lines into a file in /work",
+    "mkdir": "WRITES: makes a folder in /work",
+    "move": "WRITES: moves or renames a file, link or folder in /work (an existing file replaced only with overwrite=true)",
+    "write_file": "WRITES: creates or replaces a whole file in /work (an existing one only with expected_sha256 or overwrite=true)",
+    "write_markdown": "WRITES: creates or replaces a Markdown file in /work after repairing it (dry_run=true writes nothing)"
+  },
+  "read_only_tools": [
+    "checksum",
+    "diff",
+    "glob",
+    "list_dir",
+    "read_file",
+    "search",
+    "stat"
+  ]
+}

@@ -5,6 +5,7 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "files",
     "youtube"
   ],
   "entries": [
@@ -165,6 +166,66 @@
       ],
       "network": "none",
       "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
+    },
+    {
+      "id": "mcp:files",
+      "name": "files",
+      "title": "Workspace files (reliable reads and writes, Markdown repairs)",
+      "description": "Reads and writes the files of an agent's workspace - the folder mounted at /work - so that a small local model gets them right: read_file (in parts, with the file's sha256), list_dir, glob, search, stat, diff, checksum; write_file (atomic, an existing file replaced only with the sha256 it was read with or overwrite=true, permissions, line breaks and byte order mark kept, binary-looking content refused), write_markdown (repairs what local models get wrong - a ```markdown fence around everything, literal \\n, a JSON string, CRLF, trailing spaces, #Heading, an open code fence, a repeated first heading - and lists each repair; dry_run), edit_file (one exact match, or a single whitespace-tolerant one, said so), insert_lines, delete_lines, append_file, apply_patch (strict hunks, the file's text shown when one does not apply), move, copy, mkdir, delete (into /work/.trash). Every write answers lines added and removed and the new sha256. Nothing outside the mounted folders: no '..', no link followed out of a folder (the write tools follow none), no devices, pipes or sockets. Folders mounted at /ref1-/ref3 are only read. FILES_READONLY=1 refuses every write. No network.",
+      "category": "Files",
+      "tags": [
+        "files",
+        "markdown",
+        "editing",
+        "workspace",
+        "local-models"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/files",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-files",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "FILES_READONLY",
+          "description": "1: every write tool refuses (the server only reads)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "FILES_MAX_BYTES",
+          "description": "Bytes one call reads or writes, 1K to 256M (like 8M; default 8M)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "FILES_TRASH",
+          "description": "0: delete removes for good instead of moving into /work/.trash (default 1)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The workspace, writable (--mount /work=PROJECT:rw; :ro makes it read-only): the only folder written",
+          "required": true
+        },
+        {
+          "target": "/ref1",
+          "description": "Another folder to read from, read-only (--mount /ref1=DIR:ro); never written"
+        },
+        {
+          "target": "/ref2",
+          "description": "Another folder to read from, read-only (--mount /ref2=DIR:ro); never written"
+        },
+        {
+          "target": "/ref3",
+          "description": "Another folder to read from, read-only (--mount /ref3=DIR:ro); never written"
+        }
+      ],
+      "network": "none",
+      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
     },
     {
       "id": "mcp:gowitness",

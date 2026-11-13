@@ -1,0 +1,124 @@
+{
+  "name": "files",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "writable": true,
+      "seed": [
+        {
+          "path": "escape",
+          "symlink": "/etc"
+        },
+        {
+          "path": "docs/readme.txt",
+          "text": "files smoke test\n"
+        }
+      ]
+    }
+  ],
+  "expect_tools": [
+    "append_file",
+    "apply_patch",
+    "checksum",
+    "copy",
+    "delete",
+    "delete_lines",
+    "diff",
+    "edit_file",
+    "glob",
+    "insert_lines",
+    "list_dir",
+    "mkdir",
+    "move",
+    "read_file",
+    "search",
+    "stat",
+    "write_file",
+    "write_markdown"
+  ],
+  "calls": [
+    {
+      "tool": "write_markdown",
+      "arguments": {
+        "path": "notes/plan.md",
+        "content": "```markdown\n#Plan\n\n#Plan\nA first draft.   \n\n```sh\nls\n```\n```",
+        "create_dirs": true
+      },
+      "expect": "the whole content was wrapped in a code fence (markdown): unwrapped it"
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/work/notes/plan.md"
+      },
+      "expect": "# Plan\\n\\nA first draft.\\n\\n```sh\\nls\\n```\\n"
+    },
+    {
+      "tool": "write_markdown",
+      "arguments": {
+        "path": "notes/escaped.md",
+        "content": "# Escaped\\n\\nOne line\\n- a\\n- b"
+      },
+      "expect": "decoded 4 \\\\n"
+    },
+    {
+      "tool": "edit_file",
+      "arguments": {
+        "path": "notes/plan.md",
+        "old_text": "A first draft.",
+        "new_text": "A second draft."
+      },
+      "expect": "\"match\": \"exact\""
+    },
+    {
+      "tool": "search",
+      "arguments": {
+        "pattern": "second draft"
+      },
+      "expect": "/work/notes/plan.md"
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "notes/plan.md",
+        "content": "clobbered\n"
+      },
+      "expect": "exists already",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "../etc/passwd"
+      },
+      "expect": "'..' is not allowed in a path",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "escape/passwd"
+      },
+      "expect": "is a link to /etc, outside /work: links out of the mounted folders are never followed",
+      "expect_error": true
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/etc/cron.d/x",
+        "content": "x"
+      },
+      "expect": "is outside the folders this server can reach",
+      "expect_error": true
+    },
+    {
+      "tool": "delete",
+      "arguments": {
+        "path": "docs/readme.txt"
+      },
+      "expect": "/work/.trash/"
+    }
+  ]
+}
