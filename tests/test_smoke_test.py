@@ -278,6 +278,9 @@ class SmokeTest(unittest.TestCase):
         host = mounts[0][0]
         self.assertEqual(Path(host, "docs/a.md").read_text(), "# A\n")
         self.assertEqual(os.readlink(os.path.join(host, "escape")), "/etc")
+        # Folders a seed makes are writable by the container's user, whatever the umask (0755 left a server under
+        # Docker, another user, unable to move a seeded file: files' smoke failed at delete with EACCES).
+        self.assertEqual(os.stat(os.path.join(host, "docs")).st_mode & 0o777, 0o777)
         for bad in ([{"path": "../x", "text": ""}], [{"path": "/x", "text": ""}], [{"path": "x"}],
                     [{"path": "x", "text": "", "symlink": "/"}], {"path": "x"}, [{"path": "a//b", "text": ""}]):
             with self.subTest(seed=bad), self.assertRaises(ValueError):

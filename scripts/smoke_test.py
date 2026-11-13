@@ -212,8 +212,10 @@ def seed(host: str, items, target: str) -> None:
                 not isinstance(item.get("text", item.get("symlink")), str):
             raise ValueError(f"mount {target}: a seed item is {{\"path\": RELATIVE, \"text\" or \"symlink\": TEXT}}")
         where = os.path.join(host, *parts)
-        if len(parts) > 1:
-            os.makedirs(os.path.dirname(where), mode=0o777, exist_ok=True)
+        for depth in range(1, len(parts)):  # each folder writable by the container's user, whatever the umask
+            folder = os.path.join(host, *parts[:depth])
+            os.makedirs(folder, exist_ok=True)
+            os.chmod(folder, 0o777)
         if "symlink" in item:
             os.symlink(item["symlink"], where)
         else:
