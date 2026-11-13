@@ -28,6 +28,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [openosint](servers/openosint) | passive OSINT lookups with OpenOSINT 2.36.1's tool code: Google dork URLs, RDAP, WHOIS and DNS of a domain (SPF/DMARC posture), IP geolocation and ASN, GitHub profiles and commit e-mails, Pastebin dumps, geolocated GDELT news; with your keys Have I Been Pwned, VirusTotal (no URL submission), AbuseIPDB, IP2Location.io, Google results through Bright Data. Nothing touches the target; OpenOSINT's active tools, LLM agent and web UI are not in the image | full (registries' WHOIS and RDAP servers) | optional: `HIBP_API_KEY`, `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_API_KEY`, `IP2LOCATION_API_KEY`, `IPINFO_TOKEN`, `GITHUB_TOKEN`, `BRIGHTDATA_API_KEY` |
 | [signal](servers/signal) | a Signal account of yours as a linked device (signal-cli 0.14.9 with signal-mcp 1.43.3's message history): fetch messages, unread, conversations, full-text search of the history, contacts, groups (no invite links); attachments as metadata only. Read-only: `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optionally limited by `SIGNAL_ALLOWED_RECIPIENTS`. The account lives in a folder mounted writable at `/data`; needs `--memory 1g --pids 256` | full (Signal's servers; `--vpn PROFILE` optional) | - (the account is the `/data` folder) |
 | [whatsapp](servers/whatsapp) | a WhatsApp account linked as a device (edouard-claude/whatsapp-mcp, Rust, with a Go bridge on whatsmeow): chats, messages (pages, context, recent, full-text search), contacts, account status, media (downloaded into `/data`, size-capped), older history from the phone. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and settings only with `WHATSAPP_WRITE=1`, files to send only from a mounted `/send`; no pairing or logout tools | full (WhatsApp's media hosts come from WhatsApp; `--vpn PROFILE` optional) | - (the linked device's keys live in the mounted `/data`) |
+| [youtube](servers/youtube) | publish a video an agent made to your YouTube channel (YouTube Data API v3, our own server): resumable upload with retries (private by default, unlisted on request, public only with `YOUTUBE_ALLOW_PUBLIC=1`; the audience required, the synthetic-content disclosure false unless set; chapters into the description), thumbnail, captions (SRT/WebVTT), metadata changes of only the given fields, a list of your uploads. Four of its five tools **write** to the channel: have sandbox-ai ask for each call. Files only from a folder mounted read-only at `/upload`; the credentials only in the server's container | allowlist `oauth2.googleapis.com:443`, `www.googleapis.com:443` | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog; before: `--memory 2g --pids 512`) | full | - |
@@ -107,6 +108,8 @@ sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGR
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
 sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys optional, each named with --env
 sandbox-ai mcp add whatsapp --network full --mount /data=~/whatsapp-data:rw   # read-only; linked once with wa-mcp pair
+sandbox-ai mcp add youtube --network full --env YOUTUBE_CLIENT_ID --env YOUTUBE_CLIENT_SECRET \
+  --env YOUTUBE_REFRESH_TOKEN --mount /upload=~/youtube-upload:ro   # writes to your channel: see below
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
@@ -193,6 +196,77 @@ It is read-only: the tools that send or change anything on WhatsApp exist only w
 `WHATSAPP_WRITE=1` (`--env WHATSAPP_WRITE`), files to send only from a folder mounted at `/send`
 (`--mount /send=DIR:ro`); pairing and logging out are never offered to the agent. One connection
 at a time can use an account. Message texts, names and files come from other people.
+
+**youtube** publishes to your YouTube channel without the agent ever holding your Google credentials: the OAuth
+client and its refresh token are given to the server's container only (sandbox-ai's secrets), the server refreshes
+its access token itself, and no answer or log line carries a token. Set it up once:
+
+1. **A Google Cloud project** (https://console.cloud.google.com/, *New project*) with the **YouTube Data API v3**
+   enabled (*APIs & Services*, *Library*).
+2. **The OAuth consent screen** (*Google Auth Platform*): an app name and your e-mail, audience *External*, under
+   *Data access* the scopes `.../auth/youtube.upload` and `.../auth/youtube.readonly` (and `.../auth/youtube.force-ssl`
+   if you want captions and metadata changes). Then **publish the app** (*Audience*, *In production*): while it is in
+   *Testing*, Google lets every refresh token expire after 7 days. For your own channel it need not be verified;
+   Google's consent page then says "Google hasn't verified this app" (*Advanced*, continue).
+3. **A client** (*Clients*, *Create client*, type **Desktop app**) and its JSON (*Download JSON*).
+4. **The refresh token, on the host** (standard library only, nothing to install; it waits on 127.0.0.1 for Google's
+   redirect and prints the token to the secret store, never to the terminal):
+
+   ```bash
+   CLIENT=~/Downloads/client_secret_XXXX.apps.googleusercontent.com.json
+   python3 -I servers/youtube/src/authorize.py --client-secrets "$CLIENT" --open \
+     | sandbox-ai secrets set YOUTUBE_REFRESH_TOKEN          # add --scopes upload,readonly,force-ssl for captions/updates
+   python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["installed"]["client_id"])' "$CLIENT" \
+     | sandbox-ai secrets set YOUTUBE_CLIENT_ID
+   python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["installed"]["client_secret"])' "$CLIENT" \
+     | sandbox-ai secrets set YOUTUBE_CLIENT_SECRET
+   ```
+
+   Sign in with the Google account of the channel. The token stays valid until you revoke it
+   (https://myaccount.google.com/permissions). The image has the same script at `/opt/mcp/authorize.py`.
+5. **The server**, with the folder it may upload from mounted read-only at `/upload` - a folder of its own that you
+   fill with what may be published, or the agent's workspace folder itself (sandbox-ai refuses a folder *inside* a
+   tree a sandbox can write):
+
+   ```bash
+   mkdir -p ~/youtube-upload
+   sandbox-ai mcp add youtube --network full --env YOUTUBE_CLIENT_ID --env YOUTUBE_CLIENT_SECRET \
+     --env YOUTUBE_REFRESH_TOKEN --mount /upload=~/youtube-upload:ro
+   # optional: --env YOUTUBE_ALLOW_PUBLIC (=1: public videos), --env YOUTUBE_MAX_UPLOAD_MB (default 4096)
+   sandbox-ai claude --mcp youtube --rules ~/.config/sandbox-ai/youtube.json
+   ```
+
+6. **Ask for every write.** `upload_video`, `set_thumbnail`, `upload_captions` and `update_metadata` change your
+   channel; this ruleset makes sandbox-ai ask you for each call, with its arguments (answer *Allow once*: an approval
+   counts for the run at most), allows the list and refuses anything else of the server:
+
+   ```json
+   {"version": 1, "mcp": [
+     {"id": "youtube-list", "server": "youtube", "tool": "list_my_videos", "decision": "allow"},
+     {"id": "youtube-writes", "server": "youtube", "decision": "ask", "reason": "publishes to or changes your YouTube channel",
+      "tool": ["upload_video", "set_thumbnail", "upload_captions", "update_metadata"]},
+     {"id": "youtube-rest", "server": "youtube", "tool": "*", "decision": "deny", "priority": 1000}
+   ]}
+   ```
+
+What to know: **uploads stay private until Google audits your project** - every video a new API project uploads
+through the API is locked to private whatever privacy was asked, until the project passes Google's audit
+(https://support.google.com/youtube/contact/yt_api_form); the answer of `upload_video` says so too. **The quota** is
+10,000 units a day per project: an upload costs about 1600 (about six a day), captions 400, a thumbnail or an update
+50 (and 1 to read the video's privacy first), a list 3; it resets at midnight Pacific Time, and the error says so.
+Videos are private by default; public needs `YOUTUBE_ALLOW_PUBLIC=1`, which also guards every change (metadata,
+thumbnail, captions) to a video that is public already or scheduled to become public. `made_for_kids` must be given
+with every upload; `contains_synthetic_media` (YouTube's disclosure of realistic AI-made or altered content) is false
+unless the agent sets it - tell it to when your videos show such content. The scopes each tool needs:
+`youtube.upload` for `upload_video` and `set_thumbnail` (which reads the video's privacy first with
+`youtube.readonly`), `youtube.readonly` for `list_my_videos`, `youtube.force-ssl` for `upload_captions` and
+`update_metadata` (broad: Google lets it edit and delete videos and comments - no tool of the server does, but ask
+for it only if you need those two). Custom thumbnails need a channel verified by phone. Files come only from
+`/upload`: no links, devices, hidden names, hard links or other users' files; every field is checked against
+YouTube's limits first (title 100 characters, description 5000 bytes, tags 500 characters, chapters from 0:00, at
+least 3 of 10 s). sandbox-ai gives the entry the full network (it cannot limit a server to hosts yet); the server
+sends requests to `oauth2.googleapis.com` and `www.googleapis.com` only. See
+[its PROVENANCE.md](servers/youtube/PROVENANCE.md).
 
 **memory and engram** are an agent's memory: `network: none`, and everything they keep is in the folder mounted
 **writable** at `/data` (required). Give each case or project a folder of its own (`mkdir -p ~/brains/CASE`, then
@@ -332,5 +406,5 @@ SQLite is public domain) and the other Go modules it links (their licences under
 `/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image). gowitness bundles gowitness 3.2.2 (GPL-3.0, built from
 the pinned commit with the changes `servers/gowitness/Dockerfile` lists) with the Go modules it links (MIT, BSD,
 Apache-2.0; their licences under `/usr/share/doc/sandbox-ai-mcp-gowitness/modules` in the image) and Debian's
-Chromium (BSD-3-Clause and others). whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
+Chromium (BSD-3-Clause and others). youtube is our own server (MIT) on the MCP Python SDK and httpx (MIT, BSD-3-Clause). whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
 `servers/whatweb/LICENSES/SOURCES.txt`) with Debian's Ruby 3.3, addressable (Apache-2.0) and public_suffix (MIT).

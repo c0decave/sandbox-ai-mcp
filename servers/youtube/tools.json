@@ -1,0 +1,25 @@
+{
+  "tools": [
+    "list_my_videos",
+    "set_thumbnail",
+    "update_metadata",
+    "upload_captions",
+    "upload_video"
+  ],
+  "write_tools": {
+    "upload_video": "WRITES: creates a new video on the user's channel (private by default, unlisted on request, public only with YOUTUBE_ALLOW_PUBLIC=1)",
+    "set_thumbnail": "WRITES: replaces a video's thumbnail",
+    "upload_captions": "WRITES: adds a caption track to a video",
+    "update_metadata": "WRITES: changes a video's title, description, tags, category, language, privacy, audience or synthetic-content disclosure"
+  },
+  "read_only_tools": [
+    "list_my_videos"
+  ],
+  "scopes": {
+    "list_my_videos": "youtube.readonly",
+    "set_thumbnail": "youtube.upload",
+    "update_metadata": "youtube.force-ssl",
+    "upload_captions": "youtube.force-ssl",
+    "upload_video": "youtube.upload"
+  }
+}

@@ -19,6 +19,9 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 - the file-analysis servers (radare2, capa, binwalk): a path that escapes the folder mounted at
   `/work`, a write outside `/out` and the container's `/tmp`, anything a crafted input file makes
   the server do beyond reporting about it;
+- youtube: a token, the client secret or an upload session reaching a tool answer, a log line or a host other
+  than `oauth2.googleapis.com` and `www.googleapis.com`; a file uploaded from outside `/upload` (a link, a
+  device, another user's file); a public video without `YOUTUBE_ALLOW_PUBLIC=1`;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull

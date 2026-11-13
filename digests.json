@@ -17,7 +17,8 @@
     "telegram-user": "sha256:51194918e1016098ee6e65b7caf16830022aaa22949f499b6991e18b1c62e5df",
     "web-fetch": "sha256:f589f04d76a34b61b157e13132c4fdfa28c6afd0399280f522b0025ac2ac198c",
     "whatsapp": "sha256:3cde7980356ee1ce26abe0f4c916bf3b36e713778a8975514f6eceaad18e87a9",
-    "whatweb": "sha256:7e63d6ef124f2509a7ed9ac0321c56e04e8ed34b012e308a22b0543de97236fe"
+    "whatweb": "sha256:7e63d6ef124f2509a7ed9ac0321c56e04e8ed34b012e308a22b0543de97236fe",
+    "youtube": null
   },
   "rootfs": {
     "binwalk": {

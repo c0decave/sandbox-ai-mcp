@@ -1,0 +1,104 @@
+{
+  "name": "youtube",
+  "network": "allowlist",
+  "hosts": [
+    "oauth2.googleapis.com:443",
+    "www.googleapis.com:443"
+  ],
+  "expect_tools": [
+    "list_my_videos",
+    "set_thumbnail",
+    "update_metadata",
+    "upload_captions",
+    "upload_video"
+  ],
+  "env": {
+    "YOUTUBE_CLIENT_ID": "000000000000-sandboxaimcpsmoketest.apps.googleusercontent.com",
+    "YOUTUBE_CLIENT_SECRET": "GOCSPX-sandbox-ai-mcp-smoke-test",
+    "YOUTUBE_REFRESH_TOKEN": "1//sandbox-ai-mcp-smoke-test-not-a-refresh-token"
+  },
+  "calls": [
+    {
+      "tool": "list_my_videos",
+      "arguments": {},
+      "expect": "Google refused the ",
+      "expect_error": true,
+      "timeout": 60
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/etc/passwd",
+        "title": "Smoke test",
+        "made_for_kids": false,
+        "contains_synthetic_media": false
+      },
+      "expect": "path: only files under /upload",
+      "expect_error": true
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/upload/../etc/passwd.mp4",
+        "title": "Smoke test",
+        "made_for_kids": false,
+        "contains_synthetic_media": false
+      },
+      "expect": "without . or .. in the path",
+      "expect_error": true
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/upload/video.mp4",
+        "title": "Smoke test",
+        "made_for_kids": false,
+        "contains_synthetic_media": false,
+        "privacy": "public"
+      },
+      "expect": "privacy: public needs YOUTUBE_ALLOW_PUBLIC=1",
+      "expect_error": true
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/upload/video.mp4",
+        "title": "Smoke test",
+        "contains_synthetic_media": false
+      },
+      "expect": "made_for_kids",
+      "expect_error": true
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/upload/video.mp4",
+        "title": "Smoke <test>",
+        "made_for_kids": false,
+        "contains_synthetic_media": false
+      },
+      "expect": "title: YouTube refuses < and > in a title",
+      "expect_error": true
+    },
+    {
+      "tool": "upload_video",
+      "arguments": {
+        "path": "/upload/video.mp4",
+        "title": "Smoke test",
+        "made_for_kids": false,
+        "contains_synthetic_media": false
+      },
+      "expect": "path: no folder is mounted at /upload",
+      "expect_error": true
+    },
+    {
+      "tool": "set_thumbnail",
+      "arguments": {
+        "video_id": "AbCdEfGhIj0",
+        "path": "/upload/thumb.gif"
+      },
+      "expect": "path: a .jpeg, .jpg, .png file",
+      "expect_error": true
+    }
+  ]
+}

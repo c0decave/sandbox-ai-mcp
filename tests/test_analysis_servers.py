@@ -405,6 +405,68 @@ class WhatWeb(unittest.TestCase):
             self.assertNotIn(f'"{option}', source)
 
 
+class YouTube(unittest.TestCase):
+    """The upload server: our own code on the shared lock, Google's two API hosts and nothing else, /upload read-only
+    and optional, a smoke run without an account (tests/test_youtube.py has the server's own tests)."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "youtube"
+        self.entry = read_json("servers", "youtube", "server.json")
+        self.spec = read_json("servers", "youtube", "smoke.json")
+
+    def test_the_shared_lock_and_no_other_package(self):
+        self.assertEqual((self.folder / "requirements.txt").read_bytes().replace(b"servers/youtube/", b""),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                             b"servers/web-fetch/", b""))
+        self.assertEqual((self.folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+        dockerfile = (self.folder / "Dockerfile").read_text()
+        self.assertIn("COPY src/server.py src/authorize.py /opt/mcp/", dockerfile)
+        imports = set(re.findall(r"^(?:import|from) ([a-z_.]+)", (self.folder / "src" / "server.py").read_text(), re.M))
+        self.assertEqual(imports - {"__future__", "asyncio", "json", "logging", "os", "random", "re", "secrets", "stat",
+                                    "sys", "time", "urllib.parse"}, {"httpx", "mcp.server.fastmcp", "mcp.types"})
+        helper = set(re.findall(r"^(?:import|from) ([a-z_.]+)", (self.folder / "src" / "authorize.py").read_text(),
+                                re.M))
+        self.assertFalse({name for name in helper if name.split(".")[0] in ("httpx", "mcp", "requests", "google")},
+                         "authorize.py runs on the host with the standard library only")
+
+    def test_only_googles_api_hosts(self):
+        hosts = ["oauth2.googleapis.com:443", "www.googleapis.com:443"]
+        self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", hosts))
+        self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", hosts))
+        source = (self.folder / "src" / "server.py").read_text()
+        contacted = set(re.findall(r"https://([a-z0-9.-]+)", source))
+        self.assertEqual(contacted - {"www.googleapis.com", "oauth2.googleapis.com"},
+                         {"youtu.be", "studio.youtube.com", "support.google.com", "www.youtube.com"},
+                         "links in answers only: requests go to the two API hosts (HOSTS, checked per request)")
+        self.assertIn('HOSTS = frozenset({"oauth2.googleapis.com", "www.googleapis.com"})', source)
+        self.assertIn("follow_redirects=False", source)
+        helper = (self.folder / "src" / "authorize.py").read_text()
+        self.assertEqual(set(re.findall(r"https://([a-z0-9.-]+)", helper)) - {"www.googleapis.com"},
+                         {"accounts.google.com", "oauth2.googleapis.com", "myaccount.google.com"})
+        self.assertIn('HTTPServer(("127.0.0.1", port)', helper)
+
+    def test_the_secrets_and_the_upload_folder(self):
+        env = {var["name"]: var for var in self.entry["env"]}
+        for name in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"):
+            self.assertTrue(env[name]["secret"] and env[name]["required"], name)
+        self.assertFalse(env["YOUTUBE_ALLOW_PUBLIC"]["secret"] or env["YOUTUBE_ALLOW_PUBLIC"]["required"])
+        self.assertEqual([m["target"] for m in self.entry["mounts"]], ["/upload"])
+        self.assertIn("read-only", self.entry["mounts"][0]["description"])
+        self.assertFalse(self.entry["mounts"][0].get("required"), "list_my_videos and update_metadata need no files")
+        for value in self.spec["env"].values():
+            self.assertIn("smoke", value, "the smoke run has no account: placeholders only")
+
+    def test_the_smoke_spec_refuses_without_an_account(self):
+        refused = {call["expect"] for call in self.spec["calls"] if call.get("expect_error")}
+        self.assertEqual(len(refused), len(self.spec["calls"]))
+        for expected in ("only files under /upload", "public needs YOUTUBE_ALLOW_PUBLIC=1", "made_for_kids",
+                         "Google refused the ", "no folder is mounted at /upload"):
+            self.assertTrue(any(expected in text for text in refused), expected)
+        provenance = (self.folder / "PROVENANCE.md").read_text()
+        for tool in read_json("servers", "youtube", "tools.json")["tools"]:
+            self.assertIn(f"`{tool}`", provenance)
+
+
 class OpenOsint(unittest.TestCase):
     """OpenOSINT's reviewed modules only, each pinned by SHA-256 at the pinned commit; passive tools only."""
 

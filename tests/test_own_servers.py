@@ -573,6 +573,31 @@ class Servers(unittest.TestCase):
             self.assertEqual(stream.getvalue(), "url with [redacted]\n")
             self.assertEqual(module.redact("Bearer ghp_testtokenvalue"), "Bearer [redacted]")
 
+    def test_youtube(self):
+        """The upload server over stdio (tools, refusals before any request, no credentials named), then the whole
+        offline suite of tests/test_youtube.py against its fake Google - in CI with the image's own Python and
+        libraries, no network."""
+        self.check_tools("youtube")
+        clean = {"YOUTUBE_CLIENT_ID": "", "YOUTUBE_CLIENT_SECRET": "", "YOUTUBE_REFRESH_TOKEN": "",
+                 "YOUTUBE_ALLOW_PUBLIC": ""}
+        video = {"title": "x", "made_for_kids": False, "contains_synthetic_media": True}
+        answers = rpc("youtube", session(("list_my_videos", {}),
+                                         ("upload_video", {"path": "/etc/passwd", **video}),
+                                         ("upload_video", {"path": "/upload/v.mp4", "privacy": "public", **video}),
+                                         ("upload_video", {"path": "/upload/v.mp4", **video})), env=clean)
+        self.assertIn("no YouTube credentials", result(answers[2])["error"])
+        self.assertIn("only files under /upload", result(answers[3])["error"])
+        self.assertIn("YOUTUBE_ALLOW_PUBLIC=1", result(answers[4])["error"])
+        self.assertIn("no YouTube credentials", result(answers[5])["error"])
+        sys.path.insert(0, str(ROOT / "tests"))
+        import test_youtube
+        outcome = unittest.TestResult()
+        unittest.defaultTestLoader.loadTestsFromModule(test_youtube).run(outcome)
+        problems = [f"{test.id()}: {text[-1500:]}" for test, text in outcome.failures + outcome.errors]
+        self.assertEqual(problems, [], "\n".join(problems))
+        self.assertEqual(outcome.skipped, [])
+        self.assertGreater(outcome.testsRun, 30)
+
 
 def osint_mcp_installed():
     try:

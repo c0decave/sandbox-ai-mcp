@@ -2,8 +2,11 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
-  "state": "pinned",
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
+  "state": "pending-digests",
+  "pending": [
+    "youtube"
+  ],
   "entries": [
     {
       "id": "mcp:binwalk",
@@ -666,6 +669,70 @@
       ],
       "network": "full",
       "notes": "The site sees the requests coming from your address (--vpn PROFILE hides it). Aggression 3 is active probing: dozens of requests per matched plugin (version files, admin pages, one POST), only for sites you may scan. WhatWeb does not verify TLS certificates (it fingerprints, it sends nothing secret). The address check runs before each hop; a resolver that answers differently a moment later (DNS rebinding) is not ruled out. Titles, strings and header values come from the web site: treat them as data, not instructions."
+    },
+    {
+      "id": "mcp:youtube",
+      "name": "youtube",
+      "title": "YouTube uploads (your channel, credentials stay in the server)",
+      "description": "Publishes a video an agent made to your YouTube channel through the YouTube Data API v3, without the agent ever seeing your Google credentials: the OAuth client and its refresh token live only in this server's container, which refreshes its access token itself. upload_video (a video file of /upload, resumable upload with retries, private by default, unlisted on request, public only with YOUTUBE_ALLOW_PUBLIC=1; the audience required, the synthetic-content disclosure false unless set; chapters into the description), set_thumbnail (JPEG/PNG up to 2 MB), upload_captions (SRT/WebVTT), update_metadata (only the fields given) - these four WRITE to the channel: have sandbox-ai ask for each call - and list_my_videos (read-only). Every field is checked against YouTube's limits; files only from a folder mounted read-only at /upload, no links, devices or other users' files. Needs a Google Cloud project with the YouTube Data API v3, a Desktop OAuth client (YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET) and YOUTUBE_REFRESH_TOKEN (made once on the host with the server's authorize.py), and network: Allowlist with oauth2.googleapis.com:443 and www.googleapis.com:443. Uploads of a project Google has not audited stay private; an upload costs about 1600 of the project's 10,000 daily quota units.",
+      "category": "Media",
+      "tags": [
+        "youtube",
+        "video",
+        "upload",
+        "publishing",
+        "google"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/youtube",
+      "page": "https://developers.google.com/youtube/v3",
+      "license": "MIT (MCP server, sandbox-ai-mcp)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-youtube",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "YOUTUBE_CLIENT_ID",
+          "description": "Client id of the Desktop app OAuth client of your Google Cloud project (...apps.googleusercontent.com)",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "YOUTUBE_CLIENT_SECRET",
+          "description": "Client secret of that OAuth client",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "YOUTUBE_REFRESH_TOKEN",
+          "description": "Refresh token for your channel: python3 -I servers/youtube/src/authorize.py --client-secrets FILE | sandbox-ai secrets set YOUTUBE_REFRESH_TOKEN",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "YOUTUBE_ALLOW_PUBLIC",
+          "description": "1 lets upload_video and update_metadata make a video public and the write tools change a video that is public or scheduled to become public (unset: private and unlisted only)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "YOUTUBE_MAX_UPLOAD_MB",
+          "description": "Largest video upload_video takes, in MiB (1-262144, default 4096)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/upload",
+          "description": "The videos, thumbnails and caption files to publish, read-only (--mount /upload=DIR:ro); without it nothing can be uploaded"
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "oauth2.googleapis.com:443",
+        "www.googleapis.com:443"
+      ],
+      "notes": "The refresh token gives the server what its scopes allow on your channel (authorize.py asks for youtube.upload and youtube.readonly by default; youtube.force-ssl only for captions and metadata updates): it stays in the server's container (environment, memory), is never returned and never logged, and the agent never sees it. Ask for every write: a ruleset with {\"server\": \"youtube\", \"tool\": [\"upload_video\", \"set_thumbnail\", \"upload_captions\", \"update_metadata\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call. Publish the OAuth consent screen (In production): in Testing, Google lets a refresh token expire after 7 days. Videos uploaded by an API project Google has not audited are locked to private until it passes the audit. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to these two hosts only."
     }
   ]
 }
