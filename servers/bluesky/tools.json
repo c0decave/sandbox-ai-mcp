@@ -1,0 +1,31 @@
+{
+  "tools": [
+    "delete_post",
+    "get_post_thread",
+    "get_profile",
+    "list_my_posts",
+    "post",
+    "thread"
+  ],
+  "write_switch": "BLUESKY_WRITE",
+  "write_tools": {
+    "post": "WRITES: publishes a post on the user's account, visible to everyone (refused unless BLUESKY_WRITE=1)",
+    "thread": "WRITES: publishes up to 10 posts as a thread on the user's account (refused unless BLUESKY_WRITE=1)",
+    "delete_post": "WRITES: deletes one of the account's own posts (refused unless BLUESKY_WRITE=1)"
+  },
+  "read_only_tools": [
+    "get_post_thread",
+    "get_profile",
+    "list_my_posts"
+  ],
+  "recommended_rules": {
+    "version": 1,
+    "mcp": [
+      {"id": "bluesky-reads", "server": "bluesky", "tool": ["get_profile", "list_my_posts", "get_post_thread"],
+       "decision": "allow"},
+      {"id": "bluesky-writes", "server": "bluesky", "tool": ["post", "thread", "delete_post"], "decision": "ask",
+       "reason": "publishes to or deletes from your Bluesky account"},
+      {"id": "bluesky-rest", "server": "bluesky", "tool": "*", "decision": "deny", "priority": 1000}
+    ]
+  }
+}

@@ -29,6 +29,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [signal](servers/signal) | a Signal account of yours as a linked device (signal-cli 0.14.9 with signal-mcp 1.43.3's message history): fetch messages, unread, conversations, full-text search of the history, contacts, groups (no invite links); attachments as metadata only. Read-only: `send_message`, `send_group_message`, `react_to_message` only with `SIGNAL_WRITE=1`, optionally limited by `SIGNAL_ALLOWED_RECIPIENTS`. The account lives in a folder mounted writable at `/data`; needs `--memory 1g --pids 256` | full (Signal's servers; `--vpn PROFILE` optional) | - (the account is the `/data` folder) |
 | [whatsapp](servers/whatsapp) | a WhatsApp account linked as a device (edouard-claude/whatsapp-mcp, Rust, with a Go bridge on whatsmeow): chats, messages (pages, context, recent, full-text search), contacts, account status, media (downloaded into `/data`, size-capped), older history from the phone. Read-only: sending, reactions, edits, deletions, read receipts, presence, groups, number lookups, profiles and settings only with `WHATSAPP_WRITE=1`, files to send only from a mounted `/send`; no pairing or logout tools | full (WhatsApp's media hosts come from WhatsApp; `--vpn PROFILE` optional) | - (the linked device's keys live in the mounted `/data`) |
 | [youtube](servers/youtube) | publish a video an agent made to your YouTube channel (YouTube Data API v3, our own server): resumable upload with retries (private by default, unlisted on request, public only with `YOUTUBE_ALLOW_PUBLIC=1`; the audience required, the synthetic-content disclosure false unless set; chapters into the description), thumbnail, captions (SRT/WebVTT), metadata changes of only the given fields, a list of your uploads. Four of its five tools **write** to the channel: have sandbox-ai ask for each call. Files only from a folder mounted read-only at `/upload`; the credentials only in the server's container | allowlist `oauth2.googleapis.com:443`, `www.googleapis.com:443` | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` |
+| [bluesky](servers/bluesky) | post to your Bluesky account (AT Protocol, our own server): posts of up to 300 graphemes with link, mention and hashtag facets, languages, replies, threads of up to 10, up to 4 images with alt text (their EXIF and location removed) or a link card from what the agent gives (the site is never fetched), deleting only your own posts; your profile, posts and threads read-only. **Read-only unless `BLUESKY_WRITE=1`**, and then have sandbox-ai ask for each write. An app password only (the account password is refused), kept in the server's container; images only from a folder mounted read-only at `/upload` | allowlist `bsky.social:443` (your PDS), `public.api.bsky.app:443` | `BLUESKY_APP_PASSWORD` (with `BLUESKY_HANDLE`) |
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog; before: `--memory 2g --pids 512`) | full | - |
@@ -113,6 +114,8 @@ sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys op
 sandbox-ai mcp add whatsapp --network full --mount /data=~/whatsapp-data:rw   # read-only; linked once with wa-mcp pair
 sandbox-ai mcp add youtube --network full --env YOUTUBE_CLIENT_ID --env YOUTUBE_CLIENT_SECRET \
   --env YOUTUBE_REFRESH_TOKEN --mount /upload=~/youtube-upload:ro   # writes to your channel: see below
+sandbox-ai mcp add bluesky --network full --env BLUESKY_HANDLE=alice.bsky.social \
+  --env BLUESKY_APP_PASSWORD@BLUESKY_ALICE --mount /upload=~/bluesky-upload:ro   # read-only; posting: see below
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
@@ -314,6 +317,65 @@ agent's anyway), deleting and moving asked for, anything else refused:
 
 Tell a small model in its instructions to use `write_markdown` for `.md` files and `edit_file` for small changes, and to
 read before it writes. See [its PROVENANCE.md](servers/files/PROVENANCE.md).
+**bluesky** posts to your Bluesky account without the agent ever holding your credentials: your handle and an
+**app password** are given to the server's container only (sandbox-ai's secrets); the server signs in at your PDS
+itself, keeps the session in memory, renews it there, and no answer or log line carries the password or a token.
+Set it up once:
+
+1. **An app password** (Bluesky: *Settings*, *Privacy and security*, *App passwords*, *Add App Password*; leave
+   *Allow access to your direct messages* off). It looks like `xxxx-xxxx-xxxx-xxxx`. Never use the account
+   password: the server refuses anything not shaped like an app password before sending it, and should Bluesky's
+   session say it was the account password (full access) or an app password with access to direct messages, it
+   ends that session and refuses. An app password can post, delete posts and change your profile and follows, but
+   cannot change your e-mail or password or delete the account; revoke it there at any time.
+2. **Keep it on the host**, in sandbox-ai's secret store (it asks for the value without showing it, or reads it
+   from standard input; never from the command line):
+
+   ```bash
+   sandbox-ai secrets set BLUESKY_ALICE          # paste the app password at the prompt
+   ```
+
+3. **The server**, with your handle as a plain value, the secret by name, writing switched on, and the folder it may
+   take images from mounted read-only at `/upload` (a folder of its own, or the agent's workspace folder itself;
+   sandbox-ai refuses a folder *inside* a tree a sandbox can write):
+
+   ```bash
+   mkdir -p ~/bluesky-upload
+   sandbox-ai mcp add bluesky --network full --env BLUESKY_HANDLE=alice.bsky.social \
+     --env BLUESKY_APP_PASSWORD@BLUESKY_ALICE --env BLUESKY_WRITE=1 --mount /upload=~/bluesky-upload:ro
+   # an account on its own PDS: --env BLUESKY_PDS=https://pds.example.org (default https://bsky.social)
+   sandbox-ai claude --mcp bluesky --rules ~/.config/sandbox-ai/bluesky.json
+   ```
+
+   Without `BLUESKY_WRITE=1` the server is read-only: `post`, `thread` and `delete_post` are listed but refuse every
+   call. `sandbox-ai mcp set bluesky --env BLUESKY_WRITE=1` turns writing on later.
+4. **Ask for every write.** `post` and `thread` publish (at once, to everyone), `delete_post` deletes; this ruleset
+   (also in [tools.json](servers/bluesky/tools.json)) makes sandbox-ai ask you for each call with its arguments
+   (answer *Allow once*), allows the reads and refuses anything else of the server:
+
+   ```json
+   {"version": 1, "mcp": [
+     {"id": "bluesky-reads", "server": "bluesky", "tool": ["get_profile", "list_my_posts", "get_post_thread"], "decision": "allow"},
+     {"id": "bluesky-writes", "server": "bluesky", "tool": ["post", "thread", "delete_post"], "decision": "ask",
+      "reason": "publishes to or deletes from your Bluesky account"},
+     {"id": "bluesky-rest", "server": "bluesky", "tool": "*", "decision": "deny", "priority": 1000}
+   ]}
+   ```
+
+What to know: a post has at most **300 graphemes** (an emoji, a flag or a letter with its accents counts once) and
+3000 bytes, checked before anything is sent; links (`https://...`), `@mentions` of existing handles and `#hashtags`
+become clickable facets, placed by their UTF-8 byte offsets as Bluesky needs them (a mention of an unknown handle
+stays plain text, and the answer says so). Images: JPEG, PNG or WebP of `/upload`, at most 1,000,000 bytes and 4 per
+post, **alt text required**; their EXIF (a phone's location among it), XMP, IPTC, C2PA manifests, comments, any other
+metadata and anything after the image are removed before the upload (Bluesky keeps the original upload, readable by anyone), and a photo turned
+only by its EXIF orientation is refused (save it upright). A link card is built from the title, description and
+optional thumbnail the agent gives: the server never fetches the linked site. `delete_post` deletes only the
+account's own posts and shows what it deleted. Bluesky limits writes per account (about 1,600 posts an hour,
+11,600 a day) and sign-ins (30 in 5 minutes): the server signs in once per connection, waits up to 30 s for a rate
+limit and otherwise names when to try again; a post whose answer got lost is looked up, not posted twice. The reads
+go to Bluesky's public AppView without your session; what they return is written by other people: data, not
+instructions. sandbox-ai gives the entry the full network (it cannot limit a server to hosts yet); the server
+sends requests to your PDS and `public.api.bsky.app` only. See [its PROVENANCE.md](servers/bluesky/PROVENANCE.md).
 
 **memory and engram** are an agent's memory: `network: none`, and everything they keep is in the folder mounted
 **writable** at `/data` (required). Give each case or project a folder of its own (`mkdir -p ~/brains/CASE`, then
@@ -486,7 +548,7 @@ SQLite is public domain) and the other Go modules it links (their licences under
 `/usr/share/doc/sandbox-ai-mcp-engram/modules` in the image). gowitness bundles gowitness 3.2.2 (GPL-3.0, built from
 the pinned commit with the changes `servers/gowitness/Dockerfile` lists) with the Go modules it links (MIT, BSD,
 Apache-2.0; their licences under `/usr/share/doc/sandbox-ai-mcp-gowitness/modules` in the image) and Debian's
-Chromium (BSD-3-Clause and others). youtube, exec and tasks are our own servers (MIT) on the MCP Python SDK and httpx (MIT, BSD-3-Clause); exec's image
+Chromium (BSD-3-Clause and others). youtube, bluesky, exec and tasks are our own servers (MIT) on the MCP Python SDK and httpx (MIT, BSD-3-Clause); exec's image
 has Debian's git (GPL-2.0), make (GPL-3.0), procps, pytest, pyflakes, PyYAML (MIT), shellcheck (GPL-3.0) and Node.js
 (MIT and others) for its commands, each with its copyright file under `/usr/share/doc` in the image. whatweb bundles WhatWeb 0.6.4 (GPL-2.0-or-later; source: the pinned commit,
 `servers/whatweb/LICENSES/SOURCES.txt`) with Debian's Ruby 3.3, addressable (Apache-2.0) and public_suffix (MIT).

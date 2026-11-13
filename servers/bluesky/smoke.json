@@ -1,0 +1,133 @@
+{
+  "name": "bluesky",
+  "network": "allowlist",
+  "hosts": [
+    "bsky.social:443",
+    "public.api.bsky.app:443"
+  ],
+  "expect_tools": [
+    "delete_post",
+    "get_post_thread",
+    "get_profile",
+    "list_my_posts",
+    "post",
+    "thread"
+  ],
+  "env": {
+    "BLUESKY_HANDLE": "sandbox-ai-mcp-smoke.example",
+    "BLUESKY_APP_PASSWORD": "smok-etes-tonl-y000"
+  },
+  "calls": [
+    {
+      "tool": "get_profile",
+      "arguments": {},
+      "expect": "Bluesky refused the sign-in",
+      "expect_error": true,
+      "timeout": 120
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "Smoke test"
+      },
+      "expect": "writing is off",
+      "expect_error": true
+    },
+    {
+      "tool": "thread",
+      "arguments": {
+        "posts": [
+          "Smoke",
+          "test"
+        ]
+      },
+      "expect": "writing is off",
+      "expect_error": true
+    },
+    {
+      "tool": "delete_post",
+      "arguments": {
+        "uri": "at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/3kabcdefghij2"
+      },
+      "expect": "BLUESKY_WRITE=1",
+      "expect_error": true
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "Smoke test",
+        "images": [
+          {
+            "path": "/etc/passwd",
+            "alt": "x"
+          }
+        ]
+      },
+      "expect": "images[0].path: only files under /upload",
+      "expect_error": true
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "Smoke test",
+        "images": [
+          {
+            "path": "/upload/../etc/passwd.png",
+            "alt": "x"
+          }
+        ]
+      },
+      "expect": "without . or .. in the path",
+      "expect_error": true
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "Smoke test",
+        "images": [
+          {
+            "path": "/upload/image.png"
+          }
+        ]
+      },
+      "expect": "the alt text is required",
+      "expect_error": true
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b\ud83d\udc4b"
+      },
+      "expect": "at most 300 graphemes",
+      "expect_error": true
+    },
+    {
+      "tool": "post",
+      "arguments": {
+        "text": "Smoke test",
+        "link": {
+          "url": "javascript:alert(1)",
+          "title": "x"
+        }
+      },
+      "expect": "link.url: an http(s) address",
+      "expect_error": true
+    },
+    {
+      "tool": "get_post_thread",
+      "arguments": {
+        "uri": "https://example.org/profile/x/post/y"
+      },
+      "expect": "uri: a post's at:// URI",
+      "expect_error": true
+    },
+    {
+      "tool": "list_my_posts",
+      "arguments": {
+        "n": 0
+      },
+      "expect": "n: an integer from 1 to 50",
+      "expect_error": true
+    }
+  ]
+}

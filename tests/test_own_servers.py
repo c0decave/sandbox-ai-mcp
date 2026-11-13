@@ -658,6 +658,32 @@ class Servers(unittest.TestCase):
         self.assertEqual(problems, [], "\n".join(problems))
         self.assertEqual(outcome.skipped, [])
         self.assertGreater(outcome.testsRun, 50)
+    def test_bluesky(self):
+        """The posting server over stdio (tools, the write switch and refusals before any request, no credentials
+        named), then the whole offline suite of tests/test_bluesky.py against its fake PDS and AppView - in CI with
+        the image's own Python and libraries, no network."""
+        self.check_tools("bluesky")
+        clean = {"BLUESKY_HANDLE": "", "BLUESKY_APP_PASSWORD": "", "BLUESKY_WRITE": "", "BLUESKY_PDS": ""}
+        image = [{"path": "/etc/passwd", "alt": "x"}]
+        answers = rpc("bluesky", session(("get_profile", {}), ("post", {"text": "x"}),
+                                         ("post", {"text": "x", "images": image}),
+                                         ("delete_post", {"uri": "at://did:plc:" + "a" * 24 + "/app.bsky.feed.post/x"}),
+                                         ("list_my_posts", {})), env=clean)
+        self.assertIn("no Bluesky credentials", result(answers[2])["error"])
+        self.assertIn("writing is off", result(answers[3])["error"])
+        self.assertIn("only files under /upload", result(answers[4])["error"])
+        self.assertIn("BLUESKY_WRITE=1", result(answers[5])["error"])
+        self.assertIn("no Bluesky credentials", result(answers[6])["error"])
+        answers = rpc("bluesky", session(("post", {"text": "x"})), env={**clean, "BLUESKY_WRITE": "1"})
+        self.assertIn("no Bluesky credentials", result(answers[2])["error"])
+        sys.path.insert(0, str(ROOT / "tests"))
+        import test_bluesky
+        outcome = unittest.TestResult()
+        unittest.defaultTestLoader.loadTestsFromModule(test_bluesky).run(outcome)
+        problems = [f"{test.id()}: {text[-1500:]}" for test, text in outcome.failures + outcome.errors]
+        self.assertEqual(problems, [], "\n".join(problems))
+        self.assertEqual(outcome.skipped, [])
+        self.assertGreater(outcome.testsRun, 30)
 
 
 def osint_mcp_installed():
