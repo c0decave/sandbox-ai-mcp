@@ -1,6 +1,7 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-13 (exec and tasks added, our own servers for agents on small local models; mcp-server-git,
+State: 2026-11-14 (sequential-thinking 2.0.0 added; context7 4.4.4 and chrome-devtools 1.12.0 moved from `candidates/`, the last
+pending its complete review). 2026-11-13: exec and tasks added, our own servers for agents on small local models; mcp-server-git,
 sequential-thinking, serena, the ast-grep MCP server and codebase-memory reviewed for them in
 [LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)). 2026-11-11: playwright moved to `servers/`; openosint, osint-mcp, signal
 and whatsapp added; memory and engram added, Basic Memory looked at and left out.
@@ -66,9 +67,16 @@ context7 (2026-11-14, cut-off 2026-10-31): `@upstash/context7-mcp` **4.4.4** (np
 with `--before=2026-11-01T00:00:00Z` (104 packages, the newest jose 6.2.14 of 2026-10-29; 74 kept), instead of the earlier
 candidate's pnpm build of 4.5.0; Node.js 24.22.1 of servers/memory.
 
+chrome-devtools (2026-11-14, cut-off 2026-10-31): `chrome-devtools-mcp` **1.12.0** (npm 2026-10-22, commit `af283441`,
+provenance-attested; 1.13.0 of 2026-11-11 too new until 2026-11-25), the npm tarball alone by integrity (no runtime
+dependencies: Puppeteer 25.16.0, the MCP SDK 2.3.1, zod 4.6.5, Lighthouse 13.5.0 and the DevTools frontend are bundled),
+Debian's Chromium of servers/playwright, Node.js 24.22.1 of servers/memory. **Not yet fit to sign**: its own code was
+read on every path that reaches the network, files, processes and the configuration, the rest of it and the bundle
+only searched (servers/chrome-devtools/PROVENANCE.md, Verdict).
+
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
-(1.12.0, 2026-10-22), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
+(1.12.0, 2026-10-22; built in servers/ since 2026-11-14), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
 re-pinned from 1.2.0 of 2026-11-02). The other PyPI pins of ghidra are old enough; the npm
 lockfiles of the other candidates were not checked package by package.
 
@@ -100,6 +108,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | engram | Engram 3.6.0 (Gentleman-Programming/engram, MIT, commit `98912f81`), only its MCP server: an own entry point (`src/main.go`) built inside Engram's module links internal/mcp and internal/store and what they import (31,134 lines in 61 files, every one read line by line and pinned by SHA-256; the build proves nothing else of Engram is linked); mcp-go 0.44.0 read line by line; the other Go modules (modernc sqlite/libc, x/sys, x/text, uuid, jsonschema, ...) on their risky surfaces. 23 agent tools; `directory`/`cwd` arguments removed (they scan folders and would run git); arguments bounded, panics recovered, memory in `/data` with Engram's own limits | none; `/data` writable (required), one project per folder (`ENGRAM_PROJECT`, default `brain`) | `src/main_test.go` runs in the image build; smoke spec in CI (save, search, read back; four refused calls); offline tests; not built here (no Go toolchain, no container engine) |
 | sequential-thinking | the official MCP sequential-thinking server 2.0.0 (modelcontextprotocol/servers `src/sequentialthinking`, Apache-2.0/MIT; npm release built by upstream CI from commit `51b6382a`, provenance-attested): one tool, `sequentialthinking`, a chain of thoughts kept in memory per connection; server read line by line against its TypeScript, chalk 5.6.2 in full, the SDK 2.4.0 and zod 4.6.7 by servers/memory's review of the identical files; yargs (declared, never imported) removed from the image; `DISABLE_THOUGHT_LOGGING=true`, `node --disallow-code-generation-from-strings`. 2.1.1 (2026-11-04) too new until 2026-11-18 | none | the smoke spec run locally through `scripts/smoke_test.py` against the packages of the lock on Node.js 26 (a thought, a revision, a branch `__proto__`; three refused calls); offline tests; not built here (no container engine) |
 | context7 | Upstash's Context7 MCP 4.4.4 (upstash/context7 `packages/mcp`, MIT; commit `c7f80ce5`), npm release with an npm lock: two tools, `resolve-library-id` and `query-docs`, GETs to `context7.com/api/v2`; server read line by line against its TypeScript, the SDK 2.3.1 by its diff to 2.4.0, the other loaded packages (undici, express, jose, commander, zod) on their risky surfaces; only the 74 packages that load kept (OpenTelemetry and its loader patching removed, telemetry modules removed, `OTEL_SDK_DISABLED=true`); patched: no sign-in prompt (`npx ctx7 setup`), no client name, version or session id sent | allowlist `context7.com:443`; optional `CONTEXT7_API_KEY` | refused calls, `tools/list` and the proxy path (only `CONNECT context7.com:443`) run locally through `scripts/smoke_test.py` against the prepared packages on Node.js 26; real calls only in CI (context7.com not reachable here); offline tests; not built here |
+| chrome-devtools | Google's Chrome DevTools MCP 1.12.0 (ChromeDevTools/chrome-devtools-mcp, Apache-2.0; commit `af283441`) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 32 default tools (pages, input, snapshots, screenshots, screencasts, console, network, emulation, performance traces, Lighthouse, heap snapshots); usage statistics (Clearcut to `play.googleapis.com`), the npm update check, CrUX lookups and configuration discovery off, the statistics sender and the update script removed from the image, page-defined tools (third-party, WebMCP), extensions and PWAs off by flag; `--headless --isolated --no-file-navigations`, Puppeteer over a pipe. **Pending a complete review** (about 16,000 lines of its own code and the 285,693-line bundle only searched) | full; `--memory 2g --pids 512`, 2 CPUs, a 768m /tmp | `tools/list`, the resolved configuration and the telemetry fail-closed checked locally against the installed package on Node.js 26 (no Chromium here); the smoke spec (a `data:` page, snapshot, script, a heavy page, a screenshot; a `file:` URL, a write to `/etc` and an extension tool refused) in CI; offline tests |
 
 ### The three file-analysis servers, and the cooldown rule
 
@@ -121,7 +130,6 @@ fuzzers, SQL injection, password cracking) or capture network traffic. They stay
 |---|---|---|
 | ghidra | pyghidra-mcp 0.3.0 + Ghidra 12.2 (Apache-2.0) | Re-pin before building: 2026-11-16 or an older release (pyghidra-mcp 0.3.0 and 24 locked dependencies too new); Debian versions of the JDK, unzip and python3 to pin; memory (needs about 4 GiB); chromadb's embedding model offline |
 | codebase-memory | DeusData/codebase-memory-mcp 0.12.1 (MIT), static release binary | all pins set (release SHA-256, Debian git); not built or smoke-tested; memory for large repositories; needs `/out` writable |
-| chrome-devtools | ChromeDevTools/chrome-devtools-mcp 1.12.0 (Apache-2.0) + Debian Chromium | npm package integrity to pin (npm not reachable when prepared); Chromium's limits; upstream supports Chrome only |
 | browserbase | browserbase/mcp-server-browserbase 3.0.0 (Apache-2.0) | all pins set; build not run (Node 20 vs. Stagehand 3.0.8); the CDP host the session API returns is unverified; three secrets |
 | agentql | tinyfish-io/agentql-mcp 1.0.1 = npm `agentql-mcp` (MIT), commit `affb3a5c` (no git tag) | all pins set (npm tarball SHA-512/SHA-256, lockfile by commit, Debian versions); build not run; allowlist `api.agentql.com:443`, `AGENTQL_API_KEY` required; node-fetch ignores `HTTPS_PROXY` |
 | reddit | karanb192/reddit-mcp-buddy 1.1.14 = npm `reddit-mcp-buddy` (MIT), 2026-07-29, commit `dfd3f094` (npm provenance; the tag was moved later, CI-only) | all pins set (npm tarball SHA-512/SHA-256, lockfile by commit, Debian versions); build not run; read-only (no write tools in this release); allowlist `www.reddit.com:443`, `oauth.reddit.com:443`; `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` (an app Reddit approved) and `REDDIT_USER_AGENT`, without them only RSS browsing; 1.2.0 (too new) fixes a zod memory issue, uncut error bodies and cache-key collisions; Node 20's fetch ignores `HTTPS_PROXY` |

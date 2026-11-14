@@ -1041,6 +1041,91 @@ class Context7(unittest.TestCase):
         self.assertFalse((ROOT / "candidates" / "context7").exists(), "the candidate is replaced by servers/context7")
 
 
+class ChromeDevTools(unittest.TestCase):
+    """Chrome DevTools MCP with Debian's Chromium: the release by integrity, the telemetry sender and the update check
+    removed, every switch off by flag, page-defined tools and extensions off, playwright's limits."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "chrome-devtools"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.entry = read_json("servers", "chrome-devtools", "server.json")
+        self.spec = read_json("servers", "chrome-devtools", "smoke.json")
+        self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
+                                               re.M | re.S).group(1))
+
+    def test_the_release_alone_by_integrity(self):
+        lock = read_json("servers", "chrome-devtools", "package-lock.json")
+        packages = {path: entry for path, entry in lock["packages"].items() if path}
+        self.assertEqual(list(packages), ["node_modules/chrome-devtools-mcp"])
+        entry = packages["node_modules/chrome-devtools-mcp"]
+        self.assertEqual(entry["version"], "1.12.0")
+        self.assertEqual(entry["resolved"], "https://registry.npmjs.org/chrome-devtools-mcp/-/chrome-devtools-mcp-1.12.0.tgz")
+        self.assertIn(entry["integrity"], self.provenance)
+        self.assertNotIn("dependencies", entry)
+        self.assertIn("af2834411a564d366f9cab63efb046d9084f4dba", self.provenance)
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+
+    def test_telemetry_and_the_update_check_cannot_run(self):
+        files = [line.split("  ", 1)[1] for line in
+                 (self.folder / "chrome-devtools-files.sha256").read_text().splitlines()]
+        self.assertEqual(len(files), 354)
+        for removed in ("build/src/telemetry/watchdog/ClearcutSender.js", "build/src/telemetry/watchdog/main.js",
+                        "build/src/bin/check-latest-version.js", "build/src/bin/chrome-devtools.js"):
+            self.assertNotIn(removed, files)
+            self.assertIn(removed.removeprefix("build/src/").rsplit("/", 1)[0], self.dockerfile)
+        self.assertFalse([f for f in files if f.startswith("skills/")])
+        self.assertIn("sha256sum --check --strict --quiet /opt/chrome-devtools/chrome-devtools-files.sha256",
+                      self.dockerfile)
+        env = re.search(r"(?ms)^ENV (.*?)(?<!\\)\n", self.dockerfile).group(1)
+        for variable in ("CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS=1", "CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1",
+                         "CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY=1"):
+            self.assertIn(variable, env)
+
+    def test_the_browser_is_its_own_headless_isolated_and_everything_optional_is_off(self):
+        self.assertEqual(self.entrypoint[:3], ["/usr/bin/tini", "-s", "--"])
+        self.assertEqual(self.entrypoint[self.entrypoint.index("--executable-path") + 1], "/usr/bin/chromium")
+        for flag in ("--headless", "--isolated", "--chrome-arg=--no-sandbox", "--no-usage-statistics",
+                     "--no-performance-crux", "--no-file-navigations", "--no-category-experimental-third-party",
+                     "--no-category-experimental-webmcp", "--no-category-extensions", "--no-category-pwa"):
+            self.assertIn(flag, self.entrypoint)
+        for flag in ("--browser-url", "--browserUrl", "--ws-endpoint", "--wsEndpoint", "--auto-connect",
+                     "--autoConnect", "--user-data-dir", "--allow-unrestricted-paths", "--experimental-devtools",
+                     "--experimental-screencast", "--log-file", "--config"):
+            self.assertNotIn(flag, " ".join(self.entrypoint), f"{flag} widens what the server does")
+        chromium = re.search(r"^ARG CHROMIUM_VERSION=(\S+)$", self.dockerfile, re.M).group(1)
+        self.assertEqual(chromium, re.search(r"^ARG CHROMIUM_VERSION=(\S+)$",
+                                             (ROOT / "servers/playwright/Dockerfile").read_text(), re.M).group(1))
+        self.assertIn(chromium, self.provenance)
+
+    def test_full_network_and_playwrights_limits(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("full", "full"))
+        self.assertEqual({k: self.spec[k] for k in ("memory", "cpus", "pids", "tmp")},
+                         {"memory": "2g", "cpus": 2, "pids": 512, "tmp": "768m"})
+        self.assertIn("--memory 2g --pids 512", self.entry["notes"])
+        self.assertIn("a 768m /tmp", self.entry["description"])
+        self.assertNotIn("env", self.entry)
+        self.assertNotIn("mounts", self.entry)
+
+    def test_the_default_tools_and_a_smoke_run_without_outside_hosts(self):
+        tools = read_json("servers", "chrome-devtools", "tools.json")["tools"]
+        self.assertEqual(len(tools), 32)
+        self.assertEqual(tools, sorted(tools))
+        for name in ("install_extension", "install_pwa", "execute_webmcp_tool", "click_at", "open_devtools",
+                     "get_heapsnapshot_details"):
+            self.assertNotIn(name, tools)
+        for call in self.spec["calls"]:
+            url = call["arguments"].get("url", "data:")
+            self.assertTrue(url.startswith(("data:", "file:")), f"{url}: the smoke run needs no outside host")
+        refused = [c["tool"] for c in self.spec["calls"] if c.get("expect_error")]
+        self.assertEqual(refused, ["new_page", "take_snapshot", "install_extension"])
+
+    def test_the_verdict_keeps_it_unsigned_until_the_review_is_complete(self):
+        self.assertIn("**Not yet fit to sign.**", self.provenance)
+        self.assertIn("--only <the other servers>", self.provenance)
+        self.assertFalse((ROOT / "candidates" / "chrome-devtools").exists())
+
+
 class Engram(unittest.TestCase):
     """Engram's MCP server only: our entry point inside Engram's module, linking internal/mcp and internal/store,
     every linked Engram file the reviewed one, one project per memory folder, no folder arguments."""

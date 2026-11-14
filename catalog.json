@@ -5,6 +5,7 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "chrome-devtools",
     "code-search",
     "context7",
     "sequential-thinking"
@@ -165,6 +166,29 @@
       ],
       "network": "none",
       "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions."
+    },
+    {
+      "id": "mcp:chrome-devtools",
+      "name": "chrome-devtools",
+      "title": "Browser debugging (Chrome DevTools MCP, Chromium)",
+      "description": "A headless Chromium (Debian's) driven by Google's Chrome DevTools MCP 1.12.0 through Puppeteer: open pages and tabs, read them as accessibility snapshots, click, type, fill forms, drag, press keys, handle dialogs, wait for text, run JavaScript in the page, take screenshots and screencasts, read console messages and network requests with their bodies, emulate devices, network and CPU, record and analyse performance traces, run Lighthouse audits, take heap snapshots. A fresh temporary profile per connection; no file: URLs; files only in the server's own /tmp; no tools a web page offers, no extensions. No usage statistics, no update check, no CrUX lookups. Needs network: Full and more than the default limits (2g memory, 2 CPUs, 512 processes, a 768m /tmp: sandbox-ai 0.1.94 takes them from the catalog).",
+      "category": "Web",
+      "tags": [
+        "web",
+        "browser",
+        "chromium",
+        "devtools",
+        "debugging",
+        "performance"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/chrome-devtools",
+      "page": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "license": "Apache-2.0 (Chrome DevTools MCP; bundled Puppeteer, Lighthouse, DevTools frontend and others: THIRD_PARTY_NOTICES in the package); Chromium: BSD-3-Clause and others (Debian)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-chrome-devtools",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
     },
     {
       "id": "mcp:code-search",

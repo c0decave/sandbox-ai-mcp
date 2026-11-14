@@ -1,0 +1,10 @@
+{
+  "name": "sandbox-ai-mcp-chrome-devtools",
+  "version": "1.12.0",
+  "private": true,
+  "description": "Chrome DevTools MCP, pinned for sandbox-ai-mcp (npm ci --ignore-scripts)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "chrome-devtools-mcp": "1.12.0"
+  }
+}

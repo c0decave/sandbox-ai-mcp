@@ -1,0 +1,86 @@
+{
+  "name": "chrome-devtools",
+  "network": "full",
+  "memory": "2g",
+  "cpus": 2,
+  "pids": 512,
+  "tmp": "768m",
+  "start_timeout": 120,
+  "expect_tools": [
+    "new_page",
+    "take_snapshot",
+    "evaluate_script",
+    "take_screenshot",
+    "list_network_requests"
+  ],
+  "calls": [
+    {
+      "tool": "new_page",
+      "arguments": {
+        "url": "data:text/html,<title>sandbox-ai%20smoke</title><h1>Hello%20from%20sandbox-ai-mcp</h1><button>Press%20me</button>"
+      },
+      "expect": "data:text/html",
+      "timeout": 180
+    },
+    {
+      "tool": "take_snapshot",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "Hello from sandbox-ai-mcp",
+      "timeout": 60
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.title"
+      },
+      "expect": "sandbox-ai smoke",
+      "timeout": 60
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => { const rows = []; for (let i = 0; i < 40000; i++) rows.push('<div class=\"r\"><b>row ' + i + '</b> ' + 'sandbox-ai smoke text to fill the page '.repeat(8) + '</div>'); document.body.innerHTML = rows.join(''); for (let i = 0; i < 6; i++) { const c = document.createElement('canvas'); c.width = 4000; c.height = 4000; const g = c.getContext('2d'); g.fillStyle = 'hsl(' + (i * 60) + ',80%,50%)'; g.fillRect(0, 0, 4000, 4000); document.body.appendChild(c); } return document.querySelectorAll('div.r').length + ' rows'; }"
+      },
+      "expect": "40000 rows",
+      "timeout": 180
+    },
+    {
+      "tool": "take_screenshot",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "Took a screenshot of the current page's viewport.",
+      "timeout": 180
+    },
+    {
+      "tool": "new_page",
+      "arguments": {
+        "url": "file:///etc/passwd"
+      },
+      "expect": "Navigating to file: URLs is not allowed when --file-navigations is disabled.",
+      "expect_error": true
+    },
+    {
+      "tool": "take_snapshot",
+      "arguments": {
+        "pageId": 2,
+        "filePath": "/etc/smoke-snapshot.txt"
+      },
+      "expect": "Access denied: path /etc/smoke-snapshot.txt",
+      "expect_error": true
+    },
+    {
+      "tool": "install_extension",
+      "arguments": {
+        "path": "/tmp"
+      },
+      "expect": "Tool install_extension disabled",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

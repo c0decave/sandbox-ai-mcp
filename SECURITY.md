@@ -48,12 +48,16 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   host, anything sent beyond the library, the question, the language, the server's version and the transport (the
   client's name, a session id), telemetry loaded, the sign-in prompt shown; the documentation Context7 returns is
   upstream's;
+- chrome-devtools: usage statistics, an update check or a CrUX lookup sent; a `file:` URL opened; a tool reading or
+  writing outside `/tmp` (or the client's roots); tools a web page defines offered to the agent; the server's own
+  process running JavaScript from a tool argument; Chromium and the bundled Puppeteer, Lighthouse and DevTools
+  frontend themselves are upstream's;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull
   an image other than the one reviewed).
 
-Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
+Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chrome DevTools MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
 radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong upstream, unless the
 packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
 crafted file is such an upstream matter; it happens inside a container with no network, no
