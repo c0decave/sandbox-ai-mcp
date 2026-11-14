@@ -71,7 +71,7 @@ the output bounded; its structured tools would help a small model only with boun
 bounded tools (`git_status`, `git_diff` with a line limit, `git_log`) fit into exec as our own code in an hour,
 without a second SDK lock and 20,000 lines of GitPython.
 
-### `sequential-thinking` (modelcontextprotocol/servers `src/sequentialthinking`) - not packaged now; 2.1.1 from 2026-11-18 if wanted
+### `sequential-thinking` (modelcontextprotocol/servers `src/sequentialthinking`) - packaged on 2026-11-14 at 2.0.0 ([servers/sequential-thinking](../servers/sequential-thinking)) on request; 2.1.1 from 2026-11-18
 
 | | |
 |---|---|
@@ -146,4 +146,5 @@ it would be packaged on a review of its risky surfaces, as the binary analysis t
    0.51.0 stays an option for a structural `find_pattern` tool if capable models ask for one.
 2. sandbox-ai: a long `tool_timeout_sec` for exec under Codex (as for its helpers), and presets that add exec and
    tasks for local-model agents.
-3. sequential-thinking 2.1.1 from 2026-11-18, only if users ask for it.
+3. sequential-thinking: packaged at 2.0.0 on 2026-11-14 (users asked for it; review in its PROVENANCE.md, thought
+   logging off); re-pin to 2.1.1 from 2026-11-18. The advice above stands: for small models, tasks first.

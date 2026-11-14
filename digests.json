@@ -16,6 +16,7 @@
     "playwright": "sha256:0c844b0599bffb6ea2947c6f43f95c6f4c7a292e95c95810d79e4017f9a4be6a",
     "radare2": "sha256:abf12c1714ccb71c16e54a875087f771973dd19e623155b54072a2f0c5e0dd75",
     "searxng": "sha256:3782cfd8be2e4510bdf1998943563b83c18b09777bbe64a6ec053a066fc2ff86",
+    "sequential-thinking": null,
     "signal": "sha256:3e0676bc2a13dc6617d9eb50de8e1fb500498fef7444e92c7c596b71a9271d4a",
     "tasks": "sha256:b8329b97e36090cc39cac43ed8dd6f2903fc0d0d8667e75c236af6cdebb82fcb",
     "telegram": "sha256:499abb4f37e71214e517cb89962e00f5213afe19354b226e9342daf46bee9edc",

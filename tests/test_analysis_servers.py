@@ -891,6 +891,71 @@ class Memory(unittest.TestCase):
                           "delete_observations", "delete_relations", "open_nodes", "read_graph", "search_nodes"])
 
 
+class SequentialThinking(unittest.TestCase):
+    """The official sequential-thinking server: the npm release and its packages by integrity, yargs (declared, never
+    imported) removed, thought logging off, no network, no files, no code generation from strings."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "sequential-thinking"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.lock = read_json("servers", "sequential-thinking", "package-lock.json")
+        self.entry = read_json("servers", "sequential-thinking", "server.json")
+
+    def test_the_lock_pins_every_package_by_integrity_and_the_sdk_is_memorys(self):
+        packages = {path.removeprefix("node_modules/"): entry for path, entry in self.lock["packages"].items() if path}
+        kept = {"@modelcontextprotocol/server-sequential-thinking": "2.0.0", "@modelcontextprotocol/server": "2.4.0",
+                "@modelcontextprotocol/core": "2.4.0", "zod": "4.6.7", "chalk": "5.6.2"}
+        for name, version in kept.items():
+            self.assertEqual(packages[name]["version"], version, name)
+            self.assertIn(packages[name]["integrity"][:15], self.provenance, f"{name}: its integrity is not in PROVENANCE.md")
+        for name, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), name)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", name)
+            self.assertFalse(entry.get("hasInstallScript"), f"{name} has an install script")
+        memory = {path: entry["integrity"] for path, entry in read_json("servers", "memory", "package-lock.json")[
+            "packages"].items() if path}
+        for path in ("node_modules/@modelcontextprotocol/server", "node_modules/@modelcontextprotocol/core",
+                     "node_modules/zod"):
+            self.assertEqual(self.lock["packages"][path]["integrity"], memory[path],
+                             f"{path}: servers/memory's review covers only the same files")
+        self.assertEqual(read_json("servers", "sequential-thinking", "package.json")["dependencies"],
+                         {"@modelcontextprotocol/server-sequential-thinking": "2.0.0"})
+
+    def test_only_what_runs_is_kept_and_the_reviewed_files_are_checked(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("rm -rf node_modules/yargs ", self.dockerfile)
+        self.assertIn("test \"$(ls node_modules | tr '\\n' ' ')\" = \"@modelcontextprotocol chalk zod \"", self.dockerfile)
+        digests = re.findall(r'echo "([0-9a-f]{64})  node_modules/', self.dockerfile)
+        self.assertEqual(len(digests), 3)
+        for digest in digests:
+            self.assertIn(digest, self.provenance)
+        self.assertIn("51b6382a3e827aceb6bce430b1208d69b93d95ea", self.provenance)
+        node = re.search(r"^ARG NODE_IMAGE=\S+@(sha256:[0-9a-f]{64})$", self.dockerfile, re.M)
+        self.assertEqual(node.group(0), re.search(r"^ARG NODE_IMAGE=\S+$",
+                                                  (ROOT / "servers/memory/Dockerfile").read_text(), re.M).group(0))
+        self.assertIn(node.group(1), self.provenance)
+
+    def test_thought_logging_is_off_and_no_code_is_generated(self):
+        self.assertRegex(self.dockerfile, r"(?m)^ENV .*DISABLE_THOUGHT_LOGGING=true")
+        self.assertIn('"--disallow-code-generation-from-strings"', self.dockerfile)
+        self.assertNotIn("env", self.entry, "no variable can turn thought logging back on")
+
+    def test_no_network_no_files_and_one_tool(self):
+        spec = read_json("servers", "sequential-thinking", "smoke.json")
+        self.assertEqual((self.entry["network"], spec["network"]), ("none", "none"))
+        self.assertNotIn("mounts", self.entry)
+        self.assertNotIn("mounts", spec)
+        self.assertEqual(read_json("servers", "sequential-thinking", "tools.json")["tools"], ["sequentialthinking"])
+        refused = [c for c in spec["calls"] if c.get("expect_error")]
+        self.assertGreaterEqual(len(refused), 3)
+        self.assertTrue([c for c in refused if c.get("absent")])
+
+    def test_the_newer_release_and_when_it_is_old_enough(self):
+        self.assertIn("2.1.1", self.provenance)
+        self.assertIn("2026-11-18", self.provenance)
+
+
 class Engram(unittest.TestCase):
     """Engram's MCP server only: our entry point inside Engram's module, linking internal/mcp and internal/store,
     every linked Engram file the reviewed one, one project per memory folder, no folder arguments."""

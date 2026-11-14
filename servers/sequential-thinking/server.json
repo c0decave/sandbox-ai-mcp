@@ -1,0 +1,20 @@
+{
+  "id": "mcp:sequential-thinking",
+  "name": "sequential-thinking",
+  "title": "Sequential thinking (official MCP server)",
+  "description": "The official MCP sequential-thinking server (@modelcontextprotocol/server-sequential-thinking 2.0.0): one tool, sequentialthinking, with which an agent writes down its reasoning as numbered thoughts - each can revise an earlier one or branch from it - and gets back the counts (thought number, estimated total, branches, length of the history). The thoughts are kept in memory for one connection only: nothing is read or written, nothing survives a restart. No network.",
+  "category": "Reasoning",
+  "tags": [
+    "reasoning",
+    "planning",
+    "thinking"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/sequential-thinking",
+  "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+  "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP TypeScript SDK: Apache-2.0; zod, chalk: MIT; Node.js: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-sequential-thinking",
+  "tag": "latest",
+  "network": "none",
+  "notes": "Useful for agents on capable models that do not reason natively, or to make a long chain of reasoning visible step by step; models with their own reasoning gain little, and small local models tend to keep thinking instead of acting - for those, the tasks server keeps a plan on disk. The model sets thoughtNumber, totalThoughts and nextThoughtNeeded itself; the server only counts and keeps the history until the connection ends. Thought logging to stderr is switched off in the image."
+}

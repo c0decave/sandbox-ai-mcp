@@ -57,6 +57,11 @@ Engram **3.6.0** (2026-10-24, commit `98912f81`; 3.6.1, 3.6.2, 3.7.0 and 3.7.1 o
 3.7.1 bounds FTS query sizes, which our entry point does for every argument), every Go module by the release's
 `go.sum` (published before 2026-10-24 by construction), Go 1.26.10 (the golang image of servers/whatsapp).
 
+sequential-thinking (2026-11-14, cut-off 2026-10-31): `@modelcontextprotocol/server-sequential-thinking` **2.0.0** (npm
+2026-10-19, tag `v2.0.0`, commit `51b6382a`; 2.1.1 of 2026-11-04 too new until 2026-11-18, no security fix), locked with
+`npm install --package-lock-only --before=2026-11-01T00:00:00Z`: the SDK 2.4.0 and zod 4.6.7 of servers/memory (same
+integrities), chalk 5.6.2 (2025-09-08), yargs 17.7.3 (2026-06-19, removed from the image); Node.js 24.22.1 of servers/memory.
+
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
 (1.12.0, 2026-10-22), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
@@ -89,6 +94,7 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | exec | our own server (`src/server.py`, the shared lock) for agents on small local models: `run_command` (bash with a time limit, the whole process tree stopped on it, stdin empty, no terminal, a fixed non-interactive environment, output cut to start and end), background jobs, `run_tests` (only the failures), `lint` (read-only); Debian's git, make, pytest, pyflakes, PyYAML, shellcheck and Node.js 20 for the commands | none; `/work` writable (required: the project); `--memory 2g --pids 512`, a 512m /tmp | `tests/test_exec.py` (43 offline tests: limits and kills, output bounds, input, environment, paths and links, jobs, recorded test reports, real test runs, lint, stdio); `test_exec` inside the image and the smoke spec in CI; not built here (no container engine) |
 | tasks | our own server (`src/server.py`, the shared lock): a plan outside the model's context in `/work/.tasks` (goal, steps, notes, `next_step`), flock-locked atomic writes, `PLAN.md` for the human | none; `/work` writable (required: the project) | `tests/test_tasks.py` (persistence, bounds, plans changed by hand, links, six processes and four threads at once, stdio); `test_tasks` inside the image and the smoke spec in CI; not built here |
 | engram | Engram 3.6.0 (Gentleman-Programming/engram, MIT, commit `98912f81`), only its MCP server: an own entry point (`src/main.go`) built inside Engram's module links internal/mcp and internal/store and what they import (31,134 lines in 61 files, every one read line by line and pinned by SHA-256; the build proves nothing else of Engram is linked); mcp-go 0.44.0 read line by line; the other Go modules (modernc sqlite/libc, x/sys, x/text, uuid, jsonschema, ...) on their risky surfaces. 23 agent tools; `directory`/`cwd` arguments removed (they scan folders and would run git); arguments bounded, panics recovered, memory in `/data` with Engram's own limits | none; `/data` writable (required), one project per folder (`ENGRAM_PROJECT`, default `brain`) | `src/main_test.go` runs in the image build; smoke spec in CI (save, search, read back; four refused calls); offline tests; not built here (no Go toolchain, no container engine) |
+| sequential-thinking | the official MCP sequential-thinking server 2.0.0 (modelcontextprotocol/servers `src/sequentialthinking`, Apache-2.0/MIT; npm release built by upstream CI from commit `51b6382a`, provenance-attested): one tool, `sequentialthinking`, a chain of thoughts kept in memory per connection; server read line by line against its TypeScript, chalk 5.6.2 in full, the SDK 2.4.0 and zod 4.6.7 by servers/memory's review of the identical files; yargs (declared, never imported) removed from the image; `DISABLE_THOUGHT_LOGGING=true`, `node --disallow-code-generation-from-strings`. 2.1.1 (2026-11-04) too new until 2026-11-18 | none | the smoke spec run locally through `scripts/smoke_test.py` against the packages of the lock on Node.js 26 (a thought, a revision, a branch `__proto__`; three refused calls); offline tests; not built here (no container engine) |
 
 ### The three file-analysis servers, and the cooldown rule
 
@@ -273,8 +279,8 @@ next to this one, so they are not duplicated here.
   symbol's source, bounded text search and a project map, `/work` read-only, without ast-grep
   ([LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)); a structural `find_pattern` on the `ast-grep` 0.51.0 binary only if
   capable models ask for it.
-- **sequential-thinking** (modelcontextprotocol/servers): reviewed, small and clean, but of little use for small
-  models; 2.1.1 from 2026-11-18 if asked for. **time**: small, no network.
+- **sequential-thinking**: built ([servers/sequential-thinking](../servers/sequential-thinking), 2.0.0, asked for
+  on 2026-11-14); re-pin to 2.1.1 from 2026-11-18. **time**: small, no network.
 - **git** (mcp-server-git, MIT): reviewed, not packaged - exec runs git with pagers, editors and prompts off.
 - **SearXNG** client: search through your own SearXNG instance (allowlist of that host).
 - **arXiv / Wikipedia** search: own small servers, allowlist.
