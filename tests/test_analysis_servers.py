@@ -1120,9 +1120,23 @@ class ChromeDevTools(unittest.TestCase):
         refused = [c["tool"] for c in self.spec["calls"] if c.get("expect_error")]
         self.assertEqual(refused, ["new_page", "take_snapshot", "install_extension"])
 
-    def test_the_verdict_keeps_it_unsigned_until_the_review_is_complete(self):
-        self.assertIn("**Not yet fit to sign.**", self.provenance)
-        self.assertIn("--only <the other servers>", self.provenance)
+    def test_the_verdict_follows_the_complete_review(self):
+        # Fit to sign only with the complete review on record: every line of its own code in the image read, the
+        # package rebuilt from the release commit (and the DevTools frontend and Lighthouse commits it was built from).
+        text = " ".join(self.provenance.split())
+        self.assertIn("**Fit to sign once CI passes.**", text)
+        self.assertNotIn("Not yet fit to sign", text)
+        self.assertNotIn("--only <the other servers>", text)
+        self.assertIn("The server's own code - every line read.", text)
+        self.assertIn("18,195 lines", text)
+        self.assertIn("are **byte-identical** to the rebuild", text)
+        for commit in ("f22c645573adc85e4553747c577eebb874c3fb43", "cb853a38a6410617518b363590c967b3fe211949"):
+            self.assertIn(commit, text)
+        # The Lighthouse bundle the record reproduced is the one the image pins.
+        pinned = dict(reversed(line.split(None, 1))
+                      for line in (self.folder / "chrome-devtools-files.sha256").read_text().splitlines())
+        lighthouse = pinned["build/src/third_party/lighthouse-devtools-mcp-bundle.js"]
+        self.assertIn(f"`{lighthouse}`, 60,837 lines", text)
         self.assertFalse((ROOT / "candidates" / "chrome-devtools").exists())
 
 

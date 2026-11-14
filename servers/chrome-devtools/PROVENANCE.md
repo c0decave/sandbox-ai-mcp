@@ -22,7 +22,8 @@ devtools`, the same release, its integrity left open) is replaced by this folder
 `yargs` 18.2.0, `semver` 7.8.5, `core-js` 3.50.0, Lighthouse 13.5.0 (`lighthouse-devtools-mcp-bundle.js`, with axe-core,
 third-party-web, `@paulirish/trace_engine`, ...; its `@sentry/node` replaced by an empty module) and the DevTools
 frontend at `f22c645573adc85e4553747c577eebb874c3fb43` (`index.js`, two workers) - 285,693 lines of bundled JavaScript
-next to 21,456 lines of the server's own.
+next to 21,456 lines of the server's own (18,195 of them in the image, after the removals below). The whole `build/src`
+of the tarball was rebuilt from commit `af283441` with its lockfile and is byte-identical to it (Review, below).
 
 ## What runs, and what was switched off
 
@@ -75,26 +76,154 @@ Network responses (headers, bodies), console messages and page texts come back t
 
 ## What was reviewed
 
-- **Read in full** (5,180 lines): the entry (`bin/chrome-devtools-mcp.js`, `bin/chrome-devtools-mcp-main.js`), the
-  update check (`utils/check-for-updates.js`, `bin/check-latest-version.js`), the configuration (`config/mcp-options.js`,
+Two passes: the first (packaging) read the code on the paths to the network, files, processes and the configuration
+and searched the rest; the second (2026-11-14, completing the review) read every remaining line of the server's own
+code, rebuilt the package from source, and checked every bundled part against its published upstream release.
+
+**The server's own code - every line read.** The image holds 18,195 lines of it (86 files; the 3,261 lines of the
+removed CLI, daemon, watchdog and update script are not in the image and need no review):
+
+- read in the first pass (4,366 lines of what is in the image, 5,180 with the removed watchdog and update script): the
+  entry (`bin/chrome-devtools-mcp.js`, `bin/chrome-devtools-mcp-main.js`), the update check
+  (`utils/check-for-updates.js`, `bin/check-latest-version.js`), the configuration (`config/mcp-options.js`,
   `ConfigLocator.js`, `ConfigParser.js`, `ServerConfig.js`, `category-options.js`, `browser-options.js`,
   `puppeteer-options.js`, `tool-options.js`), the telemetry (`telemetry/ClearcutLogger.js`, `WatchdogClient.js`,
   `persistence.js`, `transformation.js`, `flagUtils.js`, `watchdog/main.js`, `watchdog/ClearcutSender.js`),
   `BrowserManager.js`, `utils/files.js`, `utils/url.js`, `utils/logger.js`, `utils/errorHandling.js`,
   `utils/disclaimers.js`, `tools/tools.js`, `tools/categories.js`, `tools/pages.js`, `tools/script.js`,
-  `tools/performance.js`, `tools/extensions.js`, `tools/screencast.js`; in `McpContext.js` the roots, `validatePath`,
-  file writes and `loadResource`.
-- **Searched, with the code around every hit read:** the rest of the server's own code (16,276 lines) and the whole
-  bundle for hosts, `fetch`, `child_process`/`spawn`/`exec`, `eval`/`new Function`, workers, file writes and
-  environment reads. Process execution: Puppeteer's launch of the browser, its `taskkill`/WSL helpers (Windows and
-  WSL only), the ffmpeg screencast (off), the watchdog and update-check children (removed). `new Function`: Puppeteer's
-  `createFunction` for functions it sends to the page, Ajv in the bundled SDK, DevTools' formatter workers. File
-  writes: only `validatePath`-checked tool outputs, the telemetry state and update cache (both off), `--log-file`
-  (not set), the profile.
-- **Not reviewed line by line:** the server's own tools, formatters and collectors beyond the files above (about
-  16,000 lines), and the 285,693 lines of bundled third-party code (Puppeteer, the MCP SDK, zod, yargs, Lighthouse,
-  the DevTools frontend). Not checked: that the bundle equals a build of commit `af283441` with its lockfile (the
-  build needs Node.js >= 22.18 and the DevTools frontend checkout), and that its parts equal their published releases.
+  `tools/performance.js`, `tools/extensions.js`, `tools/screencast.js`;
+- read in the second pass (13,829 lines, 57 files): `index.js`, `McpContext.js` (all of it), `McpPage.js`,
+  `McpResponse.js`, `SlimMcpResponse.js`, `McpWorker.js`, `ToolHandler.js`, `TextSnapshot.js`, `types.js`, `version.js`;
+  `collectors/` (`PageCollector.js`, `ServiceWorkerCollector.js`, `constants.js`); `config/ConfigWatcher.js`;
+  `daemon/utils.js`; `devtools/` (`DevToolsCommentBridge.js`, `DevtoolsUtils.js`, `McpHostBindingAdapter.js`,
+  `issueDescriptions.js`); `formatters/` (`CommentFormatter.js`, `ConsoleFormatter.js`, `CssFormatter.js`,
+  `HeapSnapshotFormatter.js`, `IssueFormatter.js`, `NetworkFormatter.js`, `RemoteObjectFormatter.js`,
+  `SnapshotFormatter.js`); `processors/` (`ChunkedTraceParser.js`, `HeapSnapshotManager.js`, `PerformanceTrace.js`);
+  `telemetry/errors.js`, `telemetry/types.js`; `tools/` (`ToolDefinition.js`, `comments.js`, `console.js`, `css.js`,
+  `emulation.js`, `input.js`, `lighthouse.js`, `memory.js`, `network.js`, `pwa.js`, `screenshot.js`, `snapshot.js`,
+  `thirdPartyDeveloper.js`, `webmcp.js`, `slim/tools.js`); `utils/` (`TaskRunner.js`, `WaitForHelper.js`, `bytes.js`,
+  `id.js`, `keyboard.js`, `pagination.js`, `polyfill.js`, `resourceType.js`, `text.js`, `timeout.js`). The TypeScript
+  helper prelude that tsc puts at the top of 11 files is identical in all of them (checked by hash) and was read
+  once. Also read: the server's wrappers around the bundle (`src/third_party/index.ts`, `cli.ts`, the two worker
+  entries) and its build scripts (`rollup.config.js`, `scripts/prepare.ts`, `post-build.ts` - the stand-in modules it
+  writes for DevTools' locales, CodeMirror, `Runtime` and the AI-assistance skills are inert data -,
+  `append-lighthouse-notices.ts`, `update-lighthouse.ts`) and the publish workflow at the tag.
+- Looked for in all of it: network access, `eval`/`Function`/dynamic `import()`, child processes, file writes outside
+  the temporary directory and the roots, environment variables that change behaviour, listening sockets, hidden
+  endpoints, obfuscation, data sent off the machine. Results under Findings; nothing of that kind beyond what is listed.
+
+**The package equals its source.** Commit `af2834411a564d366f9cab63efb046d9084f4dba` (on `main` of
+ChromeDevTools/chrome-devtools-mcp, tag `chrome-devtools-mcp-v1.12.0`) was cloned, `npm ci --ignore-scripts` installed
+its `package-lock.json` (550 packages, each checked by npm against its lock integrity), the DevTools frontend submodule
+was checked out at `f22c645573adc85e4553747c577eebb874c3fb43` (on `main` of the ChromeDevTools/devtools-frontend
+mirror of chromium.googlesource.com, Gerrit change 8616444) with the sparse checkout of `scripts/prepare.ts`, and
+`NODE_ENV=production npm run bundle` was run as the publish workflow does (tsc, `post-build.ts`, rollup, the notices).
+All 361 files of the tarball's `build/src` (the removed ones included) and its `LICENSE`, `README.md` and
+`package.json` are **byte-identical** to the rebuild, the 285,693 bundled lines included. So the bundle is exactly what
+the build makes of the server's source, the DevTools frontend at that commit, the locked npm packages and the
+repository's Lighthouse bundle (next paragraphs) - nothing was added to it by hand.
+
+**The bundled npm packages equal their published releases.** For every lock entry of a package rollup put into the
+bundle (`THIRD_PARTY_NOTICES`: `puppeteer-core` 25.16.0, `@puppeteer/browsers` 3.2.6, `ws` 8.22.0,
+`@modelcontextprotocol/server` and `/core` 2.3.1, `ajv` 6.15.0, `uri-js`, `fast-deep-equal`, `json-schema-traverse`,
+`fast-json-stable-stringify`, `zod` 4.6.5, `yargs` 18.2.0, `yargs-parser`, `y18n`, `cliui`, `string-width`,
+`strip-ansi`, `ansi-regex`, `ansi-styles`, `wrap-ansi`, `emoji-regex`, `get-east-asian-width`, `escalade`,
+`get-caller-file`, `semver` 7.8.5, `core-js` 3.50.0), every nested copy included, and for `lighthouse` 13.5.0, rollup
+4.64.7 with its four plugins and TypeScript 6.0.2 (56 lock entries): the lock's integrity equals the registry's
+(registry.npmjs.org `<name>/<version>` `dist.integrity`), the tarball downloaded afresh matches it, and every file in
+the tarball equals the installed file, with no extra file installed.
+
+**The Lighthouse bundle equals a build of Lighthouse 13.5.0.** `lighthouse-devtools-mcp-bundle.js` (SHA-256
+`f31f94212ca3d861bf1e6b1ad351e1c54797ae41033a1c3b6af36b957941c27d`, 60,837 lines) is not rolled up by the server's
+build: it is a file in the repository (commit 841793ff, "reimport lighthouse 13.5.0 bundle"), made with Lighthouse's
+own `yarn build-devtools-mcp`. GoogleChrome/lighthouse at tag `v13.5.0` (commit
+`cb853a38a6410617518b363590c967b3fe211949`, on `main`, the `gitHead` of the npm release 13.5.0) was installed with
+its `yarn.lock` (yarn 1.22.22 by the hash in its `packageManager`, `--frozen-lockfile --ignore-scripts`), and
+`build-report-components.js`, `build-report.js` and `build-bundle-mcp.js` were run: the result is identical to the
+shipped file except the build date in the banner (`Oct 22 2026`) and the absolute path of the developer's checkout
+(`/Users/alexrudenko/src/lighthouse`, on 137 lines of `replace-modules:` markers) - identical after replacing both. Its
+notices file equals the shipped `LIGHTHOUSE_MCP_BUNDLE_THIRD_PARTY_NOTICES`. The 446 JavaScript files of the npm
+release `lighthouse` 13.5.0 (`core/`, `shared/`, `report/`, `third-party/`, the logger) equal the tag's, and the 57
+installed copies of the packages esbuild put into the bundle (`@paulirish/trace_engine` 0.0.65, `axe-core` 4.13.0,
+`third-party-web`, `csp_evaluator`, `intl-messageformat` and `@formatjs/*`, `lodash-es`, `tldts-*`, `robots-parser`,
+`http-link-header`, `js-library-detector`, `lighthouse-stack-packs`, `lookup-closest-locale`, `marky`, `debug`, `ms`,
+`ajv` 8 with `ajv-formats`, `tslib`, `legacy-javascript`; esbuild 0.28.0 itself) equal their registry tarballs file by
+file.
+
+**The DevTools frontend** (in `index.js` and both workers) is compiled from the git commit above; it has no npm
+release at that commit (the `chrome-devtools-frontend` package nearest to it is 1.0.1721762 at 7ee90026, 18 commits
+earlier), so its upstream identity is the git commit on the official repository's `main`, which the rebuild shows the
+bundle was compiled from.
+
+**Third-party code at the SDK depth** (identical upstream code from Google's Puppeteer, Lighthouse and DevTools teams
+and the MCP and npm maintainers, reviewed as this repository reviews SDKs, not line by line). Every one of the five
+bundle files was searched for processes, hosts and network calls, code generation, dynamic imports, workers, file
+writes, listening sockets and environment reads, and the code around every hit was read:
+
+- *Processes:* only Puppeteer's `spawn` of the browser (`executablePath` `/usr/bin/chromium`); its `taskkill`
+  (Windows), `cmd.exe`/`wslinfo`/`wslpath` (WSL) helpers and the ffmpeg screencast (`--experimentalScreencast`, off; no
+  ffmpeg in the image) are not reached. No other process in the bundle.
+- *Browser download (Puppeteer) - unused and not even present:* rollup kept no download or install function of
+  `@puppeteer/browsers`; what is left is dead (an unreferenced table of download-URL functions) or reached only from
+  `trimCache()` (version lookups at `googlechromelabs.github.io`, `storage.googleapis.com`,
+  `product-details.mozilla.org`), which nothing calls. `proxy-agent` and `yauzl` are external imports that are not
+  installed. With `executablePath` given, `computeLaunchArguments` never resolves a cached browser; puppeteer-core's
+  configuration is an empty object (no `.puppeteerrc`, no `PUPPETEER_*` configuration variables).
+- *Network:* WebSocket/HTTP clients of Puppeteer and `ws` only for `connect()` to a debugging endpoint (not used:
+  pipe); `ws`'s `WebSocketServer` class is defined but never instantiated - no listening socket anywhere in the
+  server. DevTools' CrUX manager (`chromeuxreport.googleapis.com`) fetches only once its `field-data` setting is
+  enabled, which only the server's `populateCruxData` does (`--no-performance-crux`). DevTools' resource loading goes
+  through the server's `McpHostBindingAdapter.loadNetworkResource` (`McpContext.loadResource`); its other host methods
+  (histograms, user-metrics actions, surveys, AIDA/AI calls, `dispatchHttpRequest`) are no-ops or refuse. DevTools'
+  locale fetch is never needed (en-US is registered in memory) and would be a local `file:` URL. The rest of the
+  hosts in the bundle are documentation links, third-party-web's entity list and stack-pack data.
+- *Lighthouse's own network and telemetry:* Lighthouse can report errors to Sentry (`sentry.io/174697`, a 1 % sample)
+  only when its `init` runs with `flags.enableErrorReporting`: nothing in the bundle calls `init`, the server never
+  passes that flag, and Lighthouse's build replaced `@sentry/node` by an empty module - nothing is sent. Lighthouse's
+  `fetch` from Node.js runs only under `global.isLightrider` (Google's hosted runner, not set); otherwise robots.txt,
+  llms.txt, `/.well-known/ai-catalog.json` and source maps are fetched by the browser from the audited page's own
+  origin. No other host, no usage statistics, no update check.
+- *Code generation:* Puppeteer's `createFunction` (functions the server's own code sends to the page; the query-handler
+  sources it interpolates are Puppeteer's), Ajv 8 in the MCP SDK (the server's own schemas), Ajv 6 (only for
+  `execute_3p_developer_tool`, off - see Findings), axe-core's templates (run inside the page), the heap-snapshot
+  worker's `evaluateForTest` (only reachable from DevTools' test helper, which nothing calls). Dynamic imports: the
+  Lighthouse bundle, Lighthouse's `requireWrapper` (only its own bundled gatherers and audits: no configuration with
+  plugin paths is ever passed), Puppeteer's WebDriver-BiDi module (Firefox or `PUPPETEER_WEBDRIVER_BIDI_ONLY` only; the
+  file is not in the package, so it would fail), `@toon-format/toon`/`@blackwell-systems/gcf` (only with
+  `--experimentalDataFormat`, not set; not installed, and ES-module resolution never looks in `$HOME`).
+- *File writes:* Puppeteer's temporary profile (`mkdtemp` under `/tmp`, removed on close), screenshot/PDF/trace/
+  screencast/heap-snapshot writes only to paths the server passes (each checked by `validatePath`), Lighthouse's
+  artifact saver (only with `-G`/`-A` flags, never passed), y18n's locale writes (`updateFiles: false` in yargs).
+- *Environment:* besides the server's own variables (Findings) only `PUPPETEER_DANGEROUS_NO_SANDBOX`,
+  `PUPPETEER_WEBDRIVER_BIDI_ONLY`, `PUPPETEER_TEST_EXPERIMENTAL_CHROME_FEATURES`, `DEBUG`, `NODE_DEBUG`,
+  `WS_NO_BUFFER_UTIL`/`WS_NO_UTF_8_VALIDATE`, `YARGS_MIN_NODE_VERSION`, the locale variables and, for connecting to a
+  running Chrome (not used), `CHROME_CONFIG_HOME`/`XDG_CONFIG_HOME`/`LOCALAPPDATA`; none opens a host, a file or a
+  process. The image sets none of them.
+
+**The image's hardening holds against these code paths:**
+
+- *Flags and variables:* the server reads no option from the environment (yargs without `.env()`); its variables are
+  `CI`/`CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS` (statistics off), `CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS`,
+  `CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY` (also covers `PLUGIN_DATA` and `XDG_CONFIG_HOME`),
+  `CHROME_DEVTOOLS_MCP_CATEGORY_EXPERIMENTAL_THIRD_PARTY` (applied only when the option is undefined; the entry's
+  `--no-category-experimental-third-party` makes it `false`), `CHROME_DEVTOOLS_MCP_CRASH_ON_UNCAUGHT`, `DISPLAY` (headed
+  only) and `XDG_RUNTIME_DIR` (the CLI daemon's, not on the server's path). With configuration discovery off and no
+  `--config`, `--watchConfig` has no file to watch, and every option is the entry's or its default.
+- *Telemetry sender removed:* `ClearcutLogger.initialize` runs only with `usageStatistics`; every other call is
+  `ClearcutLogger.get()?.` and does nothing; the watchdog it would spawn is not in the image (forced on, the server
+  stops).
+- *No debugging port:* `pipe: true` makes Puppeteer add `--remote-debugging-pipe`, unless an argument starting with
+  `--remote-debugging-` is given - the only `--chrome-arg` is `--no-sandbox` and no configuration file is read. Nothing
+  else listens.
+- *`file:` URLs off:* `navigate_page` and `new_page` call `validateUrl` with `fileNavigations: false` (also through
+  `view-source:`); the slim `navigate` is disabled (no `--slim`); Lighthouse audits the page's current URL;
+  `install_pwa` (which would take a `file:` bundle) is off with `--no-category-pwa`. Files the server reads or writes
+  for a tool (`filePath`, `outputDirPath`, `upload_file`, heap snapshots, `get_network_request` bodies, source maps
+  named with `file:`) go through `validatePath` (inside the client's roots or `/tmp`, symbolic links resolved; written
+  with `O_NOFOLLOW`).
+- *Page-defined tools, extensions, web apps:* every such tool is disabled by its category or condition, and
+  `ToolHandler` refuses a disabled tool even when called directly; `McpResponse` lists page tools only when the
+  category is on.
 
 ## Findings
 
@@ -110,8 +239,17 @@ Network responses (headers, bodies), console messages and page texts come back t
 | info | `tools/script.js` | `evaluate_script`, `initScript`: JavaScript in the page (its origin, its cookies) | the tool's purpose |
 | info | Lighthouse bundle | `@sentry/node` stubbed out, error reporting never initialised | nothing sent |
 | info | Node.js flags | not run with `--disallow-code-generation-from-strings`: Puppeteer's `createFunction` and the bundled Ajv need `new Function` in the server's process | none needed: no tool argument reaches them as code |
+| low | `tools/thirdPartyDeveloper.js` 80-81 | `execute_3p_developer_tool` compiles the JSON schema a web page declares for its tool with Ajv 6 - code generated in the server's process from page input (Ajv's own guidance: do not compile untrusted schemas) | the category is off by `--no-category-experimental-third-party` (and the variable cannot turn it on); the tool is refused |
+| low | `McpContext.js` 1022-1025, `McpHostBindingAdapter.js` | a page can name a `file:` source map; the server then reads it, but only inside the roots or `/tmp` (`validatePath`), and what it parses reaches the agent, never the page | container-only `/tmp`; documented |
+| info | `McpPage.js` 943-954, `tools/comments.js` | `import('/bundled/...')` and `evaluate` inside a DevTools window (the browser, not the server) | DevTools UI and comment tools off |
+| info | `McpResponse.js` 548-569, `third_party/index.js` (`getToonEncode`, `getGcfEncode`) | dynamic imports of the optional peer packages `@toon-format/toon` and `@blackwell-systems/gcf` | only with `--experimentalDataFormat`/`--experimentalToonFormat` (not set); not installed, fails closed |
+| info | `daemon/utils.js` 82-104 | runs `ps` (or PowerShell) to identify a CLI daemon's process | the file is kept only for a constant `ClearcutLogger.js` imports; the server never calls these functions |
+| info | bundle (`@puppeteer/browsers`) | browser download and version lookup code | tree-shaken to unreferenced or uncalled code (`trimCache` only); `proxy-agent`/`yauzl` absent; `executablePath` given |
+| info | Lighthouse bundle | built on a developer's machine and committed (`/Users/alexrudenko/src/lighthouse` in its markers), not by CI | reproduced from tag `v13.5.0` with its `yarn.lock`: identical but for the date and that path |
 
-No backdoor, obfuscated payload, credential collection or hidden host was found in what was read and searched.
+No backdoor, obfuscated payload, credential collection, hidden host or listening socket was found: not in the
+server's own code (read in full), not in the bundle (byte-identical to a rebuild from source, its npm parts identical
+to their registry releases, the Lighthouse bundle identical to a build of its tag, reviewed at the SDK depth).
 
 ## Network, data and files
 
@@ -135,17 +273,26 @@ No backdoor, obfuscated payload, credential collection or hidden host was found 
   smoke spec: a `data:` page opened, snapshot, script, a page of 40,000 rows with six 4000x4000 canvases, a
   screenshot; refused: a `file:` URL, a snapshot written to `/etc`, an extension tool.
 - `tests/test_analysis_servers.py` (`ChromeDevTools`): pins, the lock, the removals and the file list, the flags, the
-  limits and the smoke spec.
+  limits, the smoke spec and the review record.
+- The reproduction (2026-11-14, Node.js 26.13 and npm 11.20; upstream published with Node.js 24, the output is the
+  same): the upstream tree at `af283441` with `npm ci --ignore-scripts` and the DevTools frontend at `f22c6455`, then
+  `NODE_ENV=production npm run bundle` - byte-identical to the tarball (361 of 361 files in `build/src`, and the other
+  3); Lighthouse at `cb853a38` with yarn 1.22.22 and its lockfile, then its report and MCP-bundle builds - identical but
+  for the build date and the checkout path; every bundled npm package compared file by file with a fresh registry
+  download.
 
 ## Verdict
 
-**Not yet fit to sign.** Packaged, pinned and hardened (telemetry, update check, CrUX and configuration discovery off;
-the sender and the update script removed; page-defined tools and extensions off), and nothing malicious was found -
-but the review is not complete under this repository's rule: about 16,000 lines of the server's own code were only
-searched, not read, and the 285,693-line bundle was only searched (the depth servers/playwright's `playwright-core`
-had when it was signed; the rule for this catalog asks for a complete review). To finish:
-read the remaining own code (tools, formatters, collectors, `McpResponse`, `McpPage`, `McpContext`), rebuild the
-package from commit `af283441` with its lockfile and compare it with `build/src` file by file, compare the bundled
-Puppeteer 25.16.0, MCP SDK 2.3.1 and zod 4.6.5 with their npm releases, and let CI build it and pass both smoke
-runs. Until then the catalog entry stays pending: take a CI run's digests without it
-(`scripts/make_catalog.py --ci-digests DIR --only <the other servers> --write-digests`), so that it is not signed.
+**Fit to sign once CI passes.** The review is complete under this repository's rule: every line of the server's own
+code in the image read (18,195 lines, two passes); the shipped package rebuilt from commit `af283441` with its lockfile
+and byte-identical, so the 285,693 bundled lines are exactly upstream's build of upstream code; every bundled npm
+package identical to its registry release; the Lighthouse bundle identical to a build of Lighthouse's `v13.5.0` tag;
+the DevTools frontend the official repository's commit `f22c6455`; all of that third-party code reviewed at the SDK
+depth (processes, hosts, code generation, file access, environment). Nothing malicious was found; the hardening
+(statistics, update check, CrUX and configuration discovery off, the sender and the update script removed, a pipe
+instead of a debugging port, no `file:` navigations, page-defined tools, extensions and web apps off) holds on every
+path read. Remaining before signing: CI builds the image from this tree (the SHA-256 list, the removals, the apt pins)
+and both sandbox-ai smoke runs pass (the browser has not run where this was reviewed); then sign the digest of that
+run. Not covered, as for every server here: Debian's Chromium (signed with servers/playwright), Node.js 24.22.1 (as
+servers/memory) and the build tools themselves (tsc, rollup, esbuild - registry releases; a compromised build tool would
+have produced upstream's tarball too).
