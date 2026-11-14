@@ -22,6 +22,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 |---|---|---|---|
 | [duckduckgo](servers/duckduckgo) | web search through DuckDuckGo's HTML page, no API key | allowlist `html.duckduckgo.com:443` | - |
 | [brave-search](servers/brave-search) | web and news search through the official Brave Search API | allowlist `api.search.brave.com:443` | `BRAVE_API_KEY` |
+| [context7](servers/context7) | current documentation and code examples of libraries and frameworks from Upstash's Context7 service (Context7 MCP 4.4.4): `resolve-library-id` finds a library's Context7 ID, `query-docs` answers a question from its documentation. The library and the question go to context7.com, nothing else (no client name, session id, telemetry or sign-in prompt); works without a key, rate-limited | allowlist `context7.com:443` | optional: `CONTEXT7_API_KEY` |
 | [searxng](servers/searxng) | web search through a SearXNG instance of yours (many engines at once), JSON API | the instance (`SEARXNG_URL`) | - |
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
@@ -50,11 +51,10 @@ Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
 **chrome-devtools**
 (Chrome DevTools MCP 1.12.0 with Debian's Chromium), **codebase-memory** (codebase-memory-mcp
-0.12.1, a code graph of a mounted repository), **context7** (Context7 MCP 4.5.0, library
-documentation), **browserbase** (Browserbase MCP 3.0.0, a cloud browser) and **rea** (REA 6.8.0,
-static reverse engineering without native engines). All are audited; their Dockerfiles refuse to
+0.12.1, a code graph of a mounted repository), **browserbase** (Browserbase MCP 3.0.0, a cloud browser) and
+**rea** (REA 6.8.0, static reverse engineering without native engines). All are audited; their Dockerfiles refuse to
 build while a pin is open (ghidra: Debian versions; chrome-devtools: the npm
-package's integrity; rea: Node.js from nodejs.org). codebase-memory, context7 and browserbase
+package's integrity; rea: Node.js from nodejs.org). codebase-memory and browserbase
 have every pin set but have not been built yet.
 
 Images: `ghcr.io/c0decave/sandbox-ai-mcp-<name>`, referenced by digest in
@@ -110,6 +110,7 @@ releases at least 14 days old, that run on their own in a container. Servers we 
 sandbox-ai mcp catalog                          # entries of this catalog and the axross hub
 sandbox-ai mcp add duckduckgo --network full    # pull by digest, write the definition
 sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
+sandbox-ai mcp add context7 --network full --env CONTEXT7_API_KEY   # library docs; the key is optional
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
 sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys optional, each named with --env

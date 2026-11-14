@@ -1,0 +1,6 @@
+{
+  "tools": [
+    "query-docs",
+    "resolve-library-id"
+  ]
+}

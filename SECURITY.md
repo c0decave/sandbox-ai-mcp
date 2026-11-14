@@ -44,12 +44,16 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   (`BLUESKY_PDS`, default `bsky.social`); a request to any host but the PDS and `public.api.bsky.app`; a write
   without `BLUESKY_WRITE=1`; a post deleted that is not the account's own; an image uploaded from outside `/upload`
   (a link, a device, another user's file) or with its EXIF location;
+- context7: a request to any host but `context7.com`, `CONTEXT7_API_KEY` reaching a tool answer, a log line or another
+  host, anything sent beyond the library, the question, the language, the server's version and the transport (the
+  client's name, a session id), telemetry loaded, the sign-in prompt shown; the documentation Context7 returns is
+  upstream's;
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull
   an image other than the one reviewed).
 
-Vulnerabilities of upstream components (Playwright MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
+Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
 radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong upstream, unless the
 packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
 crafted file is such an upstream matter; it happens inside a container with no network, no

@@ -956,6 +956,91 @@ class SequentialThinking(unittest.TestCase):
         self.assertIn("2026-11-18", self.provenance)
 
 
+class Context7(unittest.TestCase):
+    """Upstash's Context7 MCP: the npm release and its packages by integrity, only what loads kept, the sign-in nudge
+    and the identifying headers patched out, telemetry removed, context7.com only, the key optional."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "context7"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.prepare = (self.folder / "prepare.mjs").read_text()
+        self.lock = read_json("servers", "context7", "package-lock.json")
+        self.entry = read_json("servers", "context7", "server.json")
+        self.spec = read_json("servers", "context7", "smoke.json")
+
+    def test_the_lock_pins_every_package_by_integrity_without_install_scripts(self):
+        packages = {path: entry for path, entry in self.lock["packages"].items() if path}
+        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.4.4")
+        for path, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), path)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", path)
+            self.assertFalse(entry.get("hasInstallScript"), f"{path} has an install script")
+        self.assertIn(packages["node_modules/@upstash/context7-mcp"]["integrity"], self.provenance)
+        self.assertEqual(read_json("servers", "context7", "package.json")["dependencies"],
+                         {"@upstash/context7-mcp": "4.4.4"})
+
+    def test_prepare_keeps_only_locked_packages_and_no_telemetry(self):
+        keep = json.loads("{" + re.search(r"const KEEP = \{(.*?)\};", self.prepare, re.S).group(1)
+                          .replace("\n", " ").rstrip(", ") + "}")
+        self.assertEqual(len(keep), 74)
+        locked = {path.removeprefix("node_modules/"): entry["version"] for path, entry in self.lock["packages"].items()
+                  if path.count("node_modules/") == 1}
+        for name, version in keep.items():
+            self.assertEqual(locked.get(name), version, f"{name} is not locked at {version}")
+        for name in keep:
+            self.assertNotRegex(name, r"^(@opentelemetry/|@types/|hono$|require-in-the-middle|import-in-the-middle)")
+        for module in ("mcp-telemetry.js", "telemetry.js", "telemetry-provider.js"):
+            self.assertIn(f'"{module}"', self.prepare)
+        self.assertRegex(self.dockerfile, r"(?m)^ENV .*OTEL_SDK_DISABLED=true")
+        self.assertNotIn("CONTEXT7_API_URL", self.dockerfile)
+
+    def test_the_build_installs_without_scripts_prepares_and_checks_every_file(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("node prepare.mjs node_modules", self.dockerfile)
+        self.assertIn("sha256sum --check --strict --quiet /opt/context7/context7-files.sha256", self.dockerfile)
+        files = (self.folder / "context7-files.sha256").read_text().splitlines()
+        self.assertEqual(len(files), 20)
+        names = [line.split("  ", 1)[1] for line in files]
+        self.assertIn("dist/index.js", names)
+        self.assertNotIn("dist/lib/telemetry.js", names)
+        # the patched files are pinned as patched
+        for before, after in re.findall(r'before: "([0-9a-f]{64})",\s*after: "([0-9a-f]{64})"', self.prepare):
+            self.assertIn(after, "\n".join(files))
+            self.assertNotIn(before, "\n".join(files))
+            self.assertIn(before[:8], self.provenance)
+            self.assertIn(after[:8], self.provenance)
+        self.assertIn('"--disallow-code-generation-from-strings"', self.dockerfile)
+        self.assertRegex(self.dockerfile, r'"--transport", "stdio"\]')
+
+    def test_the_patches_remove_the_nudge_and_the_identifying_headers(self):
+        self.assertIn("maybeElicitAuthSignIn(server, ctx) {\\n    // sandbox-ai-mcp: no sign-in nudge", self.prepare)
+        for header in ("mcp-session-id", "X-Context7-Client-IDE", "X-Context7-Client-Version"):
+            self.assertIn(header, self.prepare)
+
+    def test_context7_only_and_the_key_optional(self):
+        self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
+        self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
+        self.assertEqual(self.entry["env"], [{"name": "CONTEXT7_API_KEY", "description": self.entry["env"][0][
+            "description"], "secret": True, "required": False}])
+        self.assertNotIn("mounts", self.entry)
+        self.assertEqual(read_json("servers", "context7", "tools.json")["tools"], ["query-docs", "resolve-library-id"])
+
+    def test_the_smoke_run_calls_the_service_and_is_refused_the_rest(self):
+        real = [c for c in self.spec["calls"] if not c.get("expect_error")]
+        refused = [c for c in self.spec["calls"] if c.get("expect_error")]
+        self.assertEqual([c["tool"] for c in real], ["resolve-library-id", "query-docs"])
+        for call in real:
+            self.assertIn("Rate limited or quota exceeded", call["upstream_limited"])
+        self.assertGreaterEqual(len(refused), 3)
+        self.assertTrue([c for c in refused if c.get("absent")])
+
+    def test_the_release_and_the_newer_ones_are_in_the_provenance(self):
+        for text in ("c7f80ce5af1ff1403d167579b76784482cf7f3e2", "4.5.0", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84"):
+            self.assertIn(text, self.provenance)
+        self.assertFalse((ROOT / "candidates" / "context7").exists(), "the candidate is replaced by servers/context7")
+
+
 class Engram(unittest.TestCase):
     """Engram's MCP server only: our entry point inside Engram's module, linking internal/mcp and internal/store,
     every linked Engram file the reviewed one, one project per memory folder, no folder arguments."""
