@@ -25,5 +25,9 @@
     }
   ],
   "network": "full",
-  "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format."
+  "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format.",
+  "tor": {
+    "support": "limited",
+    "note": "SEARXNG_URL must be reachable from a Tor exit: a public instance or an .onion address; one in your local network or on this host cannot be reached through Tor"
+  }
 }

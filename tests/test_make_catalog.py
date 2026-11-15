@@ -183,6 +183,61 @@ class MakeCatalogTest(unittest.TestCase):
         self.hub.set_server("web-fetch", {**data, "mounts": [{"target": "work"}]})
         self.assertEqual(self.hub.run()[0], 1)
 
+    # -- sandbox-ai's own keys: tor and pid1 (axross reads only the keys it knows) -----
+
+    def test_every_server_says_how_it_fares_behind_tor(self):
+        """sandbox-ai reads an entry's "tor" ({"support": "yes"|"limited"|"no", "note": TEXT}, sandbox/mcp.py
+        tor_support): every server of this catalog names it, a server without network works there (it reaches
+        nothing), and one that works only in part or not at all says why."""
+        servers = mc.load_servers(HUB)
+        self.assertEqual(len(servers), len(self.hub.names))
+        for server in servers:
+            with self.subTest(server=server["name"]):
+                tor = server["tor"]
+                self.assertIn(tor["support"], ("yes", "limited", "no"))
+                if server["network"] == "none":
+                    self.assertEqual(tor["support"], "yes")
+                if tor["support"] != "yes":
+                    self.assertGreater(len(tor["note"]), 20)
+        code, text = self.hub.run()
+        self.assertEqual(code, 0, text)
+        entries = {e["name"]: e for e in self.hub.catalog()["entries"]}
+        self.assertEqual({name: entry["tor"] for name, entry in entries.items()},
+                         {server["name"]: server["tor"] for server in servers})
+        self.assertEqual(list(entries["exec"])[-2:], ["pid1", "tor"])  # sandbox-ai's keys last
+
+    def test_the_tor_field_is_what_sandbox_ai_reads(self):
+        data = self.hub.server("web-fetch")
+        for tor, error in (("works", "tor must be"),
+                           ({"support": "works"}, "tor: support must be yes, limited or no"),
+                           ({"support": "limited"}, "tor: a note must say what does not work"),
+                           ({"support": "no", "note": ""}, "tor: a note must say what does not work"),
+                           ({"support": "yes", "note": "x" * 601}, "tor: note must be a non-empty text"),
+                           ({"support": "yes", "why": "x"}, "tor: unknown keys why")):
+            with self.subTest(tor=tor):
+                self.hub.set_server("web-fetch", {**data, "tor": tor})
+                code, text = self.hub.run()
+                self.assertEqual(code, 1, text)
+                self.assertIn(error, text)
+        self.hub.set_server("web-fetch", {key: value for key, value in data.items() if key != "tor"})
+        self.assertIn("web-fetch: tor is missing", self.hub.run()[1])
+        files = self.hub.server("files")
+        self.hub.set_server("files", {**files, "tor": {"support": "no", "note": "a reason of its own here"}})
+        self.assertIn("network none reaches nothing", self.hub.run()[1])
+
+    def test_pid1_is_server_or_left_out(self):
+        """The exec server runs as PID 1 of its container ("pid1": "server", sandbox/mcp.py checked_pid1); any
+        other value is refused here as sandbox-ai would refuse it."""
+        self.assertEqual(self.hub.server("exec")["pid1"], "server")
+        self.assertEqual([name for name in self.hub.names if "pid1" in self.hub.server(name)], ["exec"])
+        data = self.hub.server("exec")
+        for value in ("catatonit", True, "", None):
+            with self.subTest(pid1=value):
+                self.hub.set_server("exec", {**data, "pid1": value})
+                code, text = self.hub.run()
+                self.assertEqual(code, 1, text)
+                self.assertIn('pid1 must be "server"', text)
+
     # -- edge cases --------------------------------------------------------------------
 
     def test_upper_case_and_short_digests_are_refused(self):

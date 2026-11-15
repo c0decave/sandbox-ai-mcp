@@ -25,5 +25,9 @@
     }
   ],
   "network": "none",
-  "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions."
+  "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

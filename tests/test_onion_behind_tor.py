@@ -326,6 +326,72 @@ class WhatWeb(AddressChecks, unittest.TestCase):
                           answer["error"])
         self.assertNotIn("http://lan.example.org/", scanned)
 
+    def test_longer_timeouts_behind_tor(self):
+        """Behind Tor a connection waits for a circuit and an exit: WhatWeb gets longer --open-timeout and
+        --read-timeout and its run more time, only there (SANDBOX_AI_TOR=1); elsewhere the timeouts stay."""
+        runs = []
+
+        async def run(argv, folder, timeout, stdout=None):
+            runs.append((argv, timeout))
+            log = next(a for a in argv if a.startswith("--log-json="))[len("--log-json="):]
+            with open(log, "w") as handle:
+                handle.write('[{"target": "https://public.example.org/", "http_status": 200, "plugins": {}}]')
+            return 0, ""
+
+        def flags(argv):
+            return {a.split("=", 1)[0]: a.split("=", 1)[1] for a in argv if a.startswith(("--open-", "--read-"))}
+
+        with mock.patch.object(self.module, "run", run), mock.patch.object(self.module, "WHATWEB", __file__):
+            for env, aggression in ((BEHIND_TOR, 1), (BEHIND_TOR, 3), ({"tor": "1"}, 1), ({}, 1), ({}, 3),
+                                    ({"tor": "0"}, 1)):
+                with Environment(**env):
+                    answer = asyncio.run(self.module.fingerprint("https://public.example.org/", aggression))
+                self.assertEqual(answer["final_url"], "https://public.example.org/", answer)
+        tor = {"--open-timeout": str(self.module.TOR_OPEN_TIMEOUT), "--read-timeout": str(self.module.TOR_READ_TIMEOUT)}
+        plain = {"--open-timeout": str(self.module.OPEN_TIMEOUT), "--read-timeout": str(self.module.READ_TIMEOUT)}
+        self.assertEqual([(flags(argv), timeout) for argv, timeout in runs],
+                         [(tor, self.module.TOR_RUN_TIMEOUT[1]), (tor, self.module.TOR_RUN_TIMEOUT[3]),
+                          (tor, self.module.TOR_RUN_TIMEOUT[1]),
+                          (plain, self.module.RUN_TIMEOUT[1]), (plain, self.module.RUN_TIMEOUT[3]),
+                          (plain, self.module.RUN_TIMEOUT[1])])
+        self.assertGreaterEqual(self.module.TOR_OPEN_TIMEOUT, 3 * self.module.OPEN_TIMEOUT)
+        self.assertGreaterEqual(self.module.TOR_READ_TIMEOUT, 3 * self.module.READ_TIMEOUT)
+        for aggression in (1, 3):  # a run outlasts the longest single request it waits for, with room for more
+            self.assertGreater(self.module.TOR_RUN_TIMEOUT[aggression], self.module.RUN_TIMEOUT[aggression])
+            self.assertGreater(self.module.TOR_RUN_TIMEOUT[aggression],
+                               2 * (self.module.TOR_OPEN_TIMEOUT + self.module.TOR_READ_TIMEOUT))
+
+        # what the catalog entry says of it behind Tor is what the server does
+        import json
+        note = json.loads((ROOT / "servers/whatweb/server.json").read_text())["tor"]["note"]
+        self.assertIn(f"{self.module.TOR_OPEN_TIMEOUT} s to connect, {self.module.TOR_READ_TIMEOUT} s to read, a run "
+                      f"{self.module.TOR_RUN_TIMEOUT[1]} s, at aggression 3 {self.module.TOR_RUN_TIMEOUT[3]} s", note)
+
+
+class TorDnsAlike(unittest.TestCase):
+    """osint-mcp and openosint each carry their own copy of the Tor DNS block (TorResolver): the same resolvers and
+    timeouts, said so in their catalog entries. Their behaviour is tested in tests/test_own_servers.py (it needs
+    dnspython and the upstream code: inside the images)."""
+
+    def test_the_same_resolvers_and_timeouts(self):
+        import ast
+        import json
+        import re
+        blocks = {}
+        for name in ("osint-mcp", "openosint"):
+            text = (ROOT / "servers" / name / "src/server.py").read_text()
+            blocks[name] = re.findall(r"^(TOR_RESOLVERS|TOR_DNS_TIMEOUT|TOR_DNS_LIFETIME) = (.+?)(?:  #.*)?$", text,
+                                      re.M)
+            self.assertEqual([key for key, _ in blocks[name]], ["TOR_RESOLVERS", "TOR_DNS_TIMEOUT", "TOR_DNS_LIFETIME"])
+            self.assertIn('os.environ.get("SANDBOX_AI_TOR") == "1"', text)
+            self.assertIn("super().__init__(filename, configure=False)", text)  # /etc/resolv.conf is not read
+            self.assertRegex(text, r"super\(\)\.resolve\(qname, rdtype, rdclass, True, \*args, \*\*kwargs\)")
+            resolvers = ast.literal_eval(dict(blocks[name])["TOR_RESOLVERS"])
+            note = json.loads((ROOT / "servers" / name / "server.json").read_text())["tor"]["note"]
+            self.assertIn(", ".join(resolvers), note)
+            self.assertIn("over TCP", note)
+        self.assertEqual(blocks["osint-mcp"], blocks["openosint"])
+
 
 class SearXNG(unittest.TestCase):
     """SEARXNG_URL: a .onion instance behind Tor, also with plain http; without Tor refused with the reason."""

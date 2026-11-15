@@ -16,5 +16,9 @@
   "image": "ghcr.io/c0decave/sandbox-ai-mcp-web-fetch",
   "tag": "latest",
   "network": "full",
-  "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
+  "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTP(S) over TCP through Tor, .onion URLs included (Tor's address range for onion services is taken there)."
+  }
 }

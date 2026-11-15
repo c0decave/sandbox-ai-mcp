@@ -50,7 +50,9 @@ call a warning, which the API returns without the job log.
 ``--runner sandbox-ai-podman`` and ``--runner sandbox-ai-bwrap`` (with ``--sandbox-ai DIR``, a
 checkout) start the server the way sandbox-ai does instead: its own ``mcp.image_command`` for
 the image, or its ``mcp_rootfs`` for the rootfs archive (``--rootfs FILE --rootfs-meta FILE``:
-checked against the SHA-256, unpacked, run per connection with bwrap). ``--report FILE`` keeps
+checked against the SHA-256, unpacked, run per connection with bwrap), with what of the catalog entry their run
+line takes (server_options: ``"pid1": "server"`` of the ``server.json`` beside the spec, so exec runs as PID 1 there
+as under ``mcp add``: Podman without ``--init``, ``bwrap --as-pid-1``). ``--report FILE`` keeps
 the report; scripts/sign_catalog.py signs a catalog only when both reports of every server
 passed.
 """
@@ -295,6 +297,23 @@ def annotation(report: dict) -> str:
     return f"::error title=smoke {report.get('name')} ({report.get('runner')})::{escape_annotation(chr(10).join(lines))}"
 
 
+def server_options(spec_path: str) -> dict:
+    """What of the catalog entry (servers/NAME/server.json beside the spec) sandbox-ai's run line takes besides the
+    limits: ``{"pid1": "server"}`` for a server that runs as PID 1 of its container (exec), else ``{}`` (also
+    without a server.json beside the spec). The sandbox-ai runners put it into the definition, as ``mcp add`` does
+    from the entry; axross has no such field and always starts its init."""
+    path = os.path.join(os.path.dirname(os.path.abspath(spec_path)), "server.json")
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as handle:
+        entry = json.load(handle)
+    if "pid1" not in entry:
+        return {}
+    if entry["pid1"] != "server":
+        raise ValueError(f'{path}: pid1 must be "server" or left out, not {entry["pid1"]!r}')
+    return {"pid1": "server"}
+
+
 def image_command(mcp, definition, name="smoke"):
     """sandbox-ai's podman run line for DEFINITION: from its network plan (mcp.server_network, the one way a
     sandbox-ai since 0.1.94 builds it), or from the definition itself for an older checkout."""
@@ -318,13 +337,14 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     mcp = load_module(os.path.join(checkout, "sandbox", "mcp.py"), "sandbox_ai_mcp_for_smoke")
     known = getattr(mcp, "IMAGE_KEYS", None)  # a checkout before cpus or tmp were limits: the others
     resources = {key: value for key, value in (resources or {}).items() if known is None or key in known}
+    own = {"pid1": resources["pid1"]} if "pid1" in resources else {}  # in the report: how it was started
     definition = {"network": "full" if network in ("full", "allowlist") else "none", "env": sorted(env),
                   "mounts": [{"target": target, "host": host, "mode": "rw" if writable else "ro"}
                              for host, target, writable in mounts], **(resources or {})}
     environment = {**os.environ, **env}
     if runner == "sandbox-ai-podman":
         definition = mcp.validated_image({**definition, "image": image}, "smoke")
-        return image_command(mcp, definition), environment, {"image": image}
+        return image_command(mcp, definition), environment, {"image": image, **own}
     rootfs_module = mcp.rootfs_module()
     meta = meta or {}
     tree = rootfs_module.install(os.path.abspath(rootfs), meta["sha256"])
@@ -335,7 +355,7 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     checked = os.path.join(state, "definition.json")
     with open(checked, "w", encoding="utf-8") as handle:
         json.dump(definition, handle)
-    return rootfs_module.bwrap_command(checked, definition), environment, {"rootfs_sha256": meta["sha256"]}
+    return rootfs_module.bwrap_command(checked, definition), environment, {"rootfs_sha256": meta["sha256"], **own}
 
 
 class Session:
@@ -477,7 +497,7 @@ def main(argv=None) -> int:
         read_fd = None
         argv, environment, facts = sandbox_ai_argv(opts.runner, opts.sandbox_ai, opts.image, network, mounts,
                                                    substitute(spec.get("env", {}), variables, missing),
-                                                   opts.rootfs, meta, resources)
+                                                   opts.rootfs, meta, {**resources, **server_options(opts.spec)})
     if opts.print_argv:
         print("argv:", json.dumps(argv))
     session = Session(argv, read_fd, environment)

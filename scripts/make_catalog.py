@@ -23,6 +23,13 @@ needs beyond sandbox-ai's defaults (memory, pids, cpus, tmp - the size of its /t
 its ``servers/<name>/smoke.json``, which its smoke runs use, so that ``sandbox-ai mcp add`` applies what CI
 tested. A file of its own, since axross takes no keys it does not know; scripts/sign_catalog.py signs both.
 
+Two keys of an entry are sandbox-ai's own (axross reads only the keys it knows and leaves these): ``"tor"``, how
+the server fares behind a Tor profile - ``{"support": "yes" | "limited" | "no", "note": TEXT}``, what sandbox-ai's
+``tor_support`` reads: "limited" is said when the server is added and when it starts, "no" refuses it behind Tor
+with the note as the reason; every ``server.json`` names it, a server without network says "yes" (it reaches
+nothing) - and ``"pid1": "server"``, a server that runs as PID 1 of its container (exec: Podman without ``--init``,
+``bwrap --as-pid-1``), any other value refused as sandbox-ai refuses it.
+
 ``--only NAME...`` (with ``--ci-digests``) takes only these servers of the CI run and makes every other
 server pending, without its rootfs: the build workflow's catalog job passes the servers whose image job
 passed and whose reports scripts/sign_catalog.py would take (scripts/ci_results.py), so a server that
@@ -35,8 +42,9 @@ entry is invalid, or when digests are pending (unless ``--allow-pending``). With
 accepted unchanged and every pending entry to be refused for its missing digest.
 ``--sandbox-ai DIR`` does the same with sandbox-ai's own reader (``sandbox/mcp.py``:
 ``read_catalog``, ``definition_from_entry``, ``validated_image``, and ``mcp_rootfs.validated``
-for rootfs.json), so an entry this repository writes and an entry ``sandbox-ai mcp add`` accepts
-are the same thing. Nothing is pulled or fetched by either check. Standard library only.
+for rootfs.json; its ``tor_support`` for every entry's "tor", and the "pid1" of a pinned entry's definition),
+so an entry this repository writes and an entry ``sandbox-ai mcp add`` accepts are the same thing. Nothing is
+pulled or fetched by either check. Standard library only.
 """
 
 from __future__ import annotations
@@ -83,7 +91,7 @@ _HOST = re.compile(r"^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$")
 
 ENTRY_KEYS = ("id", "name", "title", "description", "category", "tags", "repository", "page",
               "license", "kind", "image", "tag", "digest", "args", "env", "mounts", "network",
-              "hosts", "notes")
+              "hosts", "notes", "pid1", "tor")
 REQUIRED_KEYS = ("id", "name", "title", "description", "category", "repository", "license",
                  "kind", "image", "tag", "network")
 #: Keys of a mount and of an environment variable. sandbox-ai reads "target" and "required" of a
@@ -91,6 +99,15 @@ REQUIRED_KEYS = ("id", "name", "title", "description", "category", "repository",
 #: does not know would be ignored silently, so only these are allowed here.
 MOUNT_KEYS = ("target", "description", "required")
 ENV_KEYS = ("name", "description", "secret", "required")
+#: sandbox-ai's own keys of an entry (axross reads the keys it knows and leaves the others): "pid1" (sandbox/mcp.py
+#: checked_pid1: "server", the server runs as PID 1 of its container - Podman without --init, bwrap --as-pid-1) and
+#: "tor" (sandbox/mcp.py tor_support: how the server fares behind a Tor profile, {"support": "yes" | "limited" |
+#: "no", "note": TEXT}; "limited" is said when the server is added and when it starts, "no" refuses it behind Tor
+#: with the note as the reason). Every server.json names "tor"; sandbox-ai cuts a note at 600 characters.
+PID1_VALUES = ("server",)
+TOR_SUPPORT = ("yes", "limited", "no")
+TOR_KEYS = ("support", "note")
+MAX_TOR_NOTE = 600
 #: sandbox-ai refuses a rootfs archive larger than this (sandbox/mcp_rootfs.py ROOTFS_LIMIT).
 ROOTFS_LIMIT = 2 << 30
 
@@ -202,6 +219,31 @@ def validate_entry(entry, *, where: str = "entry") -> None:
         raise CatalogProblem(f"{where}: hosts must be at most {MAX_HOSTS} host:port entries")
     if entry["network"] == "allowlist" and not hosts:
         raise CatalogProblem(f"{where}: network allowlist needs hosts")
+    if "pid1" in entry and (not isinstance(entry["pid1"], str) or entry["pid1"] not in PID1_VALUES):
+        raise CatalogProblem(f'{where}: pid1 must be "server" (the server runs as PID 1 of its container and '
+                             f"reaps its children) or left out, not {entry['pid1']!r}")
+    if "tor" in entry:
+        _tor(entry, where)
+
+
+def _tor(entry: dict, where: str) -> None:
+    """CatalogProblem unless the entry's "tor" is what sandbox-ai's tor_support reads (TOR_SUPPORT, TOR_KEYS)."""
+    tor = entry["tor"]
+    if not isinstance(tor, dict):
+        raise CatalogProblem(f'{where}: tor must be {{"support": "yes" | "limited" | "no", "note": TEXT}}')
+    unknown = sorted(set(tor) - set(TOR_KEYS))
+    if unknown:
+        raise CatalogProblem(f"{where}: tor: unknown keys {', '.join(unknown)} (it is {{support, note}})")
+    if tor.get("support") not in TOR_SUPPORT:
+        raise CatalogProblem(f"{where}: tor: support must be yes, limited or no, not {tor.get('support')!r}")
+    if "note" in tor or tor["support"] != "yes":
+        if tor["support"] != "yes" and (not isinstance(tor.get("note"), str) or not tor["note"].strip()):
+            raise CatalogProblem(f"{where}: tor: a note must say what does not work behind Tor "
+                                 f"(support {tor['support']})")
+        _text(tor, "note", MAX_TOR_NOTE, f"{where}: tor", required=True)
+    if entry["network"] == "none" and tor["support"] != "yes":
+        raise CatalogProblem(f"{where}: tor: a server with network none reaches nothing, so nothing of it goes "
+                             "through Tor: its support is yes")
 
 
 def load_servers(root: Path = ROOT) -> list[dict]:
@@ -216,6 +258,9 @@ def load_servers(root: Path = ROOT) -> list[dict]:
         if isinstance(entry, dict) and "digest" in entry:
             raise CatalogProblem(f"{where}: a digest belongs in digests.json, not in server.json")
         validate_entry(entry, where=where)
+        if "tor" not in entry:
+            raise CatalogProblem(f'{where}: {entry["name"]}: tor is missing - how the server fares behind a Tor '
+                                 'profile: {"support": "yes" | "limited" | "no", "note": TEXT}')
         if entry["name"] != path.parent.name:
             raise CatalogProblem(f"{where}: name {entry['name']!r} differs from its folder")
         if entry["name"] in names:
@@ -455,6 +500,11 @@ def sandbox_ai_check(catalog_path: Path, catalog: dict, rootfs: dict, sandbox_ai
             if got is None:
                 problems.append(f"sandbox-ai did not read the entry {name} ({entry['id']}) at all")
                 continue
+            if hasattr(mcp, "tor_support") and "tor" in entry:  # a checkout before 0.1.95 has no Tor field
+                wanted = (entry["tor"]["support"], entry["tor"].get("note", ""))
+                if tuple(mcp.tor_support(None, got)) != wanted:
+                    problems.append(f"sandbox-ai reads how {name} fares behind Tor as {mcp.tor_support(None, got)}, "
+                                    f"not {wanted}")
             mounts = [f"{mount['target']}={folder}:ro" for mount in entry.get("mounts", [])]
             env = [var["name"] for var in entry.get("env", [])]
             network = "full" if entry["network"] in ("full", "allowlist") else None
@@ -477,8 +527,13 @@ def sandbox_ai_check(catalog_path: Path, catalog: dict, rootfs: dict, sandbox_ai
             if [m["target"] for m in definition["mounts"]] != [m["target"] for m in entry.get("mounts", [])]:
                 problems.append(f"sandbox-ai read the folders of {name} differently: "
                                 f"{[m['target'] for m in definition['mounts']]}")
-            if definition["env"] != env:
-                problems.append(f"sandbox-ai read the variables of {name} differently: {definition['env']}")
+            # sandbox-ai 0.1.95 keeps an optional variable apart (env_optional: passed where there is one)
+            read = [*definition["env"], *definition.get("env_optional", [])]
+            if sorted(read) != sorted(env):
+                problems.append(f"sandbox-ai read the variables of {name} differently: {read}")
+            if hasattr(mcp, "server_is_pid1") and definition.get("pid1") != entry.get("pid1"):
+                problems.append(f"sandbox-ai read the pid1 of {name} as {definition.get('pid1')!r}, not "
+                                f"{entry.get('pid1')!r}")
             if entry["network"] == "none" and definition["network"] != "none":
                 problems.append(f"{name}: the catalog says network none, sandbox-ai would give it "
                                 f"{definition['network']}")

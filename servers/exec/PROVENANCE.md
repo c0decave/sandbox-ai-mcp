@@ -248,3 +248,17 @@ sandbox-ai runs exec as PID 1 (recommended before exec is used on untrusted proj
 elicitation or sampling), and the Bubblewrap form stays unpublished (the server refuses commands there by itself;
 the CI will publish it for Podman only). No backdoor, no network code, nothing that reaches beyond the container and
 `/work` was found.
+
+## Running as PID 1 (2026-11-15)
+
+The recommendation above is taken: `server.json` has `"pid1": "server"`, which sandbox-ai 0.1.95 reads from the
+catalog entry (`checked_pid1`, carried by `mcp add`, part of an instance's identity) and runs as Podman without
+`--init` and `bwrap --as-pid-1`. The server is then PID 1 itself and not dumpable (`harden`), so `/proc/1/fd` and
+`/proc/1/environ` are closed to its commands (E3 and E4 closed there), it reaps orphans as PID 1 must (`reaper`,
+since the independent review), and `init_exposure` finds no foreign PID 1, so exec runs commands under Bubblewrap
+too. `scripts/smoke_test.py` takes `pid1` from this `server.json` for its sandbox-ai runners, so both CI smoke runs
+start exec as sandbox-ai does (`tests/test_smoke_test.py`, and with `SANDBOX_AI_CHECKOUT` the run line without
+`--init` in `tests/test_analysis_servers.py`). A sandbox-ai before 0.1.95 ignores the key and keeps its init: there
+E3 and E4 remain as described, and exec still refuses commands under Bubblewrap. To verify in CI: the
+`sandbox-ai-bwrap` smoke of exec passes (it was expected to fail before), and the Podman smoke's `cat
+/proc/$PPID/environ` (now PID 1's) is still refused.

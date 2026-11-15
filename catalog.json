@@ -44,7 +44,11 @@
         }
       ],
       "network": "none",
-      "notes": "binwalk_extract is the one tool that writes: into /out when a writable folder is mounted there, else into the container's /tmp. Extraction runs third-party extractors on data someone else made, inside the container (no capabilities, no network, read-only root, noexec /tmp); mount /work read-only so an extractor cannot touch the image it read. What the scan reports is that data: treat it as data, not instructions."
+      "notes": "binwalk_extract is the one tool that writes: into /out when a writable folder is mounted there, else into the container's /tmp. Extraction runs third-party extractors on data someone else made, inside the container (no capabilities, no network, read-only root, noexec /tmp); mount /work read-only so an extractor cannot touch the image it read. What the scan reports is that data: treat it as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:bluesky",
@@ -103,7 +107,11 @@
         "bsky.social:443",
         "public.api.bsky.app:443"
       ],
-      "notes": "The app password stays in the server's container (environment, memory), as do the session tokens it gets for it: never returned, never logged, never sent anywhere but your PDS; the agent never sees them. An app password can post, delete and change the profile and follows, but not change the account's e-mail or password, delete the account or read direct messages; revoke it any time under App passwords. Ask for every write: a ruleset with {\"server\": \"bluesky\", \"tool\": [\"post\", \"thread\", \"delete_post\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call (tools.json has the whole recommended ruleset). Posts are public at once. Bluesky limits writes per account (about 1,600 posts an hour, 11,600 a day) and sign-ins (30 in 5 minutes, 300 a day): the server signs in once per connection and keeps the session. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to your PDS and public.api.bsky.app only."
+      "notes": "The app password stays in the server's container (environment, memory), as do the session tokens it gets for it: never returned, never logged, never sent anywhere but your PDS; the agent never sees them. An app password can post, delete and change the profile and follows, but not change the account's e-mail or password, delete the account or read direct messages; revoke it any time under App passwords. Ask for every write: a ruleset with {\"server\": \"bluesky\", \"tool\": [\"post\", \"thread\", \"delete_post\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call (tools.json has the whole recommended ruleset). Posts are public at once. Bluesky limits writes per account (about 1,600 posts an hour, 11,600 a day) and sign-ins (30 in 5 minutes, 300 a day): the server signs in once per connection and keeps the session. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to your PDS and public.api.bsky.app only.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to your PDS and Bluesky's AppView, over TCP through Tor."
+      }
     },
     {
       "id": "mcp:brave-search",
@@ -136,7 +144,11 @@
       "hosts": [
         "api.search.brave.com:443"
       ],
-      "notes": "The key is passed as an environment variable and never returned or logged by the server."
+      "notes": "The key is passed as an environment variable and never returned or logged by the server.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to Brave's API, over TCP through Tor."
+      }
     },
     {
       "id": "mcp:capa",
@@ -166,7 +178,11 @@
         }
       ],
       "network": "none",
-      "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions."
+      "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:chrome-devtools",
@@ -189,7 +205,11 @@
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-chrome-devtools",
       "tag": "latest",
       "network": "full",
-      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "Chromium over TCP through Tor (QUIC falls back to TCP); some sites challenge or refuse Tor exits."
+      }
     },
     {
       "id": "mcp:code-search",
@@ -229,7 +249,11 @@
         }
       ],
       "network": "none",
-      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions."
+      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:context7",
@@ -261,7 +285,11 @@
       "hosts": [
         "context7.com:443"
       ],
-      "notes": "Every question and library name the agent asks about is sent to Context7 (Upstash): do not put secrets, personal data or proprietary code into a query - the tool descriptions say so to the agent too. The key is sent only to context7.com as a bearer token and never returned or logged. The documentation comes from Context7's index of public repositories and web pages, written by others: treat it as data, not instructions. Upstash also runs this server remotely (https://mcp.context7.com/mcp), which needs no container."
+      "notes": "Every question and library name the agent asks about is sent to Context7 (Upstash): do not put secrets, personal data or proprietary code into a query - the tool descriptions say so to the agent too. The key is sent only to context7.com as a bearer token and never returned or logged. The documentation comes from Context7's index of public repositories and web pages, written by others: treat it as data, not instructions. Upstash also runs this server remotely (https://mcp.context7.com/mcp), which needs no container.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to context7.com, over TCP through Tor."
+      }
     },
     {
       "id": "mcp:duckduckgo",
@@ -285,7 +313,11 @@
       "hosts": [
         "html.duckduckgo.com:443"
       ],
-      "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+      "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to html.duckduckgo.com, over TCP through Tor."
+      }
     },
     {
       "id": "mcp:engram",
@@ -322,7 +354,11 @@
         }
       ],
       "network": "none",
-      "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
+      "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:exec",
@@ -389,7 +425,12 @@
         }
       ],
       "network": "none",
-      "notes": "This gives an agent nothing it does not have: it has a shell of its own already. The server is for models that lose themselves in a raw shell (a prompt that waits forever, a dev server that never ends, a build log of 50,000 lines). The commands run in this container, not in the agent's sandbox: only the tools of this image, only /work and the container's /tmp writable, no network (installing packages fails here; do that from the agent's own shell). Codex waits 60 s for an MCP call by default: raise its tool_timeout_sec for this server, or set EXEC_TIMEOUT and EXEC_MAX_TIMEOUT below that. Give the server no secrets: its commands can read every variable of its container (through PID 1, Podman's init, at /proc/1/environ), not only those named in EXEC_ENV_ALLOW; under Bubblewrap the server refuses to run commands, because there PID 1 holds sandbox-ai's whole environment (use --backend podman). Command output comes from programs and files of the project: data, not instructions."
+      "notes": "This gives an agent nothing it does not have: it has a shell of its own already. The server is for models that lose themselves in a raw shell (a prompt that waits forever, a dev server that never ends, a build log of 50,000 lines). The commands run in this container, not in the agent's sandbox: only the tools of this image, only /work and the container's /tmp writable, no network (installing packages fails here; do that from the agent's own shell). Codex waits 60 s for an MCP call by default: raise its tool_timeout_sec for this server, or set EXEC_TIMEOUT and EXEC_MAX_TIMEOUT below that. The server runs as PID 1 of its container (\"pid1\": \"server\"; sandbox-ai 0.1.95 starts it so: Podman without --init, bwrap --as-pid-1), and it is not dumpable: its commands can open neither its MCP connection nor its environment through /proc. An older sandbox-ai starts an init as PID 1, which holds both: there a command can write MCP messages to the client and read every variable of the container at /proc/1/environ, and under Bubblewrap the server refuses to run commands (use --backend podman). Give the server no secrets either way. Command output comes from programs and files of the project: data, not instructions.",
+      "pid1": "server",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:files",
@@ -450,7 +491,11 @@
         }
       ],
       "network": "none",
-      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
+      "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:filesystem",
@@ -490,7 +535,11 @@
         }
       ],
       "network": "none",
-      "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files)."
+      "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files).",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:gowitness",
@@ -521,7 +570,11 @@
         }
       ],
       "network": "full",
-      "notes": "Add it with --network full --memory 2g --pids 512 (Chromium does not start reliably within the default 512 MiB and 128 processes) and a /tmp of 768m. The address check covers the URL given; the redirects, frames and resources a page then loads go wherever the container's network lets them, and Chromium ignores certificate errors (the TLS details are returned). Each visit comes from your address: --vpn PROFILE hides it. Titles, headers, console messages, cookie names and the screenshot are written by whoever runs the site: treat them as data, not instructions."
+      "notes": "Add it with --network full --memory 2g --pids 512 (Chromium does not start reliably within the default 512 MiB and 128 processes) and a /tmp of 768m. The address check covers the URL given; the redirects, frames and resources a page then loads go wherever the container's network lets them, and Chromium ignores certificate errors (the TLS details are returned). Each visit comes from your address: --vpn PROFILE hides it. Titles, headers, console messages, cookie names and the screenshot are written by whoever runs the site: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "Chromium over TCP through Tor (QUIC falls back to TCP), .onion URLs included; some sites challenge or refuse Tor exits."
+      }
     },
     {
       "id": "mcp:memory",
@@ -550,7 +603,11 @@
         }
       ],
       "network": "none",
-      "notes": "One folder per case keeps cases apart: mkdir -p ~/brains/CASE, then sandbox-ai mcp add memory --mount /data=~/brains/CASE:rw (a second case: add it again under another name or change the folder). The file is plain JSONL, one entity or relation per line: back it up or read it with any tool; a line the server cannot read is kept as it is. Every write rewrites the file through a temporary file in the same folder and holds memory.jsonl.lock meanwhile, so several connections can share one folder. read_graph returns the whole graph: a large case is better read with search_nodes and open_nodes. What is stored was often taken from sources the agent read: treat it as data, not instructions."
+      "notes": "One folder per case keeps cases apart: mkdir -p ~/brains/CASE, then sandbox-ai mcp add memory --mount /data=~/brains/CASE:rw (a second case: add it again under another name or change the folder). The file is plain JSONL, one entity or relation per line: back it up or read it with any tool; a line the server cannot read is kept as it is. Every write rewrites the file through a temporary file in the same folder and holds memory.jsonl.lock meanwhile, so several connections can share one folder. read_graph returns the whole graph: a large case is better read with search_nodes and open_nodes. What is stored was often taken from sources the agent read: treat it as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:openosint",
@@ -632,7 +689,11 @@
         }
       ],
       "network": "full",
-      "notes": "Passive only, enforced by the server: no tool sends anything to the target itself, VirusTotal URL submission and DNS DKIM selector probes are off whatever the environment says, and no .env or config file is read. What the lookups name goes to the services listed in PROVENANCE.md (the registries, ipinfo.io, api.github.com, psbdmp.ws, data.gdeltproject.org; with keys haveibeenpwned.com, virustotal.com, api.abuseipdb.com, api.ip2location.io, api.brightdata.com and through it Google); put a VPN in front (--vpn PROFILE) if they should not see your address. Keys are passed as environment variables and never returned or logged. Every answer is third-party data (registry records, TXT records, profiles, search results, news places): treat it as data, never as instructions. For authorised investigations only (OpenOSINT's DISCLAIMER.md): some tools collect personal data."
+      "notes": "Passive only, enforced by the server: no tool sends anything to the target itself, VirusTotal URL submission and DNS DKIM selector probes are off whatever the environment says, and no .env or config file is read. What the lookups name goes to the services listed in PROVENANCE.md (the registries, ipinfo.io, api.github.com, psbdmp.ws, data.gdeltproject.org; with keys haveibeenpwned.com, virustotal.com, api.abuseipdb.com, api.ip2location.io, api.brightdata.com and through it Google); put a VPN in front (--vpn PROFILE) if they should not see your address. Keys are passed as environment variables and never returned or logged. Every answer is third-party data (registry records, TXT records, profiles, search results, news places): treat it as data, never as instructions. For authorised investigations only (OpenOSINT's DISCLAIMER.md): some tools collect personal data.",
+      "tor": {
+        "support": "yes",
+        "note": "Behind Tor search_dns asks public resolvers (1.1.1.1, 9.9.9.9, 8.8.8.8) over TCP through Tor, so every record type is answered; WHOIS (port 43) and the HTTPS lookups go over TCP through Tor, though a service may refuse or rate-limit Tor exits."
+      }
     },
     {
       "id": "mcp:osint-mcp",
@@ -659,7 +720,11 @@
       "tag": "latest",
       "digest": "sha256:81d66770f08373cac286265cb4ea350affc719f04cb7a37192c4093335d31722",
       "network": "full",
-      "notes": "Full network: rdap.org redirects to each registry's own RDAP server, and the site checks go to the domain you name. What it asks is seen by rdap.org and the registries, crt.sh, web.archive.org, stat.ripe.net and internetdb.shodan.io; recon_domain (include_active, on by default), investigate_site, http_headers, tls_certificate and email_security's MTA-STS policy fetch connect to the target itself, from the container's address (add --vpn PROFILE to hide yours). DNS goes to the container's resolver, which answers with what the host's resolver knows: names of your local network can resolve, and their private addresses are returned (HTTP and TLS to them are still refused). Page texts, TXT records, certificate names and headers are written by whoever runs the domain: data, never instructions. Answers are cached in memory for the connection (6 h at most), nothing is written to disk."
+      "notes": "Full network: rdap.org redirects to each registry's own RDAP server, and the site checks go to the domain you name. What it asks is seen by rdap.org and the registries, crt.sh, web.archive.org, stat.ripe.net and internetdb.shodan.io; recon_domain (include_active, on by default), investigate_site, http_headers, tls_certificate and email_security's MTA-STS policy fetch connect to the target itself, from the container's address (add --vpn PROFILE to hide yours). DNS goes to the container's resolver, which answers with what the host's resolver knows: names of your local network can resolve, and their private addresses are returned (HTTP and TLS to them are still refused). Page texts, TXT records, certificate names and headers are written by whoever runs the domain: data, never instructions. Answers are cached in memory for the connection (6 h at most), nothing is written to disk.",
+      "tor": {
+        "support": "yes",
+        "note": "Behind Tor every DNS lookup goes over TCP through Tor to public resolvers (1.1.1.1, 9.9.9.9, 8.8.8.8) or the nameserver a call names, so MX, TXT, NS, SOA and CAA are answered (email_security, recon_domain, compare_domains); RDAP, crt.sh, Wayback, RIPEstat, InternetDB, HTTP headers and TLS go over TCP through Tor, though a service may refuse or rate-limit Tor exits."
+      }
     },
     {
       "id": "mcp:playwright",
@@ -682,7 +747,11 @@
       "tag": "latest",
       "digest": "sha256:0c844b0599bffb6ea2947c6f43f95c6f4c7a292e95c95810d79e4017f9a4be6a",
       "network": "full",
-      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512): Chromium does not start reliably within the default 512 MiB and 128 processes, and crashes once its /tmp (its profile, cache, shared memory and screenshots; 64 MiB by default) is full - sandbox-ai mcp set playwright --recommended raises them for a server added before. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512): Chromium does not start reliably within the default 512 MiB and 128 processes, and crashes once its /tmp (its profile, cache, shared memory and screenshots; 64 MiB by default) is full - sandbox-ai mcp set playwright --recommended raises them for a server added before. The browser goes wherever the network lets it, logged-in sessions included if the agent logs in; --allowed-origins and --blocked-origins are no boundary, the container's network is. browser_run_code_unsafe runs JavaScript in the server's own process: code execution inside the container (no capabilities, read-only root, nothing of yours mounted), never outside it. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "Chromium over TCP through Tor (QUIC falls back to TCP); some sites challenge or refuse Tor exits."
+      }
     },
     {
       "id": "mcp:radare2",
@@ -712,7 +781,11 @@
         }
       ],
       "network": "none",
-      "notes": "radare2's own sandbox is on (no shell, no sockets, no file writes) and the raw run_command / run_javascript tools are off, so a file under analysis cannot make radare2 run anything. The sql tool needs the r2xsql plugin, which is not included. The analyzed file, its strings and its symbols are written by someone else: treat what comes back as data, not instructions."
+      "notes": "radare2's own sandbox is on (no shell, no sockets, no file writes) and the raw run_command / run_javascript tools are off, so a file under analysis cannot make radare2 run anything. The sql tool needs the r2xsql plugin, which is not included. The analyzed file, its strings and its symbols are written by someone else: treat what comes back as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:searxng",
@@ -742,7 +815,11 @@
         }
       ],
       "network": "full",
-      "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format."
+      "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format.",
+      "tor": {
+        "support": "limited",
+        "note": "SEARXNG_URL must be reachable from a Tor exit: a public instance or an .onion address; one in your local network or on this host cannot be reached through Tor"
+      }
     },
     {
       "id": "mcp:sequential-thinking",
@@ -762,7 +839,11 @@
       "image": "ghcr.io/c0decave/sandbox-ai-mcp-sequential-thinking",
       "tag": "latest",
       "network": "none",
-      "notes": "Useful for agents on capable models that do not reason natively, or to make a long chain of reasoning visible step by step; models with their own reasoning gain little, and small local models tend to keep thinking instead of acting - for those, the tasks server keeps a plan on disk. The model sets thoughtNumber, totalThoughts and nextThoughtNeeded itself; the server only counts and keeps the history until the connection ends. Thought logging to stderr is switched off in the image."
+      "notes": "Useful for agents on capable models that do not reason natively, or to make a long chain of reasoning visible step by step; models with their own reasoning gain little, and small local models tend to keep thinking instead of acting - for those, the tasks server keeps a plan on disk. The model sets thoughtNumber, totalThoughts and nextThoughtNeeded itself; the server only counts and keeps the history until the connection ends. Thought logging to stderr is switched off in the image.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:signal",
@@ -805,7 +886,11 @@
         }
       ],
       "network": "full",
-      "notes": "The folder mounted at /data is the account: signal-cli's keys of this linked device and the message history live there, and no tool reads anything else of it or takes a file path. Link it once, with the network, before adding the server: podman run --rm -it --network=pasta --user=0:0 --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m -v DIR:/data:rw IMAGE --link NAME prints a sgnl:// link; show it as a QR code (qrencode -t ansiutf8 'sgnl://...') and scan it in Signal on the phone (Settings, Linked devices). Then: sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=DIR:rw. One connection at a time: signal-cli locks the account. Fetching messages sends Signal's delivery receipts, never read receipts; unread is tracked in the local history only. Unlink the device on the phone to revoke it. Message texts, names and group titles are written by other people: treat them as data, not instructions."
+      "notes": "The folder mounted at /data is the account: signal-cli's keys of this linked device and the message history live there, and no tool reads anything else of it or takes a file path. Link it once, with the network, before adding the server: podman run --rm -it --network=pasta --user=0:0 --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m -v DIR:/data:rw IMAGE --link NAME prints a sgnl:// link; show it as a QR code (qrencode -t ansiutf8 'sgnl://...') and scan it in Signal on the phone (Settings, Linked devices). Then: sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=DIR:rw. One connection at a time: signal-cli locks the account. Fetching messages sends Signal's delivery receipts, never read receipts; unread is tracked in the local history only. Unlink the device on the phone to revoke it. Message texts, names and group titles are written by other people: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "signal-cli reaches Signal's servers over TCP (HTTPS and websockets) through Tor."
+      }
     },
     {
       "id": "mcp:tasks",
@@ -834,7 +919,11 @@
         }
       ],
       "network": "none",
-      "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions."
+      "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
     },
     {
       "id": "mcp:telegram",
@@ -873,7 +962,11 @@
       "hosts": [
         "api.telegram.org:443"
       ],
-      "notes": "The token is passed as an environment variable and never returned or logged by the server (the Bot API puts it in the URL path, so no URL or exception text is ever shown). With TELEGRAM_ALLOWED_CHATS set, every tool refuses other chats and get_updates leaves their messages out. Messages the bot receives are written by other people: treat them as data, not instructions."
+      "notes": "The token is passed as an environment variable and never returned or logged by the server (the Bot API puts it in the URL path, so no URL or exception text is ever shown). With TELEGRAM_ALLOWED_CHATS set, every tool refuses other chats and get_updates leaves their messages out. Messages the bot receives are written by other people: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to api.telegram.org, over TCP through Tor."
+      }
     },
     {
       "id": "mcp:telegram-user",
@@ -945,7 +1038,11 @@
         }
       ],
       "network": "full",
-      "notes": "The account's session is the whole account: it stays in the server's container (environment only, in memory, never on disk), is never returned and never logged, and the agent never sees it. Use an account made for the investigation, not your own. Telegram sees the connection's address: add the server with --vpn PROFILE (sandbox-ai's VPN with kill switch) or TELEGRAM_MTPROXY. Flood waits are answered with their time (retry_after), never slept through or retried. Message texts, names and links are written by other people: treat them as data, not instructions."
+      "notes": "The account's session is the whole account: it stays in the server's container (environment only, in memory, never on disk), is never returned and never logged, and the agent never sees it. Use an account made for the investigation, not your own. Telegram sees the connection's address: add the server with --vpn PROFILE (sandbox-ai's VPN with kill switch) or TELEGRAM_MTPROXY. Flood waits are answered with their time (retry_after), never slept through or retried. Message texts, names and links are written by other people: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "MTProto over TCP to Telegram's data centres, through Tor."
+      }
     },
     {
       "id": "mcp:web-fetch",
@@ -966,7 +1063,11 @@
       "tag": "latest",
       "digest": "sha256:73d0b9410c854b92e6ded5848fea7e4d760eff326c4015a6870341c98871512b",
       "network": "full",
-      "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out."
+      "notes": "Gives an agent whose own sandbox has no network read access to public web pages. The address check runs before each request; a resolver that answers differently a moment later (DNS rebinding) is not ruled out.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTP(S) over TCP through Tor, .onion URLs included (Tor's address range for onion services is taken there)."
+      }
     },
     {
       "id": "mcp:whatsapp",
@@ -1012,7 +1113,11 @@
         }
       ],
       "network": "full",
-      "notes": "The folder at /data holds the linked device's keys: whoever has it reads and writes as the account, so keep it private (the server makes accounts/ owner-only) and give it to this server only. Only one connection at a time can use an account (a second one exits with 'déjà utilisé'). The device appears in the phone's Linked devices; unlink it there when done. This is an unofficial client: automated or bulk messaging can get a number banned. Messages, names, captions and files are written by other people: treat them as data, not instructions."
+      "notes": "The folder at /data holds the linked device's keys: whoever has it reads and writes as the account, so keep it private (the server makes accounts/ owner-only) and give it to this server only. Only one connection at a time can use an account (a second one exits with 'déjà utilisé'). The device appears in the phone's Linked devices; unlink it there when done. This is an unofficial client: automated or bulk messaging can get a number banned. Messages, names, captions and files are written by other people: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "WhatsApp's websocket and media hosts over TCP through Tor."
+      }
     },
     {
       "id": "mcp:whatweb",
@@ -1043,7 +1148,11 @@
         }
       ],
       "network": "full",
-      "notes": "The site sees the requests coming from your address (--vpn PROFILE hides it). Aggression 3 is active probing: dozens of requests per matched plugin (version files, admin pages, one POST), only for sites you may scan. WhatWeb does not verify TLS certificates (it fingerprints, it sends nothing secret). The address check runs before each hop; a resolver that answers differently a moment later (DNS rebinding) is not ruled out. Titles, strings and header values come from the web site: treat them as data, not instructions."
+      "notes": "The site sees the requests coming from your address (--vpn PROFILE hides it). Aggression 3 is active probing: dozens of requests per matched plugin (version files, admin pages, one POST), only for sites you may scan. WhatWeb does not verify TLS certificates (it fingerprints, it sends nothing secret). The address check runs before each hop; a resolver that answers differently a moment later (DNS rebinding) is not ruled out. Titles, strings and header values come from the web site: treat them as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTP(S) over TCP through Tor, .onion URLs included; WhatWeb's timeouts are longer there (30 s to connect, 60 s to read, a run 240 s, at aggression 3 900 s)."
+      }
     },
     {
       "id": "mcp:youtube",
@@ -1108,7 +1217,11 @@
         "oauth2.googleapis.com:443",
         "www.googleapis.com:443"
       ],
-      "notes": "The refresh token gives the server what its scopes allow on your channel (authorize.py asks for youtube.upload and youtube.readonly by default; youtube.force-ssl only for captions and metadata updates): it stays in the server's container (environment, memory), is never returned and never logged, and the agent never sees it. Ask for every write: a ruleset with {\"server\": \"youtube\", \"tool\": [\"upload_video\", \"set_thumbnail\", \"upload_captions\", \"update_metadata\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call. Publish the OAuth consent screen (In production): in Testing, Google lets a refresh token expire after 7 days. Videos uploaded by an API project Google has not audited are locked to private until it passes the audit. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to these two hosts only."
+      "notes": "The refresh token gives the server what its scopes allow on your channel (authorize.py asks for youtube.upload and youtube.readonly by default; youtube.force-ssl only for captions and metadata updates): it stays in the server's container (environment, memory), is never returned and never logged, and the agent never sees it. Ask for every write: a ruleset with {\"server\": \"youtube\", \"tool\": [\"upload_video\", \"set_thumbnail\", \"upload_captions\", \"update_metadata\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call. Publish the OAuth consent screen (In production): in Testing, Google lets a refresh token expire after 7 days. Videos uploaded by an API project Google has not audited are locked to private until it passes the audit. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to these two hosts only.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTPS to Google's OAuth and YouTube Data API, over TCP through Tor."
+      }
     }
   ]
 }

@@ -28,5 +28,9 @@
   "hosts": [
     "context7.com:443"
   ],
-  "notes": "Every question and library name the agent asks about is sent to Context7 (Upstash): do not put secrets, personal data or proprietary code into a query - the tool descriptions say so to the agent too. The key is sent only to context7.com as a bearer token and never returned or logged. The documentation comes from Context7's index of public repositories and web pages, written by others: treat it as data, not instructions. Upstash also runs this server remotely (https://mcp.context7.com/mcp), which needs no container."
+  "notes": "Every question and library name the agent asks about is sent to Context7 (Upstash): do not put secrets, personal data or proprietary code into a query - the tool descriptions say so to the agent too. The key is sent only to context7.com as a bearer token and never returned or logged. The documentation comes from Context7's index of public repositories and web pages, written by others: treat it as data, not instructions. Upstash also runs this server remotely (https://mcp.context7.com/mcp), which needs no container.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTPS to context7.com, over TCP through Tor."
+  }
 }

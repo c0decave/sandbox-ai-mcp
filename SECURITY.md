@@ -31,9 +31,14 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   folder outside `/work` accepted, a command reaching the server's MCP connection through the server's own `/proc`
   entries, a command run where PID 1 shows variables the server was not given, `lint` running code of the project,
   output beyond the documented bounds held in memory; the commands themselves can do anything inside the container
-  and `/work` - that is the tool's purpose. Known and documented in `servers/exec/PROVENANCE.md`: the init that
-  sandbox-ai runs as PID 1 (Podman's catatonit, Bubblewrap's own) holds the MCP connection's pipes and the
-  container's environment where the commands can open them;
+  and `/work` - that is the tool's purpose; a command reaching the MCP connection or the environment through PID 1
+  when sandbox-ai runs exec as PID 1 (`"pid1": "server"`, sandbox-ai 0.1.95). Known and documented in
+  `servers/exec/PROVENANCE.md`: an older sandbox-ai runs an init as PID 1 (Podman's catatonit, Bubblewrap's own),
+  which holds the MCP connection's pipes and the container's environment where the commands can open them;
+- behind sandbox-ai's Tor profile (`SANDBOX_AI_TOR=1`): a lookup of osint-mcp or openosint sent over UDP or to a
+  resolver other than their `TOR_RESOLVERS` (or the `nameserver` a `dns_lookup` call names; the kill switch itself
+  is sandbox-ai's); and an entry's `"tor"` that says a server works behind Tor where it does not (a wrong
+  answer there would be trusted);
 - tasks: a read or write outside `/work/.tasks` (through a link or otherwise), a lost change when several connections
   write one plan, a plan it cannot read overwritten;
 - code-search: any write; a read or listing outside the folders mounted at `/work` and `/ref1`-`/ref3` (`..`, a link

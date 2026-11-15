@@ -56,5 +56,9 @@
     }
   ],
   "network": "none",
-  "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
+  "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

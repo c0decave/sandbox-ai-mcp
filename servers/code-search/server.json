@@ -36,5 +36,9 @@
     }
   ],
   "network": "none",
-  "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions."
+  "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

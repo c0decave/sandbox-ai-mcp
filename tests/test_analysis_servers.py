@@ -1556,6 +1556,41 @@ class SandboxAiAgrees(unittest.TestCase):
                 self.assertIn(f"--memory={resources.get('memory', '512m')}", command)
                 self.assertIn(f"--pids-limit={resources.get('pids', 128)}", command)
 
+    def test_tor_and_pid1_are_read_by_sandbox_ai_as_written(self):
+        """Every entry's "tor" is what sandbox-ai's tor_support makes of it, and exec's "pid1" reaches its run line
+        (no --init: the server is PID 1), the smoke runner's included; every other server keeps --init."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        root = tmp / "repo"
+        shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns(".git", "__pycache__", "candidates", "sandbox-ai"))
+        digest = "sha256:" + "ab" * 32
+        digests = json.loads((root / "digests.json").read_text())
+        digests["images"] = {name: digest for name in digests["images"]}
+        digests["rootfs"] = {}
+        (root / "digests.json").write_text(json.dumps(digests, indent=2) + "\n")
+        (root / "rootfs.json").write_text(json.dumps({"version": 1, "rootfs": {}}, indent=2) + "\n")
+        self.assertEqual(make_catalog.main(["--root", str(root)]), 0)
+        mcp = self.sandbox_ai_mcp()
+        smoke = load("smoke_test")
+        for entry in mcp.read_catalog(str(root / "catalog.json")):
+            with self.subTest(server=entry["name"]):
+                own = read_json("servers", entry["name"], "server.json")
+                self.assertEqual(mcp.tor_support(None, entry), (own["tor"]["support"], own["tor"].get("note", "")))
+                mounts = [f"{mount['target']}={tmp}:ro" for mount in entry.get("mounts", [])]
+                network = "full" if entry["network"] != "none" else None
+                env = [var["name"] for var in entry.get("env", [])]
+                definition = mcp.definition_from_entry(entry, mounts=mounts, env=env, network=network)
+                self.assertEqual(definition.get("pid1"), own.get("pid1"))
+                self.assertEqual("--init" not in smoke.image_command(mcp, definition, entry["name"]),
+                                 own.get("pid1") == "server")
+        options = smoke.server_options(str(ROOT / "servers/exec/smoke.json"))
+        argv, _, _ = smoke.sandbox_ai_argv("sandbox-ai-podman", str(self.checkout), f"local/exec@{digest}", "none",
+                                           [(str(tmp), "/work", True)], {}, resources=options)
+        self.assertNotIn("--init", argv)
+        argv, _, _ = smoke.sandbox_ai_argv("sandbox-ai-podman", str(self.checkout), f"local/exec@{digest}", "none",
+                                           [(str(tmp), "/work", True)], {}, resources={})
+        self.assertIn("--init", argv)
+
     def test_the_smoke_run_line_is_sandbox_ais(self):
         smoke = load("smoke_test")
         mcp = self.sandbox_ai_mcp()

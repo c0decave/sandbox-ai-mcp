@@ -24,5 +24,9 @@
     }
   ],
   "network": "none",
-  "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions."
+  "notes": "The plan is plain JSON with a Markdown copy beside it: read PROJECT/.tasks/PLAN.md to see what the agent is doing; edit plan.json only while no agent works on it (a plan the server cannot read is refused, never overwritten). The agent can also write .tasks with its own tools: the server checks every field it reads. What is stored was written by the model, often from what it read: data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

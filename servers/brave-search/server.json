@@ -28,5 +28,9 @@
   "hosts": [
     "api.search.brave.com:443"
   ],
-  "notes": "The key is passed as an environment variable and never returned or logged by the server."
+  "notes": "The key is passed as an environment variable and never returned or logged by the server.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTPS to Brave's API, over TCP through Tor."
+  }
 }

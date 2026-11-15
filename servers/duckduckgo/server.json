@@ -19,5 +19,9 @@
   "hosts": [
     "html.duckduckgo.com:443"
   ],
-  "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads."
+  "notes": "DuckDuckGo rate-limits automated queries; a refused query answers with an error naming that. Results are what DuckDuckGo shows, without ads.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTPS to html.duckduckgo.com, over TCP through Tor."
+  }
 }

@@ -120,6 +120,18 @@ class SmokeTest(unittest.TestCase):
                              "--report", str(report), "--upstream-backoff", "0", *extra])
         return status, json.loads(report.read_text())
 
+    def test_the_sandbox_ai_runners_take_pid1_from_the_server_json_beside_the_spec(self):
+        """exec runs as PID 1 under sandbox-ai ("pid1": "server" in its catalog entry): its smoke runs with sandbox-ai's
+        run lines must start it so too (Podman without --init, bwrap --as-pid-1), not as every other server."""
+        self.assertEqual(smoke.server_options(str(ROOT / "servers/exec/smoke.json")), {"pid1": "server"})
+        self.assertEqual(smoke.server_options(str(ROOT / "servers/duckduckgo/smoke.json")), {})
+        self.assertEqual(smoke.server_options(str(self.spec())), {})  # no server.json beside it
+        bad = self.tmp / "bad"
+        bad.mkdir()
+        (bad / "server.json").write_text(json.dumps({"pid1": "catatonit"}))
+        with self.assertRaises(ValueError):
+            smoke.server_options(str(bad / "smoke.json"))
+
     def test_a_spec_raises_the_limits_of_the_run_line(self):
         argv = smoke.run_command("x", "image", memory="2g", pids=512)
         self.assertIn("--memory=2g", argv)

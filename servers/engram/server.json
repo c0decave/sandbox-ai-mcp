@@ -32,5 +32,9 @@
     }
   ],
   "network": "none",
-  "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container."
+  "notes": "One folder per case: mkdir -p ~/brains/CASE, then sandbox-ai mcp add engram --mount /data=~/brains/CASE:rw. The folder must be on a local file system (Engram refuses NFS and SMB) and must not be changed while a connection uses it (Engram stops when its database files are replaced). Several connections may share one folder: SQLite's locks order them. Engram's instructions ask the agent to save proactively and to write a session summary before it ends; saved texts come back in later sessions, so treat what the memory returns as data, not instructions. The directory and cwd arguments of mem_session_start and mem_current_project are not offered: they would scan other folders of the container.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

@@ -19,5 +19,9 @@
   "image": "ghcr.io/c0decave/sandbox-ai-mcp-chrome-devtools",
   "tag": "latest",
   "network": "full",
-  "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+  "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "Chromium over TCP through Tor (QUIC falls back to TCP); some sites challenge or refuse Tor exits."
+  }
 }

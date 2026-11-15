@@ -60,5 +60,9 @@
     "oauth2.googleapis.com:443",
     "www.googleapis.com:443"
   ],
-  "notes": "The refresh token gives the server what its scopes allow on your channel (authorize.py asks for youtube.upload and youtube.readonly by default; youtube.force-ssl only for captions and metadata updates): it stays in the server's container (environment, memory), is never returned and never logged, and the agent never sees it. Ask for every write: a ruleset with {\"server\": \"youtube\", \"tool\": [\"upload_video\", \"set_thumbnail\", \"upload_captions\", \"update_metadata\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call. Publish the OAuth consent screen (In production): in Testing, Google lets a refresh token expire after 7 days. Videos uploaded by an API project Google has not audited are locked to private until it passes the audit. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to these two hosts only."
+  "notes": "The refresh token gives the server what its scopes allow on your channel (authorize.py asks for youtube.upload and youtube.readonly by default; youtube.force-ssl only for captions and metadata updates): it stays in the server's container (environment, memory), is never returned and never logged, and the agent never sees it. Ask for every write: a ruleset with {\"server\": \"youtube\", \"tool\": [\"upload_video\", \"set_thumbnail\", \"upload_captions\", \"update_metadata\"], \"decision\": \"ask\"} makes sandbox-ai ask you for each call. Publish the OAuth consent screen (In production): in Testing, Google lets a refresh token expire after 7 days. Videos uploaded by an API project Google has not audited are locked to private until it passes the audit. sandbox-ai gives an allowlist entry the full network (it cannot limit a server to hosts yet); the server itself sends requests to these two hosts only.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTPS to Google's OAuth and YouTube Data API, over TCP through Tor."
+  }
 }

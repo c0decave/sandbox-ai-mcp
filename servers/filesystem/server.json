@@ -36,5 +36,9 @@
     }
   ],
   "network": "none",
-  "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files)."
+  "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files).",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
 }

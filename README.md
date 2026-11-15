@@ -428,11 +428,14 @@ sandbox-ai opencode --workspace ~/projects/app --mcp exec --mcp tasks
 small model cannot get stuck in. Every command has a time limit (`EXEC_TIMEOUT`, default 120 s; at most
 `EXEC_MAX_TIMEOUT`, 600 s) and is stopped with every process it started; stdin is empty and there is no terminal, so
 nothing waits for an answer; the environment is fixed (`CI=1`, `TERM=dumb`, `PAGER=cat`, `EDITOR=true`, the yes
-switches of apt, pip and npm; the server's own variables only as `EXEC_ENV_ALLOW` names them - but a command can
-read every variable of the container through PID 1, so give exec no secrets; under Bubblewrap, whose PID 1 keeps
-sandbox-ai's whole environment, exec refuses to run commands: add it with `--backend podman`); output is cut to its
-first and last lines (`EXEC_OUTPUT_LINES`, 100) with the number left out. Long builds and servers go to `start_job`
-(at most `EXEC_MAX_JOBS`, 4, each at most `EXEC_JOB_TIMEOUT`, 3600 s). The commands have the image's tools: bash,
+switches of apt, pip and npm; the server's own variables only as `EXEC_ENV_ALLOW` names them). exec runs as PID 1
+of its container (`"pid1": "server"` in its catalog entry; sandbox-ai 0.1.95 starts it so: Podman without `--init`,
+`bwrap --as-pid-1`), and it is not dumpable, so a command can open neither its MCP connection nor its environment
+through `/proc`, and it works under Bubblewrap too. An older sandbox-ai puts an init at PID 1, which holds both: there
+a command can write MCP messages to the client and read every variable of the container at `/proc/1/environ`, and
+under Bubblewrap exec refuses to run commands (add it with `--backend podman`). Give exec no secrets either way.
+Output is cut to its first and last lines (`EXEC_OUTPUT_LINES`, 100) with the number left out. Long builds and
+servers go to `start_job` (at most `EXEC_MAX_JOBS`, 4, each at most `EXEC_JOB_TIMEOUT`, 3600 s). The commands have the image's tools: bash,
 coreutils, git, make, python3 with pytest, pyflakes and PyYAML, shellcheck, Node.js 20 (no npm); install anything else
 from the agent's own shell. `run_command`, `start_job`, `run_tests` and `stop_job` change things (`tools.json`): a
 ruleset can make sandbox-ai ask for them. Codex waits 60 s for an MCP call by default: give exec a longer
@@ -486,6 +489,36 @@ site - so use it only on sites you may scan. WhatWeb follows no redirect itself;
 checks each target's addresses first. Titles, headers, console messages, plugin strings and screenshots come from
 the site: data, not instructions.
 
+**Behind Tor.** With a Tor profile (`--vpn TOR_PROFILE`, or `mcp add|set NAME --vpn TOR_PROFILE`) sandbox-ai
+runs a server behind a Tor of its own and sets `SANDBOX_AI_TOR=1` for it: every TCP connection goes through Tor, no
+UDP, no IPv6, and what is sent to port 53 reaches tor's resolver, which answers A, AAAA and PTR only. Each catalog
+entry says how its server fares there, in `"tor"`: `{"support": "yes" | "limited" | "no", "note": TEXT}`.
+sandbox-ai (0.1.95) reads it: a server that is `"limited"` is added and started with its note said, one that is
+`"no"` is refused behind Tor with the note as the reason; an entry without it falls back to sandbox-ai's own table.
+Every server here names it:
+
+| Behind Tor | Servers |
+|---|---|
+| yes, without network (nothing of them goes through Tor) | binwalk, capa, code-search, engram, exec, files, filesystem, memory, radare2, sequential-thinking, tasks |
+| yes, over TCP through Tor | bluesky, brave-search, chrome-devtools, context7, duckduckgo, gowitness, openosint, osint-mcp, playwright, signal, telegram, telegram-user, web-fetch, whatsapp, whatweb, youtube |
+| limited | searxng: `SEARXNG_URL` must be reachable from a Tor exit (a public instance or an `.onion` address; one in your local network or on this host is not) |
+
+What the servers do differently behind Tor (only there, `SANDBOX_AI_TOR=1`):
+
+- **osint-mcp and openosint** ask DNS over TCP: every lookup (osint-mcp's `dns_lookup`, `email_security` and the DNS
+  parts of `recon_domain` and `compare_domains`, openosint's `search_dns`) goes to public resolvers - 1.1.1.1, 9.9.9.9,
+  8.8.8.8, or the `nameserver` a `dns_lookup` call names - over TCP, through tor's TransPort and an exit like every other
+  connection, with longer timeouts (10 s per resolver, 20 s per lookup). Through tor's resolver alone MX, TXT, NS,
+  SOA, CAA and DMARC got no answer. The resolvers see the exit's address and the names asked, never yours;
+  `/etc/resolv.conf` is not read there. The names HTTP and TLS connect to are still looked up through tor's resolver.
+- **whatweb** waits longer: `--open-timeout` 30 s and `--read-timeout` 60 s instead of 10 and 20, a run 240 s instead of
+  120 (aggression 3: 900 instead of 300). A circuit and the exit's connection come before the first byte.
+- **web-fetch, gowitness and whatweb** take `.onion` URLs (see above); **searxng** a `.onion` instance.
+
+No server here scans ports or needs UDP; a port scan through Tor's TransPort would see every port open (tor accepts
+each connection before an exit tries it), which is why sandbox-ai refuses axross-mcp-hub's nmap behind Tor. Some
+services refuse, rate-limit or challenge Tor exits; such a lookup then fails with that service's answer.
+
 ## Security model
 
 - **Containment first:** no capabilities, no new privileges, read-only root, small `noexec`
@@ -515,7 +548,10 @@ host's loopback for network). `catalog.json` pins the image digests,
 defaults (`"limits"`: memory, pids, cpus and tmp, the size of its /tmp; made by
 `scripts/make_catalog.py` from the server's `smoke.json`, so `sandbox-ai mcp add`
 applies what CI tested), a file of its own: axross reads the catalog and takes no
-keys it does not know.
+keys it does not know. Two keys of a catalog entry are sandbox-ai's own, which axross
+leaves unread: `"tor"` (above, under *Behind Tor*) and `"pid1": "server"` (exec runs
+as PID 1 of its container); the smoke runs with sandbox-ai's run lines start exec so
+too (`scripts/smoke_test.py` takes `pid1` from the `server.json` beside the spec).
 
 A release of the catalog is signed, on your machine, never in CI (every step: [docs/SIGNING.md](docs/SIGNING.md)):
 
@@ -539,7 +575,7 @@ server passed both smoke runs (Podman and Bubblewrap, `tools/list` matching
 ## Repository layout
 
 ```
-servers/<name>/       Dockerfile, server.json (catalog entry), src/server.py (none for radare2:
+servers/<name>/       Dockerfile, server.json (catalog entry, with "tor"), src/server.py (none for radare2:
                       its MCP server is upstream's, built from source), requirements.*,
                       PROVENANCE.md, LICENSES/, smoke.json, tools.json
 candidates/<name>/    prepared servers: Dockerfile with open pins, PROVENANCE.md, LICENSES/
