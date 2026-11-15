@@ -8,6 +8,7 @@
     "chrome-devtools",
     "code-search",
     "context7",
+    "filesystem",
     "sequential-thinking"
   ],
   "entries": [
@@ -450,6 +451,46 @@
       ],
       "network": "none",
       "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
+    },
+    {
+      "id": "mcp:filesystem",
+      "name": "filesystem",
+      "title": "Filesystem (official MCP server)",
+      "description": "The official MCP filesystem server (@modelcontextprotocol/server-filesystem 2.1.0) on the folders you mount, nothing else: read_text_file (whole, head or tail), read_media_file (base64 image, audio or blob), read_multiple_files, write_file, edit_file (exact or whitespace-tolerant replacements, answered with a git-style diff; dryRun), create_directory, list_directory, list_directory_with_sizes, directory_tree (JSON), move_file, search_files (glob on names), get_file_info (size, times, permissions, hard links), list_allowed_directories. The allowed directories are exactly the folders mounted at /work and /ref1-/ref3 (an empty mount point is not allowed); MCP Roots are never used, so a client cannot widen them. Symbolic links out of them are refused, writes go through the checked directory and never through a link. No network.",
+      "category": "Files",
+      "tags": [
+        "files",
+        "editing",
+        "workspace",
+        "search"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/filesystem",
+      "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers); MCP SDK: Apache-2.0; zod, brace-expansion, balanced-match, entry.mjs, Node.js: MIT; diff: BSD-3-Clause; minimatch: BlueOak-1.0.0",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-filesystem",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder the server works on (--mount /work=FOLDER:rw to write, :ro to only read)",
+          "required": true
+        },
+        {
+          "target": "/ref1",
+          "description": "Another folder, best read-only (--mount /ref1=DIR:ro); a writable one is written too"
+        },
+        {
+          "target": "/ref2",
+          "description": "Another folder, best read-only (--mount /ref2=DIR:ro); a writable one is written too"
+        },
+        {
+          "target": "/ref3",
+          "description": "Another folder, best read-only (--mount /ref3=DIR:ro); a writable one is written too"
+        }
+      ],
+      "network": "none",
+      "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files)."
     },
     {
       "id": "mcp:gowitness",

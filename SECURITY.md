@@ -44,6 +44,11 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   (`BLUESKY_PDS`, default `bsky.social`); a request to any host but the PDS and `public.api.bsky.app`; a write
   without `BLUESKY_WRITE=1`; a post deleted that is not the account's own; an image uploaded from outside `/upload`
   (a link, a device, another user's file) or with its EXIF location;
+- filesystem: a read, listing or write outside the folders mounted at `/work` and `/ref1`-`/ref3` (`..`, a link, a
+  prefix such as `/work-x`, an empty mount point nobody mounted, a client's MCP Roots), a write through a link or into
+  a folder swapped for one, a `roots/list` request sent at all; the unanchored reads of 2.1.0 (a read raced by a folder
+  swapped for a link, landing in the container's own files) are known and documented in
+  `servers/filesystem/PROVENANCE.md` until the re-pin to 2.3.0;
 - context7: a request to any host but `context7.com`, `CONTEXT7_API_KEY` reaching a tool answer, a log line or another
   host, anything sent beyond the library, the question, the language, the server's version and the transport (the
   client's name, a session id), telemetry loaded, the sign-in prompt shown; the documentation Context7 returns is
@@ -57,9 +62,9 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull
   an image other than the one reviewed).
 
-Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chrome DevTools MCP, Chromium, pyghidra-mcp, Ghidra, Telethon,
-radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong upstream, unless the
-packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
+Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chrome DevTools MCP, the MCP filesystem server,
+Chromium, pyghidra-mcp, Ghidra, Telethon, radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong
+upstream, unless the packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
 crafted file is such an upstream matter; it happens inside a container with no network, no
 capabilities and a read-only root.
 

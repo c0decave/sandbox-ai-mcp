@@ -132,8 +132,9 @@ class EveryServer(unittest.TestCase):
                 for mount in spec.get("mounts", []):
                     self.assertIn(mount["target"], declared,
                                   f"{name}: the smoke mounts {mount['target']}, the entry does not offer it")
-                    # the analysis servers read their input from /work; files, exec and tasks write /work by design
-                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name != "files":
+                    # the analysis servers read their input from /work; files, filesystem, exec and tasks write /work
+                    # by design
+                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name not in ("files", "filesystem"):
                         self.assertNotEqual(mount["target"], "/work",
                                             f"{name}: input is mounted read-only")
                 for target, mount in declared.items():
@@ -954,6 +955,124 @@ class SequentialThinking(unittest.TestCase):
     def test_the_newer_release_and_when_it_is_old_enough(self):
         self.assertIn("2.1.1", self.provenance)
         self.assertIn("2026-11-18", self.provenance)
+
+
+
+class Filesystem(unittest.TestCase):
+    """The official filesystem server: the npm release and its packages by integrity, glob (declared, never imported)
+    removed, started through our entry.mjs - the allowed directories are exactly the mounted folders and MCP Roots are
+    never used - no network, the symlink escapes refused in the smoke spec."""
+
+    TARGETS = ["/work", "/ref1", "/ref2", "/ref3"]
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "filesystem"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.entry_source = (self.folder / "src" / "entry.mjs").read_text()
+        self.lock = read_json("servers", "filesystem", "package-lock.json")
+        self.entry = read_json("servers", "filesystem", "server.json")
+        self.spec = read_json("servers", "filesystem", "smoke.json")
+
+    def test_the_lock_pins_every_package_by_integrity_and_the_sdk_is_memorys(self):
+        packages = {path.removeprefix("node_modules/"): entry for path, entry in self.lock["packages"].items() if path}
+        kept = {"@modelcontextprotocol/server-filesystem": "2.1.0", "@modelcontextprotocol/server": "2.4.0",
+                "@modelcontextprotocol/core": "2.4.0", "zod": "4.6.7", "diff": "8.0.4", "minimatch": "10.2.6",
+                "brace-expansion": "5.0.12", "balanced-match": "4.0.4"}
+        for name, version in kept.items():
+            self.assertEqual(packages[name]["version"], version, name)
+            self.assertIn(packages[name]["integrity"][:15], self.provenance, f"{name}: its integrity is not in PROVENANCE.md")
+        self.assertEqual(set(packages) - set(kept), {"glob", "path-scurry", "lru-cache", "minipass"})
+        for name, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), name)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", name)
+            self.assertFalse(entry.get("hasInstallScript"), f"{name} has an install script")
+        memory = {path: entry["integrity"] for path, entry in read_json("servers", "memory", "package-lock.json")[
+            "packages"].items() if path}
+        for path in ("node_modules/@modelcontextprotocol/server", "node_modules/@modelcontextprotocol/core",
+                     "node_modules/zod"):
+            self.assertEqual(self.lock["packages"][path]["integrity"], memory[path],
+                             f"{path}: servers/memory's review covers only the same files")
+        self.assertEqual(read_json("servers", "filesystem", "package.json")["dependencies"],
+                         {"@modelcontextprotocol/server-filesystem": "2.1.0"})
+
+    def test_only_what_runs_is_kept_and_the_reviewed_files_are_checked(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("rm -rf node_modules/glob node_modules/path-scurry node_modules/lru-cache node_modules/minipass",
+                      self.dockerfile)
+        self.assertIn("test \"$(ls node_modules | tr '\\n' ' ')\" = "
+                      "\"@modelcontextprotocol balanced-match brace-expansion diff minimatch zod \"", self.dockerfile)
+        digests = re.findall(r'echo "([0-9a-f]{64})  (dist/[a-z-]+\.js|package\.json)"', self.dockerfile)
+        self.assertEqual(len(digests), 9)
+        self.assertEqual(len({path for _, path in digests}), 9)
+        for digest, path in digests:
+            self.assertIn(f"`{digest}`", self.provenance, path)
+        self.assertIn("194cc86e3ae6400958555bd4116849d822d69263", self.provenance)
+        node = re.search(r"^ARG NODE_IMAGE=\S+@(sha256:[0-9a-f]{64})$", self.dockerfile, re.M)
+        self.assertEqual(node.group(0), re.search(r"^ARG NODE_IMAGE=\S+$",
+                                                  (ROOT / "servers/memory/Dockerfile").read_text(), re.M).group(0))
+        self.assertIn(node.group(1), self.provenance)
+
+    def test_the_entry_allows_only_the_mounted_targets(self):
+        entrypoint = re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile, re.M | re.S).group(1)
+        self.assertEqual(json.loads(entrypoint.replace("\\\n", "")),
+                         ["/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs",
+                          *self.TARGETS])
+        self.assertIn("COPY src/entry.mjs /opt/filesystem/entry.mjs", self.dockerfile)
+        self.assertIn("mkdir -m 0755 /work /ref1 /ref2 /ref3", self.dockerfile)
+        self.assertIn('readFileSync("/proc/self/mountinfo", "utf8")', self.entry_source)
+        self.assertIn("points.has(target)", self.entry_source)
+        self.assertIn('target !== "/"', self.entry_source)
+        self.assertIn("extra.length > 0", self.entry_source, "nothing but the mounted targets is allowed")
+        self.assertEqual([m["target"] for m in self.entry["mounts"]], self.TARGETS)
+        self.assertEqual([m["target"] for m in self.entry["mounts"] if m.get("required")], ["/work"])
+
+    def test_mcp_roots_are_never_used(self):
+        self.assertIn("protocol.listRoots = async () => {\n    throw new Error(ROOTS_REFUSED);", self.entry_source)
+        self.assertIn("protocol.oninitialized = () => {};", self.entry_source)
+        self.assertIn('protocol.setNotificationHandler("notifications/roots/list_changed", () => {});',
+                      self.entry_source)
+        self.assertIn("confinedServer(allowed, era)", self.entry_source)
+        imports = re.findall(r'^import .* from "([^"]+)";$', self.entry_source, re.M)
+        self.assertEqual(sorted(imports), ["@modelcontextprotocol/server-filesystem/dist/index.js",
+                                           "@modelcontextprotocol/server-filesystem/dist/server.js",
+                                           "@modelcontextprotocol/server/stdio", "node:fs", "node:path", "node:url"])
+        self.assertNotRegex(self.entry_source, r"https?://|process\.env|child_process")
+
+    def test_no_network_and_the_smoke_spec_tries_the_escapes(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("none", "none"))
+        self.assertNotIn("env", self.entry)
+        self.assertNotIn("hosts", self.entry)
+        [mount] = self.spec["mounts"]
+        self.assertEqual((mount["target"], mount["fresh"], mount["writable"]), ("/work", True, True))
+        links = {item["path"]: item["symlink"] for item in mount["seed"] if "symlink" in item}
+        self.assertEqual(links["escape"], "/etc")
+        calls = self.spec["calls"]
+        self.assertEqual(calls[0], {"tool": "list_allowed_directories", "arguments": {},
+                                    "expect": "Allowed directories:\n/work"})
+        refused = [c for c in calls if c.get("expect_error")]
+        self.assertGreaterEqual(len(refused), 10)
+        self.assertTrue([c for c in refused if c.get("absent")])
+        texts = " ".join(c["expect"] for c in refused)
+        for text in ("symlink target outside allowed directories: /etc/passwd",
+                     "path outside allowed directories: /ref1 not in /work", "Parent directory does not exist"):
+            self.assertIn(text, texts)
+        for call in refused:
+            if not call.get("absent"):
+                self.assertTrue(call["expect"].startswith(("Access denied - ", "Parent directory does not exist")),
+                                call["expect"])
+
+    def test_the_tools_and_their_record(self):
+        tools = read_json("servers", "filesystem", "tools.json")["tools"]
+        self.assertEqual(len(tools), 14)
+        self.assertEqual(tools, sorted(self.spec["expect_tools"]))
+        for tool in tools:
+            self.assertIn(f"`{tool}`", self.provenance)
+
+    def test_the_newer_releases_and_when_they_are_old_enough(self):
+        for text in ("2.2.0", "2026-11-18", "2.3.0", "2026-11-25", "CVE-2025-53110", "CVE-2025-53109",
+                     "GHSA-g3hv-75wg-m249"):
+            self.assertIn(text, self.provenance)
 
 
 class Context7(unittest.TestCase):

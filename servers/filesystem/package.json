@@ -1,0 +1,10 @@
+{
+  "name": "sandbox-ai-mcp-filesystem",
+  "version": "2.1.0",
+  "private": true,
+  "description": "The official MCP filesystem server, pinned for sandbox-ai-mcp (npm ci --ignore-scripts)",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "2.1.0"
+  }
+}

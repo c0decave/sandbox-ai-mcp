@@ -25,6 +25,12 @@ plain-text answers (no structured duplicate) whose first line says what happened
 `Step 3 done.`); every refusal says what to do instead; answers bounded (100 lines of output by default); the
 servers' instructions say when to call what (`next_step` at the start and when unsure; `start_job` for servers).
 
+**Files:** [files](../servers/files) is our server for a small model's reads and writes (a whole-file write needs the
+`sha256` it read, one exact match per edit, Markdown repairs, every write reported). The official
+[filesystem](../servers/filesystem) server (2.1.0, packaged on 2026-11-15, confined to the mounted folders, MCP Roots
+off) is for capable models and clients that expect its tools: it overwrites without asking and reads whole files, so
+small models are better off with files.
+
 **exec does not widen what the agent can do.** The agent has a shell of its own already, with more tools than
 exec's container. exec runs its commands in that container: no network namespace, no capabilities, a read-only
 root, a `noexec` /tmp, process and memory limits (2g, 512 processes, a 512m /tmp), and only the agent's own

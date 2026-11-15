@@ -11,6 +11,7 @@
     "engram": "sha256:86301bb8542ec2b4388bfd4862ae69c42216bcee0b6caa7585088de735828153",
     "exec": "sha256:db173a20cd08bf25982a03e97f6c0e4f30eb74d44ecee6471c61d6c097a76ee4",
     "files": "sha256:82bfd7705b9e9ed141ad9260072cf2ef92ee8caf23c2c6ba9d1bbc1d1ab07c5c",
+    "filesystem": null,
     "gowitness": "sha256:27cf77cf8034a737edcd7af86745f7a19e8fd4f82ca01dd45ae4e5f00bc5c6b8",
     "memory": "sha256:843965510007e73095a8627ed535bdf3a8378dd630b6798477b9d15f04097779",
     "openosint": "sha256:a01f33ff9828adc70cd97e61cd3cd0c31937b8e202f41bc415232c6fef458876",

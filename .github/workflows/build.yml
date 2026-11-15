@@ -98,8 +98,8 @@ jobs:
       fail-fast: false
       matrix:
         server: [binwalk, bluesky, brave-search, capa, chrome-devtools, code-search, context7, duckduckgo, engram, exec,
-                 files, gowitness, memory, openosint, osint-mcp, playwright, radare2, searxng, sequential-thinking,
-                 signal, tasks, telegram, telegram-user, web-fetch, whatsapp, whatweb, youtube]   # candidates/ join once their pins are set
+                 files, filesystem, gowitness, memory, openosint, osint-mcp, playwright, radare2, searxng,
+                 sequential-thinking, signal, tasks, telegram, telegram-user, web-fetch, whatsapp, whatweb, youtube]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

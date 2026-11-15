@@ -47,6 +47,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [code-search](servers/code-search) | find and read code by name, for agents on small local models (our own server): `find_definition` (exact matches first, similar names when there is none), `read_symbol` (one function or class with line numbers instead of the whole file), `outline` of a file, `find_references`, `find_text` (bounded, with the function each line is in, an offset to go on), `find_files`, `project_map`. Python exact (its own parser); JavaScript/TypeScript, Go, Rust, Java, C/C++ and shell approximate. Honours `.gitignore`, skips dependencies and build output; every answer bounded, every search time-limited. The project mounted read-only at `/work` (`/ref1`-`/ref3` beside it), nothing written | none | - (the project is the `/work` folder, read-only) |
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
+| [filesystem](servers/filesystem) | the official MCP filesystem server (2.1.0) for agents on capable models that expect the reference tool set: read whole files (or head/tail), media as base64, several at once, write, `edit_file` with a git-style diff (`dryRun`), `create_directory`, list (with sizes), `directory_tree`, `move_file`, `search_files` (glob on names), `get_file_info`. Allowed are exactly the folders mounted at `/work` and `/ref1`-`/ref3`; MCP Roots are never used, so a client cannot widen them; links out of the folders refused. Which of files and filesystem: *files or filesystem?* under [Using them in sandbox-ai](#using-them-in-sandbox-ai) | none | - (the folders you mount) |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
@@ -130,6 +131,7 @@ sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge
 sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding agent's memory, no network
 sandbox-ai mcp add sequential-thinking             # step-by-step thoughts for one connection, no network
 sandbox-ai mcp add files --mount /work=~/projects/myapp:rw   # the agent's workspace, no network
+sandbox-ai mcp add filesystem --mount /work=~/projects/myapp:rw   # the official server, the same folder
 sandbox-ai mcp add exec --mount /work=~/projects/app:rw    # commands in the project, no network (small local models)
 sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/projects/app/.tasks
 sandbox-ai mcp add code-search --mount /work=~/projects/app:ro   # find and read code by name, read-only
@@ -321,6 +323,29 @@ agent's anyway), deleting and moving asked for, anything else refused:
 
 Tell a small model in its instructions to use `write_markdown` for `.md` files and `edit_file` for small changes, and to
 read before it writes. See [its PROVENANCE.md](servers/files/PROVENANCE.md).
+
+**files or filesystem?** Both work on the folders you mount and nothing else, without network. **files** is our own
+server, made for agents on small local models: a whole-file write needs the `sha256` the file was read with, an edit
+needs one exact match, `write_markdown` repairs what small models break, every write reports what changed, reads come
+in parts with a hash, `delete` goes into a trash, and `/ref1`-`/ref3` are always read-only. **filesystem** is the
+official reference server (`@modelcontextprotocol/server-filesystem`), for agents on capable models and clients
+written against its tool names (`read_text_file`, `edit_file`, `directory_tree`, `search_files`, `move_file`,
+`get_file_info`, ...): it overwrites without asking, edits by text match with a whitespace-tolerant fallback and
+answers with a diff, reads whole files, returns images and audio as media content, and lists a folder as a JSON tree.
+Its allowed directories are exactly the mounted folders: the image's entry takes the mount points of `/work` and
+`/ref1`-`/ref3` from the container's mount table and never asks the client for MCP Roots (in 2.1.0 a client's roots
+would replace them). A folder is read-only when you mount it `:ro`; for a read-only agent allow only its read tools.
+Until it is re-pinned to 2.3.0 (from 2026-11-25) a read raced by someone swapping a folder for a link can land outside
+the folders - inside its own container only, never in your files ([PROVENANCE.md](servers/filesystem/PROVENANCE.md),
+finding 1).
+
+```bash
+sandbox-ai mcp add filesystem --mount /work=~/projects/myapp:rw --mount /ref1=~/reference:ro
+```
+
+Use **files** for OpenCode, Codex or Hermes on a local model, **filesystem** where a capable model or a client
+expects the official tools; one of them per folder is enough.
+
 **bluesky** posts to your Bluesky account without the agent ever holding your credentials: your handle and an
 **app password** are given to the server's container only (sandbox-ai's secrets); the server signs in at your PDS
 itself, keeps the session in memory, renews it there, and no answer or log line carries the password or a token.
