@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | robyroro/osint-mcp **0.3.0** (MIT, Robert Vind-Gardoș), tag `v0.3.0`, commit `815276a9edc554fc6aa529ee5c1f9916c204e7bf` (2026-10-05; GitHub release 2026-10-05T18:12Z) |
 | As installed | the PyPI wheel `osint_mcp_server-0.3.0-py3-none-any.whl` (uploaded 2026-10-05T18:12Z by upstream's tag workflow), sha256 `299a0c3f26c39bdf506a4493b48e033f8a83c6d68edfb48b3c92b9eeffd9c71b`, byte for byte the tag's `src/osint_mcp/` (`diff -r` of the wheel against the tag's tarball: identical; the wheel adds only its `dist-info` with two console scripts, `osint-mcp` and `osint-mcp-server`, not used here) |
-| Started by | `src/server.py` of this repository (MIT): tightens upstream's address check (finding 1), then runs upstream's `osint_mcp.server.main()` unchanged |
+| Started by | `src/server.py` of this repository (MIT): tightens upstream's address check (finding 1), behind sandbox-ai's Tor profile sends every DNS lookup over TCP (finding 9), then runs upstream's `osint_mcp.server.main()` unchanged |
 | Python packages | `osint-mcp-server==0.3.0` and `mcp==2.3.0` (the MCP Python SDK 2.x, MIT, 2026-10-02) with their dependencies, 41 pins hash-locked in `requirements.txt` (39 install on Linux) |
 | Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (the same as web-fetch) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
@@ -122,6 +122,18 @@ here; imported by `requests`, which tldextract imports) ships mypyc-compiled cop
    This is the first server here on the MCP SDK 2.x: its HTTP transports (starlette, uvicorn,
    sse-starlette) and OAuth parts (pyjwt, cryptography) are installed as dependencies but never started on
    stdio.
+9. **DNS behind Tor (changed here).** Behind sandbox-ai's Tor profile (`SANDBOX_AI_TOR=1`) no UDP passes, and what
+   is sent to port 53 reaches tor's DNSPort, which answers A, AAAA and PTR only: `dns_lookup` of MX, TXT, NS, SOA
+   and CAA, `email_security` and the DNS parts of `recon_domain` and `compare_domains` got no answer
+   (`<unavailable>` or `<timeout>`). There `src/server.py` replaces `dns.asyncresolver.Resolver` - which
+   `sources.dns_records`, `txt_records` and `reverse_dns` look up each time they run - with `TorResolver`: the
+   resolvers 1.1.1.1, 9.9.9.9 and 8.8.8.8 (`/etc/resolv.conf` is not read), or the `nameserver` a call names
+   (still checked by `public_ip`), every query over TCP (`tcp=True`), at least 10 s per resolver and 20 s per
+   lookup whatever upstream sets (5 s). A TCP connection goes through tor's TransPort and an exit like every other:
+   the resolvers see the exit's address and the names asked, never the user's. Without Tor nothing changes.
+   `tests/test_own_servers.py` (`test_osint_mcp_dns_over_tcp_behind_tor`, also inside the image) answers the queries
+   with a stand-in and checks that each went over TCP to those resolvers, and that without Tor upstream's resolver
+   is untouched. The names HTTP and TLS connect to are still resolved by `getaddrinfo`, through tor's DNSPort.
 
 No backdoor, no hidden network use, no code execution (no `subprocess`, `exec`, `eval`, `pickle` or dynamic
 import in osint-mcp), no credentials read. Files read: Python's packages, `/etc/resolv.conf` (dnspython),
@@ -142,7 +154,7 @@ All annotated read-only by upstream. "Target" means the domain or address the ag
 | `recon_domain` | rdap.org (+ registry), DNS, crt.sh (`include_subdomains`), stat.ripe.net, internetdb.shodan.io; with `include_active` (default on): the target's 443 (TLS, HTTP) and `mta-sts.<domain>`:443 |
 | `domain_whois` | rdap.org:443, redirected to the registry's RDAP server (any host, https) |
 | `ip_whois` | rdap.org:443 (+ the RIR's RDAP server), DNS (PTR) |
-| `dns_lookup` | DNS: the container's resolver, or a public resolver address given as `nameserver` (:53) |
+| `dns_lookup` | DNS: the container's resolver, or a public resolver address given as `nameserver` (:53); behind Tor TCP to 1.1.1.1, 9.9.9.9, 8.8.8.8 or the `nameserver` (finding 9) |
 | `subdomains` | crt.sh:443 |
 | `wayback` | web.archive.org:443 |
 | `http_headers` | the URL given (any public host and port, http or https), its redirects |

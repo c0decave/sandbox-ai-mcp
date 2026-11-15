@@ -64,6 +64,27 @@ def result(answer):
     return content.get("result", content)
 
 
+#: What the stand-in resolver answers (tests of the lookups behind Tor): a record of each type, for any name.
+DNS_RECORDS = {"A": ["93.184.215.14"], "AAAA": ["2606:2800:21f:cb07:6820:80da:af6b:8b2c"], "MX": ["10 mail.example.com."],
+               "NS": ["a.iana-servers.net."], "TXT": ['"v=spf1 -all"'], "CAA": ['0 issue "letsencrypt.org"'],
+               "SOA": ["ns.icann.org. noc.dns.icann.org. 2026111501 7200 3600 1209600 3600"],
+               "PTR": ["one.one.one.one."]}
+
+
+def dns_answer(request):
+    """The answer to the DNS message REQUEST from DNS_RECORDS (no record of the type asked: an empty answer)."""
+    import dns.message
+    import dns.rdatatype
+    import dns.rrset
+    response = dns.message.make_response(request)
+    question = request.question[0]
+    kind = dns.rdatatype.to_text(question.rdtype)
+    if kind in DNS_RECORDS:  # through find_rrset, which keeps the message's index of its records
+        records = dns.rrset.from_text(question.name, 300, "IN", kind, *DNS_RECORDS[kind])
+        response.find_rrset(response.answer, records.name, records.rdclass, records.rdtype, create=True).update(records)
+    return response
+
+
 try:
     import mcp  # noqa: F401 - the servers' own dependency
 except ImportError:
@@ -573,6 +594,54 @@ class Servers(unittest.TestCase):
             self.assertEqual(stream.getvalue(), "url with [redacted]\n")
             self.assertEqual(module.redact("Bearer ghp_testtokenvalue"), "Bearer [redacted]")
 
+    def test_openosint_dns_over_tcp_behind_tor(self):
+        """Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) no UDP passes, and tor's DNSPort, where port 53 is sent,
+        answers A, AAAA and PTR only: search_dns got no MX, NS, TXT, SOA or DMARC. There every lookup goes over TCP -
+        through tor's TransPort and an exit - to public resolvers (TOR_RESOLVERS), with longer timeouts; without Tor
+        OpenOSINT's resolver is unchanged. No network: the queries are answered here."""
+        from unittest import mock
+        try:
+            import dns.query
+            import dns.resolver
+            from openosint.tools import search_dns
+        except ImportError:
+            self.skipTest("OpenOSINT's reviewed modules are not installed (they are in the image)")
+        original = dns.resolver.Resolver
+        with mock.patch.dict(os.environ):
+            os.environ.pop("SANDBOX_AI_TOR", None)
+            load("openosint")
+            self.assertIs(dns.resolver.Resolver, original)
+        asked = []
+
+        def tcp(request, where, timeout=None, port=53, *args, **kwargs):
+            asked.append(("tcp", where, port, timeout))
+            return dns_answer(request)
+
+        def udp(request, where, *args, **kwargs):
+            asked.append(("udp", where))
+            raise OSError("no UDP behind Tor")
+
+        with mock.patch.dict(os.environ, {"SANDBOX_AI_TOR": "1"}), \
+                mock.patch.object(dns.resolver, "Resolver", original), \
+                mock.patch.object(dns.query, "tcp", tcp), mock.patch.object(dns.query, "udp", udp):
+            module = load("openosint")
+            self.assertIs(dns.resolver.Resolver, module.TorResolver)
+            found = asyncio.run(search_dns.collect_dns_records("example.com", 10))
+            text = asyncio.run(search_dns.run_dns_osint("example.com", timeout_seconds=10))
+            resolver = dns.resolver.Resolver()
+            resolver.timeout, resolver.lifetime = 2, 5.0  # OpenOSINT sets its own: Tor's are the least
+            self.assertEqual((resolver.timeout, resolver.lifetime), (module.TOR_DNS_TIMEOUT, module.TOR_DNS_LIFETIME))
+            self.assertEqual(resolver.nameservers, list(module.TOR_RESOLVERS))
+        self.assertIs(dns.resolver.Resolver, original)
+        self.assertEqual((found.mx, found.ns, found.txt, found.dmarc),
+                         (DNS_RECORDS["MX"], DNS_RECORDS["NS"], DNS_RECORDS["TXT"], DNS_RECORDS["TXT"]))
+        self.assertEqual(found.soa, DNS_RECORDS["SOA"])
+        self.assertIn("mail.example.com", text)
+        self.assertGreater(len(asked), 8)
+        self.assertEqual({(kind, where in module.TOR_RESOLVERS, port) for kind, where, port, _ in asked},
+                         {("tcp", True, 53)})
+        self.assertTrue(all(timeout > 5 for *_, timeout in asked), asked)  # Tor's timeout, not OpenOSINT's 5 s
+
     def test_youtube(self):
         """The upload server over stdio (tools, refusals before any request, no credentials named), then the whole
         offline suite of tests/test_youtube.py against its fake Google - in CI with the image's own Python and
@@ -782,6 +851,56 @@ class OsintMcp(unittest.TestCase):
         self.assertEqual(page["legal_links"], ["https://example.com/contact"])  # same origin only
         self.assertEqual(page["external_link_domains"], ["other.example.net"])
         self.assertEqual(page["company_identifiers"], [{"label": "VAT", "value": "RO 1234567"}])
+
+    def test_osint_mcp_dns_over_tcp_behind_tor(self):
+        """Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) no UDP passes, and tor's DNSPort, where port 53 is sent,
+        answers A, AAAA and PTR only: dns_lookup, email_security and the DNS parts of recon_domain and
+        compare_domains got no MX, TXT, NS, SOA or CAA. There every lookup goes over TCP - through tor's TransPort and
+        an exit - to public resolvers (TOR_RESOLVERS) or the nameserver a call names, with longer timeouts; without
+        Tor upstream's resolver is unchanged. No network: the queries are answered here."""
+        from unittest import mock
+        import dns.asyncquery
+        import dns.asyncresolver
+        from osint_mcp import sources
+        original = dns.asyncresolver.Resolver
+        with mock.patch.dict(os.environ):
+            os.environ.pop("SANDBOX_AI_TOR", None)
+            load("osint-mcp")
+            self.assertIs(dns.asyncresolver.Resolver, original)
+        asked = []
+
+        async def tcp(request, where, timeout=None, port=53, *args, **kwargs):
+            asked.append(("tcp", where, port, timeout))
+            return dns_answer(request)
+
+        async def udp(request, where, *args, **kwargs):
+            asked.append(("udp", where, None, None))
+            raise OSError("no UDP behind Tor")
+
+        with mock.patch.dict(os.environ, {"SANDBOX_AI_TOR": "1"}), \
+                mock.patch.object(dns.asyncresolver, "Resolver", original), \
+                mock.patch.object(dns.asyncquery, "tcp", tcp), mock.patch.object(dns.asyncquery, "udp", udp):
+            module = load("osint-mcp")
+            self.assertIs(dns.asyncresolver.Resolver, module.TorResolver)
+            records = asyncio.run(sources.dns_records("example.com"))["records"]
+            txt = asyncio.run(sources.txt_records("_dmarc.example.com"))
+            ptr = asyncio.run(sources.reverse_dns("1.1.1.1"))
+            tor_resolvers = len(asked)
+            chosen = asyncio.run(sources.dns_records("example.com", ["MX"], "8.8.4.4"))["records"]
+            resolver = dns.asyncresolver.Resolver()
+            resolver.timeout, resolver.lifetime = 2, 5.0  # upstream sets its own: Tor's are the least
+            self.assertEqual((resolver.timeout, resolver.lifetime), (module.TOR_DNS_TIMEOUT, module.TOR_DNS_LIFETIME))
+            self.assertEqual(resolver.nameservers, list(module.TOR_RESOLVERS))
+        self.assertIs(dns.asyncresolver.Resolver, original)
+        for kind in ("A", "AAAA", "MX", "NS", "TXT", "SOA", "CAA"):
+            expected = [value.strip('"') for value in DNS_RECORDS[kind]] if kind == "TXT" else DNS_RECORDS[kind]
+            self.assertEqual(records[kind], sorted(expected), kind)
+        self.assertNotIn("CNAME", records)  # an empty answer, not "<timeout>" or "<unavailable>"
+        self.assertEqual((txt, ptr, chosen), (["v=spf1 -all"], ["one.one.one.one"], {"MX": DNS_RECORDS["MX"]}))
+        self.assertEqual({(kind, where in module.TOR_RESOLVERS, port) for kind, where, port, _ in asked[:tor_resolvers]},
+                         {("tcp", True, 53)})
+        self.assertEqual(asked[tor_resolvers:], [("tcp", "8.8.4.4", 53, asked[-1][3])])  # the one the call names
+        self.assertTrue(all(timeout > 5 for *_, timeout in asked), asked)  # Tor's timeout, not upstream's 5 s
 
     def check_server(self):
         expected = json.loads((ROOT / "servers/osint-mcp/tools.json").read_text())["tools"]

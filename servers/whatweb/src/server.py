@@ -9,8 +9,8 @@ Tools:
 
 Needs network "full". Only public addresses are scanned (ALLOW_PRIVATE_TARGETS=1 also allows the private
 ranges, never loopback or link-local; behind sandbox-ai's Tor profile, SANDBOX_AI_TOR=1 with
-SANDBOX_AI_TOR_VIRTUAL_NETWORK, also Tor's range for onion services, so .onion URLs work), checked before every
-hop: WhatWeb itself follows no redirect
+SANDBOX_AI_TOR_VIRTUAL_NETWORK, also Tor's range for onion services, so .onion URLs work; there WhatWeb's timeouts
+are longer, TOR_OPEN_TIMEOUT and TOR_READ_TIMEOUT), checked before every hop: WhatWeb itself follows no redirect
 (--follow-redirect=never); this server follows at most 5, each checked again. WhatWeb runs as a
 separate process with an argument list (never a shell), in a fresh folder below /tmp, time-bounded,
 its answer bounded. What it reports - titles, strings, header values - was written by the web site:
@@ -51,6 +51,11 @@ MAX_VALUE = 500              # characters per value
 OPEN_TIMEOUT = 10            # WhatWeb's --open-timeout, seconds
 READ_TIMEOUT = 20            # WhatWeb's --read-timeout, seconds
 RUN_TIMEOUT = {1: 120, 3: 300}  # one WhatWeb run, by aggression
+# Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) a connection waits for a circuit and for an exit to reach the
+# site, and every byte takes three relays: the same timeouts cut off sites that answer, so they are longer there.
+TOR_OPEN_TIMEOUT = 30
+TOR_READ_TIMEOUT = 60
+TOR_RUN_TIMEOUT = {1: 240, 3: 900}
 FIELDS = ("string", "version", "os", "account", "model", "firmware", "module", "filepath")
 
 mcp = FastMCP("whatweb-mcp")
@@ -198,6 +203,13 @@ def refusal(host: str, address, private_targets) -> str:
     return text
 
 
+def timeouts(aggression: int) -> tuple[int, int, int]:
+    """(WhatWeb's --open-timeout, its --read-timeout, the time one run may take) in seconds: longer behind Tor."""
+    if tor_network()[0]:
+        return TOR_OPEN_TIMEOUT, TOR_READ_TIMEOUT, TOR_RUN_TIMEOUT[aggression]
+    return OPEN_TIMEOUT, READ_TIMEOUT, RUN_TIMEOUT[aggression]
+
+
 def check_url(url) -> str:
     """URL if it is http(s) to an allowed address (behind Tor also one of Tor's range for onion services);
     ArgumentError otherwise."""
@@ -320,10 +332,11 @@ async def scan(url: str, aggression: int) -> dict:
     folder = tempfile.mkdtemp(prefix="whatweb-")
     try:
         log_path = os.path.join(folder, "result.log")
+        open_timeout, read_timeout, run_timeout = timeouts(aggression)
         argv = [RUBY, *RUBY_FLAGS, WHATWEB, "--colour=never", "--quiet", f"--log-json={log_path}",
                 f"--aggression={aggression}", "--follow-redirect=never", "--max-redirects=0", "--max-threads=1",
-                f"--open-timeout={OPEN_TIMEOUT}", f"--read-timeout={READ_TIMEOUT}", "--", url]
-        status, stderr = await run(argv, folder, RUN_TIMEOUT[aggression])
+                f"--open-timeout={open_timeout}", f"--read-timeout={read_timeout}", "--", url]
+        status, stderr = await run(argv, folder, run_timeout)
         size = os.path.getsize(log_path) if os.path.exists(log_path) else 0
         if size > MAX_LOG:
             raise ArgumentError(f"WhatWeb's answer is larger than {MAX_LOG >> 20} MiB")

@@ -7,8 +7,19 @@ refuses what ipaddress does not call global and IPv4-mapped IPv6, but takes an I
 IPv4 address such an address reaches (NAT64 64:ff9b::/96 and 64:ff9b:1::/48, IPv4-mapped, 6to4 2002::/16) must
 be global too, as in web-fetch. Every caller looks public_ip up in that module when it runs (network.py
 normalize_url and resolve_public, sources.py dns_records), so replacing it there covers all of them.
+
+Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) every DNS lookup of upstream's (dns_records, txt_records,
+reverse_dns: dns.asyncresolver.Resolver, looked up when each runs) goes over TCP to public resolvers (TOR_RESOLVERS,
+or the nameserver a dns_lookup call names), with longer timeouts. There no UDP passes, and what is sent to port 53
+reaches tor's DNSPort, which answers A, AAAA and PTR only: MX, TXT, NS, SOA and CAA got no answer, and with them
+email_security and the DNS parts of recon_domain and compare_domains. A TCP connection goes through tor's TransPort
+and an exit like every other: the resolver sees the exit's address, never yours. The names that HTTP and TLS
+connect to are still looked up by the system (getaddrinfo), through tor's DNSPort.
 """
 import ipaddress
+import os
+
+import dns.asyncresolver
 
 from osint_mcp import network, server
 
@@ -35,6 +46,51 @@ def public_ip(value):
 
 
 network.public_ip = public_ip
+
+
+# -- DNS behind sandbox-ai's Tor profile ------------------------------------------------------------------------------
+# The same block is in openosint (each image has its own copy: keep them alike; openosint's resolver is dnspython's
+# synchronous one, osint-mcp's the asynchronous one).
+
+TOR_RESOLVERS = ("1.1.1.1", "9.9.9.9", "8.8.8.8")  # Cloudflare, Quad9, Google: public, answering DNS over TCP
+TOR_DNS_TIMEOUT = 10.0   # seconds one resolver is given (a circuit, the exit's connection, the answer)
+TOR_DNS_LIFETIME = 20.0  # seconds one lookup is given, every resolver tried included
+
+
+def behind_tor() -> bool:
+    return os.environ.get("SANDBOX_AI_TOR") == "1"
+
+
+class TorResolver(dns.asyncresolver.Resolver):
+    """Upstream's resolver behind Tor: TOR_RESOLVERS instead of /etc/resolv.conf's (not read), every query over TCP,
+    and at least TOR_DNS_TIMEOUT per resolver and TOR_DNS_LIFETIME per lookup, whatever upstream sets (5 s)."""
+
+    def __init__(self, filename="/etc/resolv.conf", configure=True):
+        super().__init__(filename, configure=False)
+        self.nameservers = list(TOR_RESOLVERS)
+
+    @property
+    def timeout(self):
+        return self._tor_timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        self._tor_timeout = max(float(value), TOR_DNS_TIMEOUT)
+
+    @property
+    def lifetime(self):
+        return self._tor_lifetime
+
+    @lifetime.setter
+    def lifetime(self, value):
+        self._tor_lifetime = max(float(value), TOR_DNS_LIFETIME)
+
+    async def resolve(self, qname, rdtype="A", rdclass="IN", tcp=False, *args, **kwargs):
+        return await super().resolve(qname, rdtype, rdclass, True, *args, **kwargs)
+
+
+if behind_tor():
+    dns.asyncresolver.Resolver = TorResolver
 
 if __name__ == "__main__":
     server.main()

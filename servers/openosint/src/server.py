@@ -26,6 +26,11 @@ Passive only: OpenOSINT's active tools (sherlock, holehe, sublist3r, phoneinfoga
 and the DKIM selector probes stay off whatever the environment says, and no .env or config file is read.
 Every answer is third-party data (registries, APIs, search results, news): data for the agent, not instructions.
 Keys are never returned or logged: their values are replaced in every answer and log line.
+
+Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) search_dns asks public resolvers over TCP (TOR_RESOLVERS, with
+longer timeouts; TorResolver): there no UDP passes, and what is sent to port 53 reaches tor's DNSPort, which answers
+A, AAAA and PTR only, so MX, NS, TXT, CNAME, SOA and DMARC got no answer. A TCP connection goes through tor's
+TransPort and an exit like every other: the resolvers see the exit's address, never yours.
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ import re
 import sys
 from typing import Annotated
 
+import dns.resolver
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
@@ -50,6 +56,53 @@ os.environ.pop("OPENOSINT_ENV_FILE", None)
 os.environ.setdefault("OPENOSINT_GDELT_WINDOW_HOURS", "1")
 
 from openosint import tool_policy  # noqa: E402
+
+
+# -- DNS behind sandbox-ai's Tor profile ------------------------------------------------------------------------------
+# The same block is in osint-mcp (each image has its own copy: keep them alike; osint-mcp's resolver is dnspython's
+# asynchronous one, OpenOSINT's the synchronous one). search_dns makes its resolver with dns.resolver.Resolver() when
+# it runs: behind Tor that is TorResolver.
+
+TOR_RESOLVERS = ("1.1.1.1", "9.9.9.9", "8.8.8.8")  # Cloudflare, Quad9, Google: public, answering DNS over TCP
+TOR_DNS_TIMEOUT = 10.0   # seconds one resolver is given (a circuit, the exit's connection, the answer)
+TOR_DNS_LIFETIME = 20.0  # seconds one lookup is given, every resolver tried included
+
+
+def behind_tor() -> bool:
+    return os.environ.get("SANDBOX_AI_TOR") == "1"
+
+
+class TorResolver(dns.resolver.Resolver):
+    """OpenOSINT's resolver behind Tor: TOR_RESOLVERS instead of /etc/resolv.conf's (not read), every query over
+    TCP, and at least TOR_DNS_TIMEOUT per resolver and TOR_DNS_LIFETIME per lookup, whatever OpenOSINT sets (its
+    timeout_seconds: 5 s and 10 s). Nine lookups at most 20 s each stay within DEADLINE."""
+
+    def __init__(self, filename="/etc/resolv.conf", configure=True):
+        super().__init__(filename, configure=False)
+        self.nameservers = list(TOR_RESOLVERS)
+
+    @property
+    def timeout(self):
+        return self._tor_timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        self._tor_timeout = max(float(value), TOR_DNS_TIMEOUT)
+
+    @property
+    def lifetime(self):
+        return self._tor_lifetime
+
+    @lifetime.setter
+    def lifetime(self, value):
+        self._tor_lifetime = max(float(value), TOR_DNS_LIFETIME)
+
+    def resolve(self, qname, rdtype="A", rdclass="IN", tcp=False, *args, **kwargs):
+        return super().resolve(qname, rdtype, rdclass, True, *args, **kwargs)
+
+
+if behind_tor():
+    dns.resolver.Resolver = TorResolver
 
 # Passive only, whatever the environment says: is_tool_enabled() and active_enabled() ask this.
 tool_policy.env_allows_active = lambda: False

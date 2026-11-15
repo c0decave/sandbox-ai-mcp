@@ -116,7 +116,7 @@ the shipped modules.
 | `generate_dorks` | 12 Google search URLs for a target, built locally | nothing | - |
 | `search_rdap` | registrar, created/expires, name servers, status of a domain; registrant fields are never read | `data.iana.org:443` (bootstrap, cached 1 h), then the TLD's RDAP base URL from it (e.g. `rdap.verisign.com`) | - |
 | `search_whois` | WHOIS of a domain (`python-whois`, its own socket client, not the `whois` command) | port 43: the TLD's server (built-in table or `whois.iana.org`), then the "Whois Server:" referral of that answer | - |
-| `search_dns` | A, AAAA, MX, NS, TXT, CNAME, SOA, `_dmarc` TXT; SPF/DMARC warnings; no DKIM probes | the container's resolver (UDP/TCP 53) | - |
+| `search_dns` | A, AAAA, MX, NS, TXT, CNAME, SOA, `_dmarc` TXT; SPF/DMARC warnings; no DKIM probes | the container's resolver (UDP/TCP 53); behind sandbox-ai's Tor profile TCP to 1.1.1.1, 9.9.9.9, 8.8.8.8 (below) | - |
 | `search_ip` | geolocation, ASN, hostname of a public IP | `ipinfo.io:443` | `IPINFO_TOKEN` (optional) |
 | `search_github` | a user's profile, 10 repositories, e-mails of up to 15 commits; else a user search | `api.github.com:443` (up to 5 requests) | `GITHUB_TOKEN` (optional) |
 | `search_paste` | Pastebin IDs and dates of dumps naming the query | `psbdmp.ws:443` | - |
@@ -129,6 +129,18 @@ the shipped modules.
 | `search_footprint` | 1-3 entity-aware Google queries (billed) | `api.brightdata.com:443`, which queries Google | `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE` |
 
 Every tool also takes `json_output` (OpenOSINT's JSON envelope of the text lines).
+
+**Behind Tor (changed here).** Behind sandbox-ai's Tor profile (`SANDBOX_AI_TOR=1`) no UDP passes, and what is sent
+to port 53 reaches tor's DNSPort, which answers A, AAAA and PTR only: `search_dns` got no MX, NS, TXT, CNAME, SOA or
+DMARC (OpenOSINT's `_query` turns every failure into an empty list, so the answer looked like a domain without
+them). There `src/server.py` replaces `dns.resolver.Resolver` - which `search_dns.collect_dns_records` looks up when
+it runs, the only use of dnspython in the image - with `TorResolver`: the resolvers 1.1.1.1, 9.9.9.9 and 8.8.8.8
+(`/etc/resolv.conf` is not read), every query over TCP, at least 10 s per resolver and 20 s per lookup whatever
+OpenOSINT sets (5 s and 10 s; nine lookups stay within the server's 240 s). OpenOSINT's "timed out after 10s" then
+undercounts. A TCP connection goes through tor's TransPort and an exit like every other: the resolvers see the
+exit's address and the names asked, never the user's. WHOIS (port 43) and the HTTPS lookups were TCP already.
+`tests/test_own_servers.py` (`test_openosint_dns_over_tcp_behind_tor`, also inside the image) answers the queries
+with a stand-in and checks that each went over TCP to those resolvers, and that without Tor nothing changes.
 
 **Not offered:** the active tools `search_username` (sherlock), `search_email` (holehe, probes
 sign-up and reset forms and may notify the account owner), `search_domain` (sublist3r),

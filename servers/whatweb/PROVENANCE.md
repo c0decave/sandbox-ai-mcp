@@ -107,7 +107,11 @@ address up in the shipped `country-ips.dat`). Points that shape this server:
   --open-timeout=10 --read-timeout=20 -- URL`, its working directory and `HOME`/`TMPDIR` a fresh folder made by
   `tempfile.mkdtemp` below `/tmp` and removed afterwards; environment only `PATH`, `HOME`, `TMPDIR`, `LANG`,
   `LC_ALL`; stdin empty, stdout discarded, stderr into a file of which the last 64 KiB are read; its own session, the
-  whole process group killed after 120 s (aggression 1) or 300 s (aggression 3). User agent: WhatWeb's default
+  whole process group killed after 120 s (aggression 1) or 300 s (aggression 3). Behind sandbox-ai's Tor profile
+  (`SANDBOX_AI_TOR=1`, and only there: `timeouts`) a connection waits for a circuit and an exit before its first
+  byte, so the run line has `--open-timeout=30 --read-timeout=60` and the run is killed after 240 s or 900 s
+  (`tests/test_onion_behind_tor.py`, `test_longer_timeouts_behind_tor`). Ruby's resolver asks port 53, which tor's
+  resolver answers for the A records WhatWeb needs; every request is TCP. User agent: WhatWeb's default
   `WhatWeb/0.6.4` (honest; no option to change it).
 - **The answer:** the JSON log is read only if it is at most 2 MiB; per URL visited: `url`, `http_status` and the
   plugins matched with their `string`, `version`, `os`, `account`, `model`, `firmware`, `module`, `filepath`
