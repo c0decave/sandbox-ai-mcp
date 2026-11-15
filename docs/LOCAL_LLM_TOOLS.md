@@ -31,6 +31,16 @@ servers' instructions say when to call what (`next_step` at the start and when u
 off) is for capable models and clients that expect its tools: it overwrites without asking and reads whole files, so
 small models are better off with files.
 
+**Answer sizes.** Claude Code, Qwen Code and Hermes show the model only a 0.5-2.6 KB preview and a file path of a tool
+result much above 25,000 characters, so the model never sees the content. files' `read_file` therefore answers at
+most 400 lines or 24,000 characters per call (`next_start_line` says where to go on); web-fetch's `fetch_page` gives
+20,000 characters by default (`max_characters`, `start`).
+
+**Errors that end loops.** web-fetch's errors say what happened (refused, reset, no answer within 30 s, no route, the
+TLS certificate) and what to do next (not to fetch the URL again in a loop, another source); a connection that fails
+to a name with IPv6 and IPv4 addresses is tried once more over IPv4 only, and HTTP 404 says that the page does not
+exist.
+
 **exec does not widen what the agent can do.** The agent has a shell of its own already, with more tools than
 exec's container. exec runs its commands in that container: no network namespace, no capabilities, a read-only
 root, a `noexec` /tmp, process and memory limits (2g, 512 processes, a 512m /tmp), and only the agent's own

@@ -13,15 +13,23 @@ answer, text and HTML only. The check resolves the name before the request; a re
 answers differently a moment later (DNS rebinding) is not ruled out. Behind sandbox-ai's Tor profile
 (SANDBOX_AI_TOR=1 and SANDBOX_AI_TOR_VIRTUAL_NETWORK) the addresses of Tor's range for onion services are
 fetched too, so .onion URLs work; without a Tor profile a .onion name is refused before it is looked up.
+
+A connection that fails to a name with IPv6 and IPv4 addresses is tried once more over IPv4 only (httpx's async client
+does not leave an IPv6 path that takes the connection and then resets it), through the same checks. An error says
+what happened (refused, reset, no answer within the time limit, no route, the TLS certificate, the proxy) and what to
+do next, so that a model does not fetch the same URL again and again.
 """
 
 from __future__ import annotations
 
+import errno
 import html.parser
 import ipaddress
 import logging
 import os
+import re
 import socket
+import ssl
 import sys
 import urllib.parse
 
@@ -248,9 +256,11 @@ def _int(value, name: str, low: int, high: int, default: int) -> int:
     return value
 
 
-async def fetch(url: str) -> tuple[str, str, bytes]:
-    """(final URL, content type, body) after at most MAX_REDIRECTS checked redirects."""
-    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False, trust_env=True,
+async def fetch_once(url: str, ipv4_only: bool = False) -> tuple[str, str, bytes]:
+    """(final URL, content type, body) after at most MAX_REDIRECTS checked redirects; ipv4_only: the connections
+    are made over IPv4 only (bound to 0.0.0.0, so only the name's IPv4 addresses are tried)."""
+    transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0") if ipv4_only else None
+    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False, trust_env=True, transport=transport,
                                  headers={"User-Agent": "Mozilla/5.0 (sandbox-ai-mcp web-fetch)"}) as client:
         for _ in range(MAX_REDIRECTS + 1):
             check_url(url)
@@ -259,7 +269,9 @@ async def fetch(url: str) -> tuple[str, str, bytes]:
                     url = urllib.parse.urljoin(url, response.headers["location"])
                     continue
                 if response.status_code >= 400:
-                    raise ArgumentError(f"{url} answered HTTP {response.status_code}")
+                    raise ArgumentError(f"{url} answered HTTP {response.status_code}" + (
+                        ": the page does not exist; do not fetch this URL again, look for another link"
+                        if response.status_code in (404, 410) else ""))
                 kind = response.headers.get("content-type", "").split(";")[0].strip().lower()
                 if kind and not kind.startswith(TEXT_TYPES):
                     raise ArgumentError(f"{url} is {kind}, not text or HTML")
@@ -270,6 +282,126 @@ async def fetch(url: str) -> tuple[str, str, bytes]:
                         raise ArgumentError(f"{url} is larger than 5 MiB")
                 return url, kind, body
     raise ArgumentError(f"more than {MAX_REDIRECTS} redirects")
+
+
+async def fetch(url: str) -> tuple[str, str, bytes]:
+    """fetch_once; a connection that failed to a name with IPv6 and IPv4 addresses is tried once more over IPv4
+    only, from URL again (every hop checked again). An error that remains says why (ArgumentError)."""
+    try:
+        return await fetch_once(url)
+    except httpx.HTTPError as exc:
+        first = exc
+    failed = failed_url(first, url)
+    if not retry_over_ipv4(first, failed):
+        raise ArgumentError(not_reachable(failed, first)) from None
+    log.info("%s: %s; trying again over IPv4 only", failed, type(first).__name__)
+    try:
+        return await fetch_once(url, ipv4_only=True)
+    except httpx.HTTPError as exc:
+        raise ArgumentError(not_reachable(failed, first, exc)) from None
+
+
+def failed_url(exc, default: str) -> str:
+    """The URL of the request that failed (a redirect's target, maybe), else DEFAULT."""
+    try:
+        return str(exc.request.url)
+    except (AttributeError, RuntimeError):
+        return default
+
+
+def retry_over_ipv4(exc, url: str) -> bool:
+    """Whether a failure is worth one more try over IPv4 only: the connection failed or was reset (not a timeout,
+    not an answer), and the name has IPv6 addresses (the first try may have taken one) and IPv4 ones."""
+    if not isinstance(exc, (httpx.ConnectError, httpx.ReadError)) or isinstance(exc, httpx.ProxyError):
+        return False
+    parts = urllib.parse.urlsplit(url)
+    try:
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        families = {info[0] for info in socket.getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM)}
+    except (OSError, ValueError, TypeError):
+        return False
+    return socket.AF_INET6 in families and socket.AF_INET in families
+
+
+def causes(exc) -> list:
+    """EXC and the exceptions it was raised from or during, outermost first (at most 10)."""
+    chain = []
+    while exc is not None and len(chain) < 10 and exc not in chain:
+        chain.append(exc)
+        exc = exc.__cause__ or exc.__context__
+    return chain
+
+
+SANDBOX_RUN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def reason(exc, url: str) -> tuple[str, str]:
+    """(what happened, the kind of failure: "refused", "reset", "timeout", "route", "tls", "proxy" or "other")."""
+    chain = causes(exc)
+    seconds = f"{TIMEOUT:g} s"
+    if isinstance(exc, httpx.ConnectTimeout):
+        return (f"no connection within {seconds} (nothing answered: the host is down or slow, or a firewall drops "
+                "the packets)"), "timeout"
+    if isinstance(exc, httpx.ReadTimeout):
+        return f"the host took the connection but sent no answer within {seconds}", "timeout"
+    if isinstance(exc, httpx.TimeoutException):
+        return f"no progress within {seconds} ({type(exc).__name__})", "timeout"
+    if isinstance(exc, httpx.ProxyError):
+        return f"the proxy (HTTP_PROXY/HTTPS_PROXY) refused the request: {str(exc) or 'no details'}", "proxy"
+    certificate = next((e for e in chain if isinstance(e, ssl.SSLCertVerificationError)), None)
+    if certificate is not None:
+        return (f"its TLS certificate was not accepted ({certificate.verify_message or certificate}); a proxy or "
+                "firewall in between may answer in its place"), "tls"
+    number = next((e.errno for e in chain if isinstance(e, OSError) and not isinstance(e, ssl.SSLError)
+                   and isinstance(e.errno, int)), None)
+    port = urllib.parse.urlsplit(url).port or (443 if url.startswith("https:") else 80)
+    if number == errno.ECONNREFUSED:
+        return f"the host refused the connection (nothing takes connections on port {port})", "refused"
+    if number in (errno.ECONNRESET, errno.ECONNABORTED, errno.EPIPE):
+        during = " during the TLS handshake" if isinstance(exc, httpx.ConnectError) and url.startswith("https:") else ""
+        return (f"the connection was reset{during} (by the host, or by a firewall or proxy in between that does not "
+                "let it through)"), "reset"
+    if number in (errno.ENETUNREACH, errno.EHOSTUNREACH, errno.EADDRNOTAVAIL, errno.EAFNOSUPPORT):
+        return (f"no route to the host ({os.strerror(number)}; for an IPv6 address: this network may have no "
+                "IPv6)"), "route"
+    if any(isinstance(e, socket.gaierror) for e in chain):
+        return "its name does not resolve (any more)", "route"
+    if any(isinstance(e, ssl.SSLError) for e in chain):
+        tls = next(e for e in chain if isinstance(e, ssl.SSLError))
+        return f"the TLS handshake failed ({tls.reason or type(tls).__name__})", "reset"
+    if isinstance(exc, httpx.RemoteProtocolError):
+        return f"the host closed the connection or did not answer in HTTP ({str(exc) or 'no details'})", "reset"
+    text = next((str(e) for e in chain if str(e)), "")
+    return f"{type(exc).__name__}" + (f": {text}" if text else " (no details)"), "other"
+
+
+def not_reachable(url: str, first, second=None) -> str:
+    """The error of a fetch that failed with FIRST (and SECOND on the retry over IPv4 only): what happened and what
+    to do next."""
+    text, kind = reason(first, url)
+    kinds = {kind}
+    if second is not None:
+        again, kind = reason(second, url)
+        kinds.add(kind)
+        text += "; the same when tried again over IPv4 only" if again == text else \
+            f"; tried again over IPv4 only: {again}"
+    parts = urllib.parse.urlsplit(url)
+    host, port = parts.hostname or "", parts.port or (443 if parts.scheme == "https" else 80)
+    allow = f"--allow-host {host}" if port == 443 else f"--allow-tcp ADDRESS:{port} with the address {host} resolves to"
+    if kinds & {"timeout"}:
+        advice = "try it again once at most, later; else use another source"
+    elif kinds <= {"refused", "route", "tls"}:
+        advice = "do not fetch this URL again now; use another source"
+    else:
+        advice = "do not fetch this URL again in a loop; use another source"
+    run = os.environ.get("SANDBOX_AI_RUN", "").strip()
+    if run and SANDBOX_RUN.fullmatch(run) and kinds & {"reset", "refused", "timeout", "route", "tls"}:
+        advice += (f". Inside a sandbox-ai sandbox a host that is not allowed is refused this way: the human can "
+                   f"allow it on the host (sandbox-ai net allow {run} {allow}; sandbox-ai logs shows what was "
+                   "blocked)")
+    elif os.environ.get("SANDBOX_AI_TOR") == "1" and kinds & {"timeout", "reset"}:
+        advice += ". Behind Tor, onion services and exits are often slow or gone"
+    return f"{url} not reachable: {text}. {advice[0].upper()}{advice[1:]}"
 
 
 @mcp.tool()

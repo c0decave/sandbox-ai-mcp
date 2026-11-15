@@ -28,7 +28,23 @@ ruled out; the container itself should not be given more than the full outside n
 timeout 30 s. HTML is reduced to title, readable text (script, style, svg, head dropped) and
 optionally its http(s) links (at most 200); long texts are returned in parts.
 
+**Connection errors:** a connection that fails or is reset to a name with IPv6 and IPv4 addresses
+is tried once more over IPv4 only (the client bound to 0.0.0.0, so only the name's IPv4 addresses
+are taken; httpx's async client does not leave an IPv6 path that takes the connection and then
+resets it, as a network without working IPv6 does). The retry starts from the requested URL again
+and goes through every check again (the address check before each hop, redirects, content type,
+size): it reaches no host the first try could not. Timeouts and answers are not retried. Every
+error says what happened - refused (the port), reset (during the TLS handshake), no connection or
+no answer within 30 s, no route (no IPv6 here), the name no longer resolving, the TLS certificate,
+the proxy - and what to do next (do not fetch the URL again in a loop, try a timeout once more at
+most, use another source); HTTP 404 and 410 say that the page does not exist. Inside a sandbox-ai
+sandbox (`SANDBOX_AI_RUN`) a refused, reset or timed-out connection also names the `sandbox-ai net
+allow` option the human can give, since the sandbox refuses a host that is not allowed this way.
+
 **Network:** full.
 
 **Tested:** natively (`tests/test_own_servers.py`: handshake, tools/list, loopback, localhost,
-::1, 169.254.169.254, file: and user:password URLs refused, the HTML reduction).
+::1, 169.254.169.254, file: and user:password URLs refused, the HTML reduction; against servers on
+loopback with a stand-in resolver: the retry over IPv4 only, a redirect to a private address refused
+on the retry too, no retry for a name with IPv4 addresses only, the refused, reset and timed-out
+errors with their advice, HTTP 404).

@@ -2,13 +2,21 @@
 checks and the parsers against recorded answers (no network needed). The live calls against the
 real services are in each server's smoke.json, run by CI with the catalog's network."""
 import asyncio
+import contextlib
+import errno
+import http.server
 import importlib.util
 import json
 import os
 from pathlib import Path
+import socket
+import struct
 import subprocess
 import sys
+import threading
+import time
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -85,6 +93,65 @@ def dns_answer(request):
     return response
 
 
+def free_port(host="127.0.0.1") -> int:
+    with socket.socket() as probe:
+        probe.bind((host, 0))
+        return probe.getsockname()[1]
+
+
+@contextlib.contextmanager
+def local_http(respond, host="127.0.0.1"):
+    """An HTTP server on HOST (a port of its own, yielded): RESPOND(handler) answers each GET, handler.answer(status,
+    content type, body, headers) sends an answer."""
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def answer(self, status, kind, body, headers=None):
+            self.send_response(status)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):  # noqa: N802 - the name http.server calls
+            respond(self)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer((host, 0), Handler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield server.server_address[1]
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@contextlib.contextmanager
+def local_reset(host="127.0.0.2"):
+    """A server on HOST that takes each connection and resets it at once (RST); its port is yielded."""
+    listener = socket.socket()
+    listener.bind((host, 0))
+    listener.listen(8)
+
+    def run():
+        while True:
+            try:
+                connection, _ = listener.accept()
+            except OSError:
+                return
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            connection.close()
+
+    threading.Thread(target=run, daemon=True).start()
+    try:
+        yield listener.getsockname()[1]
+    finally:
+        listener.close()
+
+
 try:
     import mcp  # noqa: F401 - the servers' own dependency
 except ImportError:
@@ -159,6 +226,96 @@ class Servers(unittest.TestCase):
         self.assertEqual(page["title"], "T")
         self.assertEqual(page["text"], "Head\n\nOne two\nxj")  # two inline links stay on one line
         self.assertEqual(page["links"], ["https://example.org/x"])
+
+    def web_fetch_on_loopback(self, names, env=None, timeout=None):
+        """web-fetch loaded with loopback taken as public, the names of NAMES resolved by a stand-in (NAMES maps a
+        name to its answer without a family given, a list of addresses; asked for IPv4 only, the stand-in answers
+        127.0.0.1); returns (module, the families asked for per name)."""
+        if sys.platform != "linux":
+            self.skipTest("needs Linux's loopback range (127.0.0.2)")
+        module = load("web-fetch")
+        module.public = lambda address: address.is_loopback  # only what the test serves; 10.0.0.1 stays refused
+        if timeout is not None:
+            module.TIMEOUT = timeout
+        asked, real = [], socket.getaddrinfo
+
+        def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+            host = host.decode() if isinstance(host, bytes) else host
+            if host not in names:
+                return real(host, port, family, type, proto, flags)
+            asked.append((host, int(family)))
+            addresses = ["127.0.0.1"] if family == socket.AF_INET else names[host]
+            return [(socket.AF_INET6 if ":" in a else socket.AF_INET, socket.SOCK_STREAM, 6, "",
+                     (a, int(port), 0, 0) if ":" in a else (a, int(port))) for a in addresses]
+
+        patches = [mock.patch("socket.getaddrinfo", getaddrinfo),
+                   mock.patch.dict(os.environ, env or {})]
+        for name in ("SANDBOX_AI_RUN", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy",
+                     "all_proxy"):
+            if name not in (env or {}):
+                patches.append(mock.patch.dict(os.environ, {name: ""}))
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return module, asked
+
+    def test_web_fetch_retries_over_ipv4(self):
+        """A name with IPv6 and IPv4 addresses whose connection failed is tried once more over IPv4 only (an IPv6
+        path that takes the connection and then resets it is not left by httpx's async client on its own)."""
+        with local_http(lambda handler: handler.answer(200, "text/plain", b"hello over IPv4")) as port:
+            module, asked = self.web_fetch_on_loopback({"dual.example.org": ["::1", "127.0.0.2"]})
+            page = asyncio.run(module.fetch_page(f"http://dual.example.org:{port}/"))
+        self.assertEqual(page.get("text"), "hello over IPv4", page)
+        self.assertIn(("dual.example.org", int(socket.AF_INET)), asked)
+
+    def test_web_fetch_ipv4_retry_keeps_the_checks(self):
+        """The retry goes through the same checks: a redirect to a private address is refused there too."""
+        with local_http(lambda handler: handler.answer(302, "text/plain", b"", {"Location": "http://10.0.0.1/"})) \
+                as port:
+            module, asked = self.web_fetch_on_loopback({"dual.example.org": ["::1", "127.0.0.2"]})
+            page = asyncio.run(module.fetch_page(f"http://dual.example.org:{port}/"))
+        self.assertIn("not a public address", page.get("error", ""), page)
+        self.assertIn(("dual.example.org", int(socket.AF_INET)), asked)
+
+    def test_web_fetch_says_why_a_connection_failed(self):
+        """The error names what happened (refused, reset, no answer within the time limit) and what to do next;
+        a name with only IPv4 addresses is not tried twice; inside a sandbox-ai sandbox it says how to allow a host."""
+        port = free_port()
+        module, asked = self.web_fetch_on_loopback({"v4.example.org": ["127.0.0.2"]})
+        error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/"))["error"]
+        self.assertIn("not reachable: the host refused the connection", error)
+        self.assertIn("another source", error)
+        self.assertNotIn("IPv4 only", error)
+        self.assertNotIn(("v4.example.org", int(socket.AF_INET)), asked)
+
+        with local_reset() as port:
+            error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/"))["error"]
+        self.assertIn("connection was reset", error)
+        self.assertNotIn("sandbox-ai", error)
+        module, _ = self.web_fetch_on_loopback({"v4.example.org": ["127.0.0.2"]}, env={"SANDBOX_AI_RUN": "calm-otter"})
+        with local_reset() as port:
+            error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/"))["error"]
+        self.assertIn(f"sandbox-ai net allow calm-otter --allow-tcp ADDRESS:{port} with the address v4.example.org "
+                      "resolves to", error)
+        reset = module.httpx.ConnectError("")
+        reset.__cause__ = ConnectionResetError(errno.ECONNRESET, "Connection reset by peer")
+        error = module.not_reachable("https://v4.example.org/", reset, reset)
+        self.assertIn("reset during the TLS handshake", error)
+        self.assertIn("the same when tried again over IPv4 only", error)
+        self.assertIn("sandbox-ai net allow calm-otter --allow-host v4.example.org;", error)
+
+        module, _ = self.web_fetch_on_loopback({"v4.example.org": ["127.0.0.2"]}, timeout=0.5)
+        with local_http(lambda handler: time.sleep(3), host="127.0.0.2") as port:
+            error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/"))["error"]
+        self.assertIn("no answer within 0.5 s", error)
+        self.assertNotRegex(error, r"not reachable: ?$")
+
+    def test_web_fetch_says_a_missing_page_is_missing(self):
+        """HTTP 404 and 410 say that the page does not exist (a local model fetched the same URL again and again)."""
+        module, _ = self.web_fetch_on_loopback({"v4.example.org": ["127.0.0.1"]})
+        with local_http(lambda handler: handler.answer(404, "text/html", b"<p>gone</p>")) as port:
+            error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/old"))["error"]
+        self.assertIn("answered HTTP 404: the page does not exist; do not fetch this URL again", error)
 
     def test_whatweb(self):
         """WhatWeb's server: refusals, the address check, the bounded answer, redirects followed by the server
