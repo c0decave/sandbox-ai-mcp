@@ -132,8 +132,9 @@ class EveryServer(unittest.TestCase):
                 for mount in spec.get("mounts", []):
                     self.assertIn(mount["target"], declared,
                                   f"{name}: the smoke mounts {mount['target']}, the entry does not offer it")
-                    # the analysis servers read their input from /work; files, exec and tasks write /work by design
-                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name != "files":
+                    # the analysis servers read their input from /work; files, filesystem, exec and tasks write /work
+                    # by design
+                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name not in ("files", "filesystem"):
                         self.assertNotEqual(mount["target"], "/work",
                                             f"{name}: input is mounted read-only")
                 for target, mount in declared.items():
@@ -889,6 +890,373 @@ class Memory(unittest.TestCase):
         self.assertEqual(read_json("servers", "memory", "tools.json")["tools"],
                          ["add_observations", "create_entities", "create_relations", "delete_entities",
                           "delete_observations", "delete_relations", "open_nodes", "read_graph", "search_nodes"])
+
+
+class SequentialThinking(unittest.TestCase):
+    """The official sequential-thinking server: the npm release and its packages by integrity, yargs (declared, never
+    imported) removed, thought logging off, no network, no files, no code generation from strings."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "sequential-thinking"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.lock = read_json("servers", "sequential-thinking", "package-lock.json")
+        self.entry = read_json("servers", "sequential-thinking", "server.json")
+
+    def test_the_lock_pins_every_package_by_integrity_and_the_sdk_is_memorys(self):
+        packages = {path.removeprefix("node_modules/"): entry for path, entry in self.lock["packages"].items() if path}
+        kept = {"@modelcontextprotocol/server-sequential-thinking": "2.0.0", "@modelcontextprotocol/server": "2.4.0",
+                "@modelcontextprotocol/core": "2.4.0", "zod": "4.6.7", "chalk": "5.6.2"}
+        for name, version in kept.items():
+            self.assertEqual(packages[name]["version"], version, name)
+            self.assertIn(packages[name]["integrity"][:15], self.provenance, f"{name}: its integrity is not in PROVENANCE.md")
+        for name, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), name)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", name)
+            self.assertFalse(entry.get("hasInstallScript"), f"{name} has an install script")
+        memory = {path: entry["integrity"] for path, entry in read_json("servers", "memory", "package-lock.json")[
+            "packages"].items() if path}
+        for path in ("node_modules/@modelcontextprotocol/server", "node_modules/@modelcontextprotocol/core",
+                     "node_modules/zod"):
+            self.assertEqual(self.lock["packages"][path]["integrity"], memory[path],
+                             f"{path}: servers/memory's review covers only the same files")
+        self.assertEqual(read_json("servers", "sequential-thinking", "package.json")["dependencies"],
+                         {"@modelcontextprotocol/server-sequential-thinking": "2.0.0"})
+
+    def test_only_what_runs_is_kept_and_the_reviewed_files_are_checked(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("rm -rf node_modules/yargs ", self.dockerfile)
+        self.assertIn("test \"$(ls node_modules | tr '\\n' ' ')\" = \"@modelcontextprotocol chalk zod \"", self.dockerfile)
+        digests = re.findall(r'echo "([0-9a-f]{64})  node_modules/', self.dockerfile)
+        self.assertEqual(len(digests), 3)
+        for digest in digests:
+            self.assertIn(digest, self.provenance)
+        self.assertIn("51b6382a3e827aceb6bce430b1208d69b93d95ea", self.provenance)
+        node = re.search(r"^ARG NODE_IMAGE=\S+@(sha256:[0-9a-f]{64})$", self.dockerfile, re.M)
+        self.assertEqual(node.group(0), re.search(r"^ARG NODE_IMAGE=\S+$",
+                                                  (ROOT / "servers/memory/Dockerfile").read_text(), re.M).group(0))
+        self.assertIn(node.group(1), self.provenance)
+
+    def test_thought_logging_is_off_and_no_code_is_generated(self):
+        self.assertRegex(self.dockerfile, r"(?m)^ENV .*DISABLE_THOUGHT_LOGGING=true")
+        self.assertIn('"--disallow-code-generation-from-strings"', self.dockerfile)
+        self.assertNotIn("env", self.entry, "no variable can turn thought logging back on")
+
+    def test_no_network_no_files_and_one_tool(self):
+        spec = read_json("servers", "sequential-thinking", "smoke.json")
+        self.assertEqual((self.entry["network"], spec["network"]), ("none", "none"))
+        self.assertNotIn("mounts", self.entry)
+        self.assertNotIn("mounts", spec)
+        self.assertEqual(read_json("servers", "sequential-thinking", "tools.json")["tools"], ["sequentialthinking"])
+        refused = [c for c in spec["calls"] if c.get("expect_error")]
+        self.assertGreaterEqual(len(refused), 3)
+        self.assertTrue([c for c in refused if c.get("absent")])
+
+    def test_the_newer_release_and_when_it_is_old_enough(self):
+        self.assertIn("2.1.1", self.provenance)
+        self.assertIn("2026-11-18", self.provenance)
+
+
+
+class Filesystem(unittest.TestCase):
+    """The official filesystem server: the npm release and its packages by integrity, glob (declared, never imported)
+    removed, started through our entry.mjs - the allowed directories are exactly the mounted folders and MCP Roots are
+    never used - no network, the symlink escapes refused in the smoke spec."""
+
+    TARGETS = ["/work", "/ref1", "/ref2", "/ref3"]
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "filesystem"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.entry_source = (self.folder / "src" / "entry.mjs").read_text()
+        self.lock = read_json("servers", "filesystem", "package-lock.json")
+        self.entry = read_json("servers", "filesystem", "server.json")
+        self.spec = read_json("servers", "filesystem", "smoke.json")
+
+    def test_the_lock_pins_every_package_by_integrity_and_the_sdk_is_memorys(self):
+        packages = {path.removeprefix("node_modules/"): entry for path, entry in self.lock["packages"].items() if path}
+        kept = {"@modelcontextprotocol/server-filesystem": "2.1.0", "@modelcontextprotocol/server": "2.4.0",
+                "@modelcontextprotocol/core": "2.4.0", "zod": "4.6.7", "diff": "8.0.4", "minimatch": "10.2.6",
+                "brace-expansion": "5.0.12", "balanced-match": "4.0.4"}
+        for name, version in kept.items():
+            self.assertEqual(packages[name]["version"], version, name)
+            self.assertIn(packages[name]["integrity"][:15], self.provenance, f"{name}: its integrity is not in PROVENANCE.md")
+        self.assertEqual(set(packages) - set(kept), {"glob", "path-scurry", "lru-cache", "minipass"})
+        for name, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), name)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", name)
+            self.assertFalse(entry.get("hasInstallScript"), f"{name} has an install script")
+        memory = {path: entry["integrity"] for path, entry in read_json("servers", "memory", "package-lock.json")[
+            "packages"].items() if path}
+        for path in ("node_modules/@modelcontextprotocol/server", "node_modules/@modelcontextprotocol/core",
+                     "node_modules/zod"):
+            self.assertEqual(self.lock["packages"][path]["integrity"], memory[path],
+                             f"{path}: servers/memory's review covers only the same files")
+        self.assertEqual(read_json("servers", "filesystem", "package.json")["dependencies"],
+                         {"@modelcontextprotocol/server-filesystem": "2.1.0"})
+
+    def test_only_what_runs_is_kept_and_the_reviewed_files_are_checked(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("rm -rf node_modules/glob node_modules/path-scurry node_modules/lru-cache node_modules/minipass",
+                      self.dockerfile)
+        self.assertIn("test \"$(ls node_modules | tr '\\n' ' ')\" = "
+                      "\"@modelcontextprotocol balanced-match brace-expansion diff minimatch zod \"", self.dockerfile)
+        digests = re.findall(r'echo "([0-9a-f]{64})  (dist/[a-z-]+\.js|package\.json)"', self.dockerfile)
+        self.assertEqual(len(digests), 9)
+        self.assertEqual(len({path for _, path in digests}), 9)
+        for digest, path in digests:
+            self.assertIn(f"`{digest}`", self.provenance, path)
+        self.assertIn("194cc86e3ae6400958555bd4116849d822d69263", self.provenance)
+        node = re.search(r"^ARG NODE_IMAGE=\S+@(sha256:[0-9a-f]{64})$", self.dockerfile, re.M)
+        self.assertEqual(node.group(0), re.search(r"^ARG NODE_IMAGE=\S+$",
+                                                  (ROOT / "servers/memory/Dockerfile").read_text(), re.M).group(0))
+        self.assertIn(node.group(1), self.provenance)
+
+    def test_the_entry_allows_only_the_mounted_targets(self):
+        entrypoint = re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile, re.M | re.S).group(1)
+        self.assertEqual(json.loads(entrypoint.replace("\\\n", "")),
+                         ["/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs",
+                          *self.TARGETS])
+        self.assertIn("COPY src/entry.mjs /opt/filesystem/entry.mjs", self.dockerfile)
+        self.assertIn("mkdir -m 0755 /work /ref1 /ref2 /ref3", self.dockerfile)
+        self.assertIn('readFileSync("/proc/self/mountinfo", "utf8")', self.entry_source)
+        self.assertIn("points.has(target)", self.entry_source)
+        self.assertIn('target !== "/"', self.entry_source)
+        self.assertIn("extra.length > 0", self.entry_source, "nothing but the mounted targets is allowed")
+        self.assertEqual([m["target"] for m in self.entry["mounts"]], self.TARGETS)
+        self.assertEqual([m["target"] for m in self.entry["mounts"] if m.get("required")], ["/work"])
+
+    def test_mcp_roots_are_never_used(self):
+        self.assertIn("protocol.listRoots = async () => {\n    throw new Error(ROOTS_REFUSED);", self.entry_source)
+        self.assertIn("protocol.oninitialized = () => {};", self.entry_source)
+        self.assertIn('protocol.setNotificationHandler("notifications/roots/list_changed", () => {});',
+                      self.entry_source)
+        self.assertIn("confinedServer(allowed, era)", self.entry_source)
+        imports = re.findall(r'^import .* from "([^"]+)";$', self.entry_source, re.M)
+        self.assertEqual(sorted(imports), ["@modelcontextprotocol/server-filesystem/dist/index.js",
+                                           "@modelcontextprotocol/server-filesystem/dist/server.js",
+                                           "@modelcontextprotocol/server/stdio", "node:fs", "node:path", "node:url"])
+        self.assertNotRegex(self.entry_source, r"https?://|process\.env|child_process")
+
+    def test_no_network_and_the_smoke_spec_tries_the_escapes(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("none", "none"))
+        self.assertNotIn("env", self.entry)
+        self.assertNotIn("hosts", self.entry)
+        [mount] = self.spec["mounts"]
+        self.assertEqual((mount["target"], mount["fresh"], mount["writable"]), ("/work", True, True))
+        links = {item["path"]: item["symlink"] for item in mount["seed"] if "symlink" in item}
+        self.assertEqual(links["escape"], "/etc")
+        calls = self.spec["calls"]
+        self.assertEqual(calls[0], {"tool": "list_allowed_directories", "arguments": {},
+                                    "expect": "Allowed directories:\n/work"})
+        refused = [c for c in calls if c.get("expect_error")]
+        self.assertGreaterEqual(len(refused), 10)
+        self.assertTrue([c for c in refused if c.get("absent")])
+        texts = " ".join(c["expect"] for c in refused)
+        for text in ("symlink target outside allowed directories: /etc/passwd",
+                     "path outside allowed directories: /ref1 not in /work", "Parent directory does not exist"):
+            self.assertIn(text, texts)
+        for call in refused:
+            if not call.get("absent"):
+                self.assertTrue(call["expect"].startswith(("Access denied - ", "Parent directory does not exist")),
+                                call["expect"])
+
+    def test_the_tools_and_their_record(self):
+        tools = read_json("servers", "filesystem", "tools.json")["tools"]
+        self.assertEqual(len(tools), 14)
+        self.assertEqual(tools, sorted(self.spec["expect_tools"]))
+        for tool in tools:
+            self.assertIn(f"`{tool}`", self.provenance)
+
+    def test_the_newer_releases_and_when_they_are_old_enough(self):
+        for text in ("2.2.0", "2026-11-18", "2.3.0", "2026-11-25", "CVE-2025-53110", "CVE-2025-53109",
+                     "GHSA-g3hv-75wg-m249"):
+            self.assertIn(text, self.provenance)
+
+
+class Context7(unittest.TestCase):
+    """Upstash's Context7 MCP: the npm release and its packages by integrity, only what loads kept, the sign-in nudge
+    and the identifying headers patched out, telemetry removed, context7.com only, the key optional."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "context7"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.prepare = (self.folder / "prepare.mjs").read_text()
+        self.lock = read_json("servers", "context7", "package-lock.json")
+        self.entry = read_json("servers", "context7", "server.json")
+        self.spec = read_json("servers", "context7", "smoke.json")
+
+    def test_the_lock_pins_every_package_by_integrity_without_install_scripts(self):
+        packages = {path: entry for path, entry in self.lock["packages"].items() if path}
+        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.4.4")
+        for path, entry in packages.items():
+            self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), path)
+            self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", path)
+            self.assertFalse(entry.get("hasInstallScript"), f"{path} has an install script")
+        self.assertIn(packages["node_modules/@upstash/context7-mcp"]["integrity"], self.provenance)
+        self.assertEqual(read_json("servers", "context7", "package.json")["dependencies"],
+                         {"@upstash/context7-mcp": "4.4.4"})
+
+    def test_prepare_keeps_only_locked_packages_and_no_telemetry(self):
+        keep = json.loads("{" + re.search(r"const KEEP = \{(.*?)\};", self.prepare, re.S).group(1)
+                          .replace("\n", " ").rstrip(", ") + "}")
+        self.assertEqual(len(keep), 74)
+        locked = {path.removeprefix("node_modules/"): entry["version"] for path, entry in self.lock["packages"].items()
+                  if path.count("node_modules/") == 1}
+        for name, version in keep.items():
+            self.assertEqual(locked.get(name), version, f"{name} is not locked at {version}")
+        for name in keep:
+            self.assertNotRegex(name, r"^(@opentelemetry/|@types/|hono$|require-in-the-middle|import-in-the-middle)")
+        for module in ("mcp-telemetry.js", "telemetry.js", "telemetry-provider.js"):
+            self.assertIn(f'"{module}"', self.prepare)
+        self.assertRegex(self.dockerfile, r"(?m)^ENV .*OTEL_SDK_DISABLED=true")
+        self.assertNotIn("CONTEXT7_API_URL", self.dockerfile)
+
+    def test_the_build_installs_without_scripts_prepares_and_checks_every_file(self):
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+        self.assertIn("node prepare.mjs node_modules", self.dockerfile)
+        self.assertIn("sha256sum --check --strict --quiet /opt/context7/context7-files.sha256", self.dockerfile)
+        files = (self.folder / "context7-files.sha256").read_text().splitlines()
+        self.assertEqual(len(files), 20)
+        names = [line.split("  ", 1)[1] for line in files]
+        self.assertIn("dist/index.js", names)
+        self.assertNotIn("dist/lib/telemetry.js", names)
+        # the patched files are pinned as patched
+        for before, after in re.findall(r'before: "([0-9a-f]{64})",\s*after: "([0-9a-f]{64})"', self.prepare):
+            self.assertIn(after, "\n".join(files))
+            self.assertNotIn(before, "\n".join(files))
+            self.assertIn(before[:8], self.provenance)
+            self.assertIn(after[:8], self.provenance)
+        self.assertIn('"--disallow-code-generation-from-strings"', self.dockerfile)
+        self.assertRegex(self.dockerfile, r'"--transport", "stdio"\]')
+
+    def test_the_patches_remove_the_nudge_and_the_identifying_headers(self):
+        self.assertIn("maybeElicitAuthSignIn(server, ctx) {\\n    // sandbox-ai-mcp: no sign-in nudge", self.prepare)
+        for header in ("mcp-session-id", "X-Context7-Client-IDE", "X-Context7-Client-Version"):
+            self.assertIn(header, self.prepare)
+
+    def test_context7_only_and_the_key_optional(self):
+        self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
+        self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
+        self.assertEqual(self.entry["env"], [{"name": "CONTEXT7_API_KEY", "description": self.entry["env"][0][
+            "description"], "secret": True, "required": False}])
+        self.assertNotIn("mounts", self.entry)
+        self.assertEqual(read_json("servers", "context7", "tools.json")["tools"], ["query-docs", "resolve-library-id"])
+
+    def test_the_smoke_run_calls_the_service_and_is_refused_the_rest(self):
+        real = [c for c in self.spec["calls"] if not c.get("expect_error")]
+        refused = [c for c in self.spec["calls"] if c.get("expect_error")]
+        self.assertEqual([c["tool"] for c in real], ["resolve-library-id", "query-docs"])
+        for call in real:
+            self.assertIn("Rate limited or quota exceeded", call["upstream_limited"])
+        self.assertGreaterEqual(len(refused), 3)
+        self.assertTrue([c for c in refused if c.get("absent")])
+
+    def test_the_release_and_the_newer_ones_are_in_the_provenance(self):
+        for text in ("c7f80ce5af1ff1403d167579b76784482cf7f3e2", "4.5.0", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84"):
+            self.assertIn(text, self.provenance)
+        self.assertFalse((ROOT / "candidates" / "context7").exists(), "the candidate is replaced by servers/context7")
+
+
+class ChromeDevTools(unittest.TestCase):
+    """Chrome DevTools MCP with Debian's Chromium: the release by integrity, the telemetry sender and the update check
+    removed, every switch off by flag, page-defined tools and extensions off, playwright's limits."""
+
+    def setUp(self):
+        self.folder = ROOT / "servers" / "chrome-devtools"
+        self.dockerfile = (self.folder / "Dockerfile").read_text()
+        self.provenance = (self.folder / "PROVENANCE.md").read_text()
+        self.entry = read_json("servers", "chrome-devtools", "server.json")
+        self.spec = read_json("servers", "chrome-devtools", "smoke.json")
+        self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
+                                               re.M | re.S).group(1))
+
+    def test_the_release_alone_by_integrity(self):
+        lock = read_json("servers", "chrome-devtools", "package-lock.json")
+        packages = {path: entry for path, entry in lock["packages"].items() if path}
+        self.assertEqual(list(packages), ["node_modules/chrome-devtools-mcp"])
+        entry = packages["node_modules/chrome-devtools-mcp"]
+        self.assertEqual(entry["version"], "1.12.0")
+        self.assertEqual(entry["resolved"], "https://registry.npmjs.org/chrome-devtools-mcp/-/chrome-devtools-mcp-1.12.0.tgz")
+        self.assertIn(entry["integrity"], self.provenance)
+        self.assertNotIn("dependencies", entry)
+        self.assertIn("af2834411a564d366f9cab63efb046d9084f4dba", self.provenance)
+        self.assertIn("npm ci --omit=dev --ignore-scripts", self.dockerfile)
+
+    def test_telemetry_and_the_update_check_cannot_run(self):
+        files = [line.split("  ", 1)[1] for line in
+                 (self.folder / "chrome-devtools-files.sha256").read_text().splitlines()]
+        self.assertEqual(len(files), 354)
+        for removed in ("build/src/telemetry/watchdog/ClearcutSender.js", "build/src/telemetry/watchdog/main.js",
+                        "build/src/bin/check-latest-version.js", "build/src/bin/chrome-devtools.js"):
+            self.assertNotIn(removed, files)
+            self.assertIn(removed.removeprefix("build/src/").rsplit("/", 1)[0], self.dockerfile)
+        self.assertFalse([f for f in files if f.startswith("skills/")])
+        self.assertIn("sha256sum --check --strict --quiet /opt/chrome-devtools/chrome-devtools-files.sha256",
+                      self.dockerfile)
+        env = re.search(r"(?ms)^ENV (.*?)(?<!\\)\n", self.dockerfile).group(1)
+        for variable in ("CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS=1", "CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1",
+                         "CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY=1"):
+            self.assertIn(variable, env)
+
+    def test_the_browser_is_its_own_headless_isolated_and_everything_optional_is_off(self):
+        self.assertEqual(self.entrypoint[:3], ["/usr/bin/tini", "-s", "--"])
+        self.assertEqual(self.entrypoint[self.entrypoint.index("--executable-path") + 1], "/usr/bin/chromium")
+        for flag in ("--headless", "--isolated", "--chrome-arg=--no-sandbox", "--no-usage-statistics",
+                     "--no-performance-crux", "--no-file-navigations", "--no-category-experimental-third-party",
+                     "--no-category-experimental-webmcp", "--no-category-extensions", "--no-category-pwa"):
+            self.assertIn(flag, self.entrypoint)
+        for flag in ("--browser-url", "--browserUrl", "--ws-endpoint", "--wsEndpoint", "--auto-connect",
+                     "--autoConnect", "--user-data-dir", "--allow-unrestricted-paths", "--experimental-devtools",
+                     "--experimental-screencast", "--log-file", "--config"):
+            self.assertNotIn(flag, " ".join(self.entrypoint), f"{flag} widens what the server does")
+        chromium = re.search(r"^ARG CHROMIUM_VERSION=(\S+)$", self.dockerfile, re.M).group(1)
+        self.assertEqual(chromium, re.search(r"^ARG CHROMIUM_VERSION=(\S+)$",
+                                             (ROOT / "servers/playwright/Dockerfile").read_text(), re.M).group(1))
+        self.assertIn(chromium, self.provenance)
+
+    def test_full_network_and_playwrights_limits(self):
+        self.assertEqual((self.entry["network"], self.spec["network"]), ("full", "full"))
+        self.assertEqual({k: self.spec[k] for k in ("memory", "cpus", "pids", "tmp")},
+                         {"memory": "2g", "cpus": 2, "pids": 512, "tmp": "768m"})
+        self.assertIn("--memory 2g --pids 512", self.entry["notes"])
+        self.assertIn("a 768m /tmp", self.entry["description"])
+        self.assertNotIn("env", self.entry)
+        self.assertNotIn("mounts", self.entry)
+
+    def test_the_default_tools_and_a_smoke_run_without_outside_hosts(self):
+        tools = read_json("servers", "chrome-devtools", "tools.json")["tools"]
+        self.assertEqual(len(tools), 32)
+        self.assertEqual(tools, sorted(tools))
+        for name in ("install_extension", "install_pwa", "execute_webmcp_tool", "click_at", "open_devtools",
+                     "get_heapsnapshot_details"):
+            self.assertNotIn(name, tools)
+        for call in self.spec["calls"]:
+            url = call["arguments"].get("url", "data:")
+            self.assertTrue(url.startswith(("data:", "file:")), f"{url}: the smoke run needs no outside host")
+        refused = [c["tool"] for c in self.spec["calls"] if c.get("expect_error")]
+        self.assertEqual(refused, ["new_page", "take_snapshot", "install_extension"])
+
+    def test_the_verdict_follows_the_complete_review(self):
+        # Fit to sign only with the complete review on record: every line of its own code in the image read, the
+        # package rebuilt from the release commit (and the DevTools frontend and Lighthouse commits it was built from).
+        text = " ".join(self.provenance.split())
+        self.assertIn("**Fit to sign once CI passes.**", text)
+        self.assertNotIn("Not yet fit to sign", text)
+        self.assertNotIn("--only <the other servers>", text)
+        self.assertIn("The server's own code - every line read.", text)
+        self.assertIn("18,195 lines", text)
+        self.assertIn("are **byte-identical** to the rebuild", text)
+        for commit in ("f22c645573adc85e4553747c577eebb874c3fb43", "cb853a38a6410617518b363590c967b3fe211949"):
+            self.assertIn(commit, text)
+        # The Lighthouse bundle the record reproduced is the one the image pins.
+        pinned = dict(reversed(line.split(None, 1))
+                      for line in (self.folder / "chrome-devtools-files.sha256").read_text().splitlines())
+        lighthouse = pinned["build/src/third_party/lighthouse-devtools-mcp-bundle.js"]
+        self.assertIn(f"`{lighthouse}`, 60,837 lines", text)
+        self.assertFalse((ROOT / "candidates" / "chrome-devtools").exists())
 
 
 class Engram(unittest.TestCase):

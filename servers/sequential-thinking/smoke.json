@@ -1,0 +1,74 @@
+{
+  "name": "sequential-thinking",
+  "network": "none",
+  "expect_tools": [
+    "sequentialthinking"
+  ],
+  "calls": [
+    {
+      "tool": "sequentialthinking",
+      "arguments": {
+        "thought": "The smoke run needs a first thought: list what the server must do.",
+        "thoughtNumber": 1,
+        "totalThoughts": 3,
+        "nextThoughtNeeded": true
+      },
+      "expect": "\"thoughtHistoryLength\": 1"
+    },
+    {
+      "tool": "sequentialthinking",
+      "arguments": {
+        "thought": "A second thought that revises the first one.",
+        "thoughtNumber": 2,
+        "totalThoughts": 3,
+        "nextThoughtNeeded": true,
+        "isRevision": true,
+        "revisesThought": 1
+      },
+      "expect": "\"thoughtHistoryLength\": 2"
+    },
+    {
+      "tool": "sequentialthinking",
+      "arguments": {
+        "thought": "A branch from the first thought, under a name that is also an Object property.",
+        "thoughtNumber": 3,
+        "totalThoughts": 3,
+        "nextThoughtNeeded": "false",
+        "branchFromThought": 1,
+        "branchId": "__proto__"
+      },
+      "expect": "\"__proto__\""
+    },
+    {
+      "tool": "sequentialthinking",
+      "arguments": {
+        "thought": "Thought number zero does not exist.",
+        "thoughtNumber": 0,
+        "totalThoughts": 3,
+        "nextThoughtNeeded": true
+      },
+      "expect": "thoughtNumber: Too small: expected number to be >=1",
+      "expect_error": true
+    },
+    {
+      "tool": "sequentialthinking",
+      "arguments": {
+        "thought": "nextThoughtNeeded must be a boolean.",
+        "thoughtNumber": 4,
+        "totalThoughts": 4,
+        "nextThoughtNeeded": "maybe"
+      },
+      "expect": "Expected boolean or \"true\"/\"false\" string, received \"maybe\"",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "Tool read_file not found",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

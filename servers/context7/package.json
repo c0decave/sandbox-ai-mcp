@@ -1,0 +1,10 @@
+{
+  "name": "sandbox-ai-mcp-context7",
+  "version": "4.4.4",
+  "private": true,
+  "description": "Context7 MCP, pinned for sandbox-ai-mcp (npm ci --ignore-scripts)",
+  "license": "MIT",
+  "dependencies": {
+    "@upstash/context7-mcp": "4.4.4"
+  }
+}

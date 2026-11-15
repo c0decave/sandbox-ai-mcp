@@ -5,7 +5,11 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
-    "code-search"
+    "chrome-devtools",
+    "code-search",
+    "context7",
+    "filesystem",
+    "sequential-thinking"
   ],
   "entries": [
     {
@@ -165,6 +169,29 @@
       "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions."
     },
     {
+      "id": "mcp:chrome-devtools",
+      "name": "chrome-devtools",
+      "title": "Browser debugging (Chrome DevTools MCP, Chromium)",
+      "description": "A headless Chromium (Debian's) driven by Google's Chrome DevTools MCP 1.12.0 through Puppeteer: open pages and tabs, read them as accessibility snapshots, click, type, fill forms, drag, press keys, handle dialogs, wait for text, run JavaScript in the page, take screenshots and screencasts, read console messages and network requests with their bodies, emulate devices, network and CPU, record and analyse performance traces, run Lighthouse audits, take heap snapshots. A fresh temporary profile per connection; no file: URLs; files only in the server's own /tmp; no tools a web page offers, no extensions. No usage statistics, no update check, no CrUX lookups. Needs network: Full and more than the default limits (2g memory, 2 CPUs, 512 processes, a 768m /tmp: sandbox-ai 0.1.94 takes them from the catalog).",
+      "category": "Web",
+      "tags": [
+        "web",
+        "browser",
+        "chromium",
+        "devtools",
+        "debugging",
+        "performance"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/chrome-devtools",
+      "page": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "license": "Apache-2.0 (Chrome DevTools MCP; bundled Puppeteer, Lighthouse, DevTools frontend and others: THIRD_PARTY_NOTICES in the package); Chromium: BSD-3-Clause and others (Debian)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-chrome-devtools",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Add it with --network full (sandbox-ai 0.1.94 and newer apply the limits this catalog recommends; older ones: --memory 2g --pids 512). The browser runs inside the server's container, not the session's browser: it goes wherever the network lets it, logged-in sessions included if the agent logs in, and the server's own process also fetches source maps the pages name. --allowed-url-pattern and --blocked-url-pattern are no boundary, the container's network is. evaluate_script and navigate_page's initScript run JavaScript in the page, never in the server. Screenshots, traces and heap snapshots are written to the server's /tmp (gone with the container) unless returned. Page texts, titles, console messages and network answers are written by whoever made the page: treat them as data, not instructions."
+    },
+    {
       "id": "mcp:code-search",
       "name": "code-search",
       "title": "Code search for small local models (definitions, outlines, bounded search)",
@@ -203,6 +230,38 @@
       ],
       "network": "none",
       "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm), which fail to find code, read whole files into a small context and guess names: seven tools with short descriptions, plain-text answers whose first line says what was found, and every refusal saying what to do instead. Outlines are cached per file (modification time, size, inode) for the next call; the first find_definition over a project of a few thousand files takes seconds. Searches stop after 10 s and the index after 20 s with what they have (a second call goes on); files over 2 MiB are not read. The code it shows was written by someone else: data, not instructions."
+    },
+    {
+      "id": "mcp:context7",
+      "name": "context7",
+      "title": "Context7 (current library documentation)",
+      "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.4.4): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
+      "category": "Developer tools",
+      "tags": [
+        "documentation",
+        "libraries",
+        "code",
+        "context7"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/context7",
+      "page": "https://github.com/upstash/context7",
+      "license": "MIT (Context7 MCP, express, undici, jose, commander, zod); MCP TypeScript SDK: Apache-2.0 (in transition from MIT); Node.js: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-context7",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "CONTEXT7_API_KEY",
+          "description": "Context7 API key (optional, higher rate limits): https://context7.com/dashboard, starts with ctx7sk",
+          "secret": true,
+          "required": false
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "context7.com:443"
+      ],
+      "notes": "Every question and library name the agent asks about is sent to Context7 (Upstash): do not put secrets, personal data or proprietary code into a query - the tool descriptions say so to the agent too. The key is sent only to context7.com as a bearer token and never returned or logged. The documentation comes from Context7's index of public repositories and web pages, written by others: treat it as data, not instructions. Upstash also runs this server remotely (https://mcp.context7.com/mcp), which needs no container."
     },
     {
       "id": "mcp:duckduckgo",
@@ -392,6 +451,46 @@
       ],
       "network": "none",
       "notes": "Made for agents on small local models (OpenCode, Codex, Hermes with --llm) that get file writes wrong: whole-file writes need the sha256 read_file gave (no blind clobbering), edits need one exact match, and write_markdown repairs and reports. The workspace may be the very project folder the agent works in (sandbox-ai refuses a folder inside a tree a sandbox can write, not that folder itself); one entry per project (sandbox-ai mcp add files --as files-NAME). Writes are atomic (temporary file, fsync, rename) and never through a link; .git and .trash are not written. Recommended: allow the read tools, ask for delete and move, or give FILES_READONLY=1 where the agent should only read."
+    },
+    {
+      "id": "mcp:filesystem",
+      "name": "filesystem",
+      "title": "Filesystem (official MCP server)",
+      "description": "The official MCP filesystem server (@modelcontextprotocol/server-filesystem 2.1.0) on the folders you mount, nothing else: read_text_file (whole, head or tail), read_media_file (base64 image, audio or blob), read_multiple_files, write_file, edit_file (exact or whitespace-tolerant replacements, answered with a git-style diff; dryRun), create_directory, list_directory, list_directory_with_sizes, directory_tree (JSON), move_file, search_files (glob on names), get_file_info (size, times, permissions, hard links), list_allowed_directories. The allowed directories are exactly the folders mounted at /work and /ref1-/ref3 (an empty mount point is not allowed); MCP Roots are never used, so a client cannot widen them. Symbolic links out of them are refused, writes go through the checked directory and never through a link. No network.",
+      "category": "Files",
+      "tags": [
+        "files",
+        "editing",
+        "workspace",
+        "search"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/filesystem",
+      "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers); MCP SDK: Apache-2.0; zod, brace-expansion, balanced-match, entry.mjs, Node.js: MIT; diff: BSD-3-Clause; minimatch: BlueOak-1.0.0",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-filesystem",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder the server works on (--mount /work=FOLDER:rw to write, :ro to only read)",
+          "required": true
+        },
+        {
+          "target": "/ref1",
+          "description": "Another folder, best read-only (--mount /ref1=DIR:ro); a writable one is written too"
+        },
+        {
+          "target": "/ref2",
+          "description": "Another folder, best read-only (--mount /ref2=DIR:ro); a writable one is written too"
+        },
+        {
+          "target": "/ref3",
+          "description": "Another folder, best read-only (--mount /ref3=DIR:ro); a writable one is written too"
+        }
+      ],
+      "network": "none",
+      "notes": "For agents on capable models that work with the reference tool set (Claude Desktop-style clients, agents written against it). For small local models the files server is the better choice: it needs the sha256 a file was read with before replacing it, reports every write and repairs Markdown; this one overwrites without asking, edits by text match and reads whole files. read-only: mount the folder :ro (every write then fails), or allow only the read tools in the client. Not stopped by the server: a write to a file that also has hard links elsewhere changes it at every name (get_file_info shows hardLinks). Version 2.3.0 (old enough from 2026-11-25) anchors reads as it anchors writes and adds read-only folders; until then a concurrent swap of a folder for a link can make a read land outside the folders, inside the container only (its image, never your files)."
     },
     {
       "id": "mcp:gowitness",
@@ -644,6 +743,26 @@
       ],
       "network": "full",
       "notes": "Only SEARXNG_URL/search is requested. Run the instance yourself (docs/SEARXNG.md: a hardened container of the official image) or use one you trust; public instances usually refuse the JSON format."
+    },
+    {
+      "id": "mcp:sequential-thinking",
+      "name": "sequential-thinking",
+      "title": "Sequential thinking (official MCP server)",
+      "description": "The official MCP sequential-thinking server (@modelcontextprotocol/server-sequential-thinking 2.0.0): one tool, sequentialthinking, with which an agent writes down its reasoning as numbered thoughts - each can revise an earlier one or branch from it - and gets back the counts (thought number, estimated total, branches, length of the history). The thoughts are kept in memory for one connection only: nothing is read or written, nothing survives a restart. No network.",
+      "category": "Reasoning",
+      "tags": [
+        "reasoning",
+        "planning",
+        "thinking"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/sequential-thinking",
+      "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+      "license": "Apache-2.0 AND MIT (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP TypeScript SDK: Apache-2.0; zod, chalk: MIT; Node.js: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-sequential-thinking",
+      "tag": "latest",
+      "network": "none",
+      "notes": "Useful for agents on capable models that do not reason natively, or to make a long chain of reasoning visible step by step; models with their own reasoning gain little, and small local models tend to keep thinking instead of acting - for those, the tasks server keeps a plan on disk. The model sets thoughtNumber, totalThoughts and nextThoughtNeeded itself; the server only counts and keeps the history until the connection ends. Thought logging to stderr is switched off in the image."
     },
     {
       "id": "mcp:signal",

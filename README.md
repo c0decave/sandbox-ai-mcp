@@ -22,6 +22,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 |---|---|---|---|
 | [duckduckgo](servers/duckduckgo) | web search through DuckDuckGo's HTML page, no API key | allowlist `html.duckduckgo.com:443` | - |
 | [brave-search](servers/brave-search) | web and news search through the official Brave Search API | allowlist `api.search.brave.com:443` | `BRAVE_API_KEY` |
+| [context7](servers/context7) | current documentation and code examples of libraries and frameworks from Upstash's Context7 service (Context7 MCP 4.4.4): `resolve-library-id` finds a library's Context7 ID, `query-docs` answers a question from its documentation. The library and the question go to context7.com, nothing else (no client name, session id, telemetry or sign-in prompt); works without a key, rate-limited | allowlist `context7.com:443` | optional: `CONTEXT7_API_KEY` |
 | [searxng](servers/searxng) | web search through a SearXNG instance of yours (many engines at once), JSON API | the instance (`SEARXNG_URL`) | - |
 | [telegram](servers/telegram) | a Telegram bot of yours through the official Bot API: read the messages sent to it, send and edit text messages, look up chats; `TELEGRAM_ALLOWED_CHATS` limits it to your chats (recommended) | allowlist `api.telegram.org:443` | `TELEGRAM_BOT_TOKEN` |
 | [telegram-user](servers/telegram-user) | a Telegram user account through MTProto (Telethon) for investigating public channels and groups: resolve and search chats, chat info, invite links without joining, messages by id and date range, search, comments; media as metadata (downloads only into a mounted `/out`). Read-only: write tools only with `TELEGRAM_USER_WRITE=1`, optionally limited by `TELEGRAM_USER_ALLOWED_CHATS` | full (Telegram's data centres by IP; `--vpn PROFILE` recommended) | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION` |
@@ -33,28 +34,27 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [web-fetch](servers/web-fetch) | a public web page as readable text (no loopback or local-network targets) | full | - |
 | [osint-mcp](servers/osint-mcp) | domain and website OSINT from public sources, no API key (robyroro/osint-mcp 0.3.0): RDAP whois of domains and IPs, DNS, subdomains and certificate history from certificate transparency (crt.sh), Wayback snapshots, ASN and prefixes (RIPEstat), Shodan InternetDB, an email-security grade, TLS certificate and HTTP security headers; batch recon of up to ten domains, shared infrastructure, a site's page and legal pages. HTTP and TLS only to public addresses | full (registries' RDAP servers and the targets; `--vpn PROFILE` hides your address from them) | - |
 | [playwright](servers/playwright) | a headless Chromium (Debian's) driven by Microsoft's Playwright MCP 0.0.83: navigate, accessibility snapshots, click, type, forms, tabs, JavaScript in the page, screenshots, console and network requests; fresh profile per connection, no `file:` URLs, no page-registered tools. Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog; before: `--memory 2g --pids 512`) | full | - |
+| [chrome-devtools](servers/chrome-devtools) | a headless Chromium (Debian's) driven by Google's Chrome DevTools MCP 1.12.0: pages and tabs, accessibility snapshots, click, type, forms, JavaScript in the page, screenshots and screencasts, console messages, network requests with their bodies, device/network/CPU emulation, performance traces with DevTools' insights, Lighthouse audits, heap snapshots; fresh profile per connection, no `file:` URLs, no page-defined tools or extensions; usage statistics, update check and CrUX lookups off. Reviewed completely (its own code line by line, the bundle rebuilt from source and compared with its upstream releases); signed once CI has built it. Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | full | - |
 | [gowitness](servers/gowitness) | screenshots of web pages with gowitness 3.2.2 (built with only its single-URL scan) and Debian's headless Chromium: the page as a PNG or JPEG image (window or full page) with what gowitness records - final URL, status, title, headers, TLS certificate, technologies (Wappalyzer), cookie names, console messages, the page's requests; one URL or up to 5. Public addresses only (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges). Needs 2g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | full | - |
 | [whatweb](servers/whatweb) | which software a web site runs: WhatWeb 0.6.4's 1,800+ plugins (CMS and versions, frameworks, servers, libraries, analytics) as JSON per URL visited; aggression 1 (one GET per URL, default) or 3 (more requests to the same site, only when asked; 4 not offered); plugin search. Public addresses only, every redirect checked (`ALLOW_PRIVATE_TARGETS=1` adds the private ranges) | full | - |
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
 | [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
+| [sequential-thinking](servers/sequential-thinking) | the official MCP sequential-thinking server (2.0.0): one tool with which an agent writes its reasoning down as numbered thoughts that can revise or branch from earlier ones; kept in memory for one connection only, nothing read or written, thought logging off | none | - |
 | [exec](servers/exec) | shell commands for agents on small local models, in the project folder: a time limit per call (the whole process tree stopped on it), stdin empty and no terminal (CI=1, pagers, editors and prompts off), output cut to its start and end with the lines omitted counted, background jobs (status, wait, tail, stop), `run_tests` (only the failures of pytest, unittest, jest, vitest, go test, cargo test), `lint` (pyflakes, shellcheck, JSON, YAML). The project folder mounted writable at `/work`; needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | none | - |
 | [tasks](servers/tasks) | a plan outside the model's context, for agents on small local models: goal, steps with their state and a note, notes of facts and mistakes not to repeat, `next_step` (the one step to work on now, with what it needs), progress; kept in `/work/.tasks` of the project (`PLAN.md` for you to read), locked, written atomically | none | - (the plan is in the project folder) |
 | [code-search](servers/code-search) | find and read code by name, for agents on small local models (our own server): `find_definition` (exact matches first, similar names when there is none), `read_symbol` (one function or class with line numbers instead of the whole file), `outline` of a file, `find_references`, `find_text` (bounded, with the function each line is in, an offset to go on), `find_files`, `project_map`. Python exact (its own parser); JavaScript/TypeScript, Go, Rust, Java, C/C++ and shell approximate. Honours `.gitignore`, skips dependencies and build output; every answer bounded, every search time-limited. The project mounted read-only at `/work` (`/ref1`-`/ref3` beside it), nothing written | none | - (the project is the `/work` folder, read-only) |
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
+| [filesystem](servers/filesystem) | the official MCP filesystem server (2.1.0) for agents on capable models that expect the reference tool set: read whole files (or head/tail), media as base64, several at once, write, `edit_file` with a git-style diff (`dryRun`), `create_directory`, list (with sizes), `directory_tree`, `move_file`, `search_files` (glob on names), `get_file_info`. Allowed are exactly the folders mounted at `/work` and `/ref1`-`/ref3`; MCP Roots are never used, so a client cannot widen them; links out of the folders refused. Which of files and filesystem: *files or filesystem?* under [Using them in sandbox-ai](#using-them-in-sandbox-ai) | none | - (the folders you mount) |
 
 Prepared, not yet built ([`candidates/`](candidates), see
 [docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
-**chrome-devtools**
-(Chrome DevTools MCP 1.12.0 with Debian's Chromium), **codebase-memory** (codebase-memory-mcp
-0.12.1, a code graph of a mounted repository), **context7** (Context7 MCP 4.5.0, library
-documentation), **browserbase** (Browserbase MCP 3.0.0, a cloud browser) and **rea** (REA 6.8.0,
-static reverse engineering without native engines). All are audited; their Dockerfiles refuse to
-build while a pin is open (ghidra: Debian versions; chrome-devtools: the npm
-package's integrity; rea: Node.js from nodejs.org). codebase-memory, context7 and browserbase
-have every pin set but have not been built yet.
+**codebase-memory** (codebase-memory-mcp 0.12.1, a code graph of a mounted repository), **browserbase** (Browserbase
+MCP 3.0.0, a cloud browser) and **rea** (REA 6.8.0, static reverse engineering without native engines). All are
+audited; their Dockerfiles refuse to build while a pin is open (ghidra: Debian versions; rea: Node.js from nodejs.org).
+codebase-memory and browserbase have every pin set but have not been built yet.
 
 Images: `ghcr.io/c0decave/sandbox-ai-mcp-<name>`, referenced by digest in
 [`catalog.json`](catalog.json). Until the first CI run publishes them, the catalog says
@@ -109,6 +109,7 @@ releases at least 14 days old, that run on their own in a container. Servers we 
 sandbox-ai mcp catalog                          # entries of this catalog and the axross hub
 sandbox-ai mcp add duckduckgo --network full    # pull by digest, write the definition
 sandbox-ai mcp add brave-search --network full --env BRAVE_API_KEY
+sandbox-ai mcp add context7 --network full --env CONTEXT7_API_KEY   # library docs; the key is optional
 sandbox-ai mcp add telegram --network full --env TELEGRAM_BOT_TOKEN --env TELEGRAM_ALLOWED_CHATS
 sandbox-ai mcp add telegram-user --env TELEGRAM_API_ID --env TELEGRAM_API_HASH --env TELEGRAM_SESSION --vpn PROFILE
 sandbox-ai mcp add openosint --network full --env VIRUSTOTAL_API_KEY   # keys optional, each named with --env
@@ -121,13 +122,16 @@ sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
 sandbox-ai mcp add playwright --network full   # 0.1.94: the catalog's limits (before: --memory 2g --pids 512)
+sandbox-ai mcp add chrome-devtools --network full   # DevTools on its own headless Chromium (once signed)
 sandbox-ai mcp add gowitness --network full    # 0.1.94: the catalog's limits (2g, 512 processes, 768m /tmp)
 sandbox-ai mcp add whatweb --network full      # --env ALLOW_PRIVATE_TARGETS=1 for your own LAN
 sandbox-ai mcp add osint-mcp --network full                    # no key; --vpn PROFILE hides your address
 sandbox-ai mcp add signal --network full --memory 1g --pids 256 --mount /data=~/signal-account:rw
 sandbox-ai mcp add memory --mount /data=~/brains/case-42:rw        # a knowledge graph per case, no network
 sandbox-ai mcp add engram --mount /data=~/brains/sandbox-ai-dev:rw # a coding agent's memory, no network
+sandbox-ai mcp add sequential-thinking             # step-by-step thoughts for one connection, no network
 sandbox-ai mcp add files --mount /work=~/projects/myapp:rw   # the agent's workspace, no network
+sandbox-ai mcp add filesystem --mount /work=~/projects/myapp:rw   # the official server, the same folder
 sandbox-ai mcp add exec --mount /work=~/projects/app:rw    # commands in the project, no network (small local models)
 sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/projects/app/.tasks
 sandbox-ai mcp add code-search --mount /work=~/projects/app:ro   # find and read code by name, read-only
@@ -319,6 +323,29 @@ agent's anyway), deleting and moving asked for, anything else refused:
 
 Tell a small model in its instructions to use `write_markdown` for `.md` files and `edit_file` for small changes, and to
 read before it writes. See [its PROVENANCE.md](servers/files/PROVENANCE.md).
+
+**files or filesystem?** Both work on the folders you mount and nothing else, without network. **files** is our own
+server, made for agents on small local models: a whole-file write needs the `sha256` the file was read with, an edit
+needs one exact match, `write_markdown` repairs what small models break, every write reports what changed, reads come
+in parts with a hash, `delete` goes into a trash, and `/ref1`-`/ref3` are always read-only. **filesystem** is the
+official reference server (`@modelcontextprotocol/server-filesystem`), for agents on capable models and clients
+written against its tool names (`read_text_file`, `edit_file`, `directory_tree`, `search_files`, `move_file`,
+`get_file_info`, ...): it overwrites without asking, edits by text match with a whitespace-tolerant fallback and
+answers with a diff, reads whole files, returns images and audio as media content, and lists a folder as a JSON tree.
+Its allowed directories are exactly the mounted folders: the image's entry takes the mount points of `/work` and
+`/ref1`-`/ref3` from the container's mount table and never asks the client for MCP Roots (in 2.1.0 a client's roots
+would replace them). A folder is read-only when you mount it `:ro`; for a read-only agent allow only its read tools.
+Until it is re-pinned to 2.3.0 (from 2026-11-25) a read raced by someone swapping a folder for a link can land outside
+the folders - inside its own container only, never in your files ([PROVENANCE.md](servers/filesystem/PROVENANCE.md),
+finding 1).
+
+```bash
+sandbox-ai mcp add filesystem --mount /work=~/projects/myapp:rw --mount /ref1=~/reference:ro
+```
+
+Use **files** for OpenCode, Codex or Hermes on a local model, **filesystem** where a capable model or a client
+expects the official tools; one of them per folder is enough.
+
 **bluesky** posts to your Bluesky account without the agent ever holding your credentials: your handle and an
 **app password** are given to the server's container only (sandbox-ai's secrets); the server signs in at your PDS
 itself, keeps the session in memory, renews it there, and no answer or log line carries the password or a token.

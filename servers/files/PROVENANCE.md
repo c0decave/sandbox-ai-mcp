@@ -22,7 +22,9 @@ match, and `write_markdown` repairs the typical mistakes and lists each repair.
 
 The reference server `@modelcontextprotocol/server-filesystem` was not taken: it resolves paths with `realpath` and
 then opens them by name (a link swapped in meanwhile is followed), overwrites without a check, and has no repairs.
-One file of our own on the SDK this repository already ships is smaller than reviewing and patching it.
+One file of our own on the SDK this repository already ships is smaller than reviewing and patching it. (The
+reference server is packaged separately as servers/filesystem since 2026-11-15, for capable models and clients that
+expect its tools; its writes are anchored to the checked directory since 2.0.1, its reads from 2.3.0.)
 
 ## Tools
 

@@ -1,0 +1,63 @@
+{
+  "name": "context7",
+  "network": "allowlist",
+  "hosts": [
+    "context7.com:443"
+  ],
+  "expect_tools": [
+    "query-docs",
+    "resolve-library-id"
+  ],
+  "calls": [
+    {
+      "tool": "resolve-library-id",
+      "arguments": {
+        "query": "How to define dynamic route segments",
+        "libraryName": "Next.js"
+      },
+      "expect": "/vercel/next.js",
+      "timeout": 120,
+      "upstream_limited": [
+        "Rate limited or quota exceeded"
+      ]
+    },
+    {
+      "tool": "query-docs",
+      "arguments": {
+        "libraryId": "/vercel/next.js",
+        "query": "How to define dynamic route segments in the app router"
+      },
+      "expect": "dynamic",
+      "timeout": 120,
+      "upstream_limited": [
+        "Rate limited or quota exceeded"
+      ]
+    },
+    {
+      "tool": "query-docs",
+      "arguments": {
+        "query": "a query without a library"
+      },
+      "expect": "libraryId: Invalid input: expected string, received undefined",
+      "expect_error": true
+    },
+    {
+      "tool": "resolve-library-id",
+      "arguments": {
+        "query": 42,
+        "libraryName": "Next.js"
+      },
+      "expect": "query: Invalid input: expected string, received number",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "Tool read_file not found",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

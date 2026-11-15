@@ -1,0 +1,10 @@
+{
+  "name": "sandbox-ai-mcp-sequential-thinking",
+  "version": "2.0.0",
+  "private": true,
+  "description": "The official MCP sequential-thinking server, pinned for sandbox-ai-mcp (npm ci --ignore-scripts)",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/server-sequential-thinking": "2.0.0"
+  }
+}

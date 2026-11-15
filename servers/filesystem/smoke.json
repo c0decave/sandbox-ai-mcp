@@ -1,0 +1,212 @@
+{
+  "name": "filesystem",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "writable": true,
+      "seed": [
+        {
+          "path": "escape",
+          "symlink": "/etc"
+        },
+        {
+          "path": "passwd-link",
+          "symlink": "/etc/passwd"
+        },
+        {
+          "path": "dangling",
+          "symlink": "/etc/sandbox-ai-mcp-smoke-missing"
+        },
+        {
+          "path": "docs/readme.txt",
+          "text": "filesystem smoke test\n"
+        }
+      ]
+    }
+  ],
+  "expect_tools": [
+    "create_directory",
+    "directory_tree",
+    "edit_file",
+    "get_file_info",
+    "list_allowed_directories",
+    "list_directory",
+    "list_directory_with_sizes",
+    "move_file",
+    "read_file",
+    "read_media_file",
+    "read_multiple_files",
+    "read_text_file",
+    "search_files",
+    "write_file"
+  ],
+  "calls": [
+    {
+      "tool": "list_allowed_directories",
+      "arguments": {},
+      "expect": "Allowed directories:\n/work"
+    },
+    {
+      "tool": "create_directory",
+      "arguments": {
+        "path": "/work/notes"
+      },
+      "expect": "Successfully created directory /work/notes"
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/work/notes/plan.md",
+        "content": "# Plan\n\nA first draft.\n"
+      },
+      "expect": "Successfully wrote to /work/notes/plan.md"
+    },
+    {
+      "tool": "edit_file",
+      "arguments": {
+        "path": "/work/notes/plan.md",
+        "edits": [
+          {
+            "oldText": "A first draft.",
+            "newText": "A second draft."
+          }
+        ]
+      },
+      "expect": "+A second draft."
+    },
+    {
+      "tool": "read_text_file",
+      "arguments": {
+        "path": "/work/notes/plan.md"
+      },
+      "expect": "A second draft."
+    },
+    {
+      "tool": "search_files",
+      "arguments": {
+        "path": "/work",
+        "pattern": "**/*.md"
+      },
+      "expect": "/work/notes/plan.md"
+    },
+    {
+      "tool": "directory_tree",
+      "arguments": {
+        "path": "/work"
+      },
+      "expect": "\"name\": \"readme.txt\""
+    },
+    {
+      "tool": "move_file",
+      "arguments": {
+        "source": "/work/notes/plan.md",
+        "destination": "/work/docs/plan.md"
+      },
+      "expect": "Successfully moved /work/notes/plan.md to /work/docs/plan.md"
+    },
+    {
+      "tool": "get_file_info",
+      "arguments": {
+        "path": "/work/docs/plan.md"
+      },
+      "expect": "hardLinks: 1"
+    },
+    {
+      "tool": "read_text_file",
+      "arguments": {
+        "path": "/work/escape/passwd"
+      },
+      "expect": "Access denied - symlink target outside allowed directories: /etc/passwd not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/work/escape/sandbox-ai-mcp-smoke",
+        "content": "x"
+      },
+      "expect": "Access denied - symlink target outside allowed directories: /etc not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/work/passwd-link",
+        "content": "x"
+      },
+      "expect": "Access denied - symlink target outside allowed directories: /etc/passwd not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/work/dangling",
+        "content": "x"
+      },
+      "expect": "Parent directory does not exist: /work",
+      "expect_error": true
+    },
+    {
+      "tool": "move_file",
+      "arguments": {
+        "source": "/work/docs/readme.txt",
+        "destination": "/work/escape/readme.txt"
+      },
+      "expect": "Access denied - symlink target outside allowed directories: /etc not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "read_text_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "Access denied - path outside allowed directories: /etc/passwd not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "read_text_file",
+      "arguments": {
+        "path": "/work/../../../../../../../../etc/passwd"
+      },
+      "expect": "Access denied - path outside allowed directories: /etc/passwd not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "list_directory",
+      "arguments": {
+        "path": "/ref1"
+      },
+      "expect": "Access denied - path outside allowed directories: /ref1 not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "read_text_file",
+      "arguments": {
+        "path": "~/.bashrc"
+      },
+      "expect": "Access denied - path outside allowed directories: /tmp/.bashrc not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "move_file",
+      "arguments": {
+        "source": "/work/docs/readme.txt",
+        "destination": "/tmp/readme.txt"
+      },
+      "expect": "Access denied - path outside allowed directories: /tmp/readme.txt not in /work",
+      "expect_error": true
+    },
+    {
+      "tool": "copy_file",
+      "arguments": {
+        "source": "/work/docs/readme.txt",
+        "destination": "/work/docs/copy.txt"
+      },
+      "expect": "Tool copy_file not found",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

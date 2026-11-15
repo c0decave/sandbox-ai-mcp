@@ -1,6 +1,8 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-13 (exec and tasks added, our own servers for agents on small local models; mcp-server-git,
+State: 2026-11-15 (filesystem 2.1.0 added, the official MCP server confined to the mounted folders). 2026-11-14
+(sequential-thinking 2.0.0 added; context7 4.4.4 and chrome-devtools 1.12.0 moved from `candidates/`, the last
+pending its complete review). 2026-11-13: exec and tasks added, our own servers for agents on small local models; mcp-server-git,
 sequential-thinking, serena, the ast-grep MCP server and codebase-memory reviewed for them in
 [LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)). 2026-11-11: playwright moved to `servers/`; openosint, osint-mcp, signal
 and whatsapp added; memory and engram added, Basic Memory looked at and left out.
@@ -17,7 +19,6 @@ Checked on 2026-11-06 (cut-off: published on or before 2026-10-23). Too new:
 
 | Where | Pin | Published | Old enough on |
 |---|---|---|---|
-| candidates/context7 | `@upstash/context7-mcp` 4.5.0 (commit `a138857c`); pnpm 10.34.9 | 2026-11-03; 2026-10-25 | 2026-11-17; 2026-11-08 |
 | candidates/rea | `rea-agents` 6.8.0 (commit `160d821a`) | 2026-10-25 | 2026-11-08 |
 | candidates/ghidra | `pyghidra-mcp` 0.3.0, and 24 of its hash-locked dependencies (pydantic 2.14.2, onnxruntime 1.31.1, opentelemetry 1.45.2, huggingface-hub 2.4.0, grpcio 1.85.1, ...) | 2026-11-02; 2026-10-24 to 2026-11-02 | 2026-11-16 at the latest |
 
@@ -57,9 +58,34 @@ Engram **3.6.0** (2026-10-24, commit `98912f81`; 3.6.1, 3.6.2, 3.7.0 and 3.7.1 o
 3.7.1 bounds FTS query sizes, which our entry point does for every argument), every Go module by the release's
 `go.sum` (published before 2026-10-24 by construction), Go 1.26.10 (the golang image of servers/whatsapp).
 
+sequential-thinking (2026-11-14, cut-off 2026-10-31): `@modelcontextprotocol/server-sequential-thinking` **2.0.0** (npm
+2026-10-19, tag `v2.0.0`, commit `51b6382a`; 2.1.1 of 2026-11-04 too new until 2026-11-18, no security fix), locked with
+`npm install --package-lock-only --before=2026-11-01T00:00:00Z`: the SDK 2.4.0 and zod 4.6.7 of servers/memory (same
+integrities), chalk 5.6.2 (2025-09-08), yargs 17.7.3 (2026-06-19, removed from the image); Node.js 24.22.1 of servers/memory.
+
+filesystem (2026-11-15, cut-off 2026-11-01): `@modelcontextprotocol/server-filesystem` **2.1.0** (npm 2026-10-28,
+commit `194cc86e` - the commit of servers/memory's 2.0.1 -, provenance-attested; 2.2.0 of 2026-11-04 too new until
+2026-11-18, 2.3.0 of 2026-11-11 until 2026-11-25: it anchors reads, re-pin then), locked with `npm install
+--package-lock-only --before=2026-11-01T00:00:00Z`: the SDK 2.4.0 and zod 4.6.7 of servers/memory (same integrities),
+diff 8.0.4 (2026-03-23), minimatch 10.2.6 (2026-07-27), brace-expansion 5.0.12 (2026-09-14), balanced-match 4.0.4
+(2026-02-22), glob 13.0.6 with three packages of its own (removed from the image); Node.js 24.22.1 of servers/memory.
+
+context7 (2026-11-14, cut-off 2026-10-31): `@upstash/context7-mcp` **4.4.4** (npm 2026-10-19, tag commit `c7f80ce5`;
+4.5.0 of 2026-11-03, 4.5.1, 4.6.0 and 4.7.0 too new, no security fix), installed from the registry with an npm lock made
+with `--before=2026-11-01T00:00:00Z` (104 packages, the newest jose 6.2.14 of 2026-10-29; 74 kept), instead of the earlier
+candidate's pnpm build of 4.5.0; Node.js 24.22.1 of servers/memory.
+
+chrome-devtools (2026-11-14, cut-off 2026-10-31): `chrome-devtools-mcp` **1.12.0** (npm 2026-10-22, commit `af283441`,
+provenance-attested; 1.13.0 of 2026-11-11 too new until 2026-11-25), the npm tarball alone by integrity (no runtime
+dependencies: Puppeteer 25.16.0, the MCP SDK 2.3.1, zod 4.6.5, Lighthouse 13.5.0 and the DevTools frontend are bundled),
+Debian's Chromium of servers/playwright, Node.js 24.22.1 of servers/memory. **Fit to sign once CI passes**: every
+line of its own code in the image read (18,195), the package rebuilt from `af283441` and byte-identical, the bundled
+npm packages equal to their registry releases, the Lighthouse bundle equal to a build of its `v13.5.0` tag
+(servers/chrome-devtools/PROVENANCE.md, Verdict).
+
 Old enough: agentql (`agentql-mcp` 1.0.1, 2026-02-21), browserbase (3.0.0, commit of
 2026-03-31; pnpm 10.12.4, 2025-06-26), codebase-memory (0.12.1, 2026-10-16), chrome-devtools
-(1.12.0, 2026-10-22), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
+(1.12.0, 2026-10-22; built in servers/ since 2026-11-14), Ghidra 12.2 (2026-10-22), reddit (`reddit-mcp-buddy` 1.1.14, 2026-07-29;
 re-pinned from 1.2.0 of 2026-11-02). The other PyPI pins of ghidra are old enough; the npm
 lockfiles of the other candidates were not checked package by package.
 
@@ -89,6 +115,10 @@ reach it there; re-lock to it from 2026-11-10). Every PyPI pin of `servers/` is 
 | exec | our own server (`src/server.py`, the shared lock) for agents on small local models: `run_command` (bash with a time limit, the whole process tree stopped on it, stdin empty, no terminal, a fixed non-interactive environment, output cut to start and end), background jobs, `run_tests` (only the failures), `lint` (read-only); Debian's git, make, pytest, pyflakes, PyYAML, shellcheck and Node.js 20 for the commands | none; `/work` writable (required: the project); `--memory 2g --pids 512`, a 512m /tmp | `tests/test_exec.py` (43 offline tests: limits and kills, output bounds, input, environment, paths and links, jobs, recorded test reports, real test runs, lint, stdio); `test_exec` inside the image and the smoke spec in CI; not built here (no container engine) |
 | tasks | our own server (`src/server.py`, the shared lock): a plan outside the model's context in `/work/.tasks` (goal, steps, notes, `next_step`), flock-locked atomic writes, `PLAN.md` for the human | none; `/work` writable (required: the project) | `tests/test_tasks.py` (persistence, bounds, plans changed by hand, links, six processes and four threads at once, stdio); `test_tasks` inside the image and the smoke spec in CI; not built here |
 | engram | Engram 3.6.0 (Gentleman-Programming/engram, MIT, commit `98912f81`), only its MCP server: an own entry point (`src/main.go`) built inside Engram's module links internal/mcp and internal/store and what they import (31,134 lines in 61 files, every one read line by line and pinned by SHA-256; the build proves nothing else of Engram is linked); mcp-go 0.44.0 read line by line; the other Go modules (modernc sqlite/libc, x/sys, x/text, uuid, jsonschema, ...) on their risky surfaces. 23 agent tools; `directory`/`cwd` arguments removed (they scan folders and would run git); arguments bounded, panics recovered, memory in `/data` with Engram's own limits | none; `/data` writable (required), one project per folder (`ENGRAM_PROJECT`, default `brain`) | `src/main_test.go` runs in the image build; smoke spec in CI (save, search, read back; four refused calls); offline tests; not built here (no Go toolchain, no container engine) |
+| sequential-thinking | the official MCP sequential-thinking server 2.0.0 (modelcontextprotocol/servers `src/sequentialthinking`, Apache-2.0/MIT; npm release built by upstream CI from commit `51b6382a`, provenance-attested): one tool, `sequentialthinking`, a chain of thoughts kept in memory per connection; server read line by line against its TypeScript, chalk 5.6.2 in full, the SDK 2.4.0 and zod 4.6.7 by servers/memory's review of the identical files; yargs (declared, never imported) removed from the image; `DISABLE_THOUGHT_LOGGING=true`, `node --disallow-code-generation-from-strings`. 2.1.1 (2026-11-04) too new until 2026-11-18 | none | the smoke spec run locally through `scripts/smoke_test.py` against the packages of the lock on Node.js 26 (a thought, a revision, a branch `__proto__`; three refused calls); offline tests; not built here (no container engine) |
+| filesystem | the official MCP filesystem server 2.1.0 (modelcontextprotocol/servers `src/filesystem`, Apache-2.0/MIT; npm release built by upstream CI from commit `194cc86e`, provenance-attested): 14 tools (read, media, write, `edit_file` with a diff, mkdir, list, tree, move, search, info); our `src/entry.mjs` allows exactly the folders mounted at `/work` and `/ref1`-`/ref3` (mount points from `/proc/self/mountinfo`) and never asks for MCP Roots (in 2.1.0 a client's roots replace the allowed directories); server read line by line against its TypeScript, diff, minimatch, brace-expansion and balanced-match on the paths it uses, the SDK and zod by servers/memory's review; glob (declared, never imported) removed; reads not anchored until 2.3.0 (reach the container's own files only) | none; `/work` (required), `/ref1`-`/ref3` | the smoke spec run locally through `scripts/smoke_test.py` against the packages of the lock on Node.js 26 (20 calls: writes, edit, search, tree, move; links to `/etc`, a dangling link, `..`, an unmounted `/ref1`, `~`, `/tmp` refused), the roots refusal against a client offering `file:///`, read and write races; offline tests; not built here (no container engine) |
+| context7 | Upstash's Context7 MCP 4.4.4 (upstash/context7 `packages/mcp`, MIT; commit `c7f80ce5`), npm release with an npm lock: two tools, `resolve-library-id` and `query-docs`, GETs to `context7.com/api/v2`; server read line by line against its TypeScript, the SDK 2.3.1 by its diff to 2.4.0, the other loaded packages (undici, express, jose, commander, zod) on their risky surfaces; only the 74 packages that load kept (OpenTelemetry and its loader patching removed, telemetry modules removed, `OTEL_SDK_DISABLED=true`); patched: no sign-in prompt (`npx ctx7 setup`), no client name, version or session id sent | allowlist `context7.com:443`; optional `CONTEXT7_API_KEY` | refused calls, `tools/list` and the proxy path (only `CONNECT context7.com:443`) run locally through `scripts/smoke_test.py` against the prepared packages on Node.js 26; real calls only in CI (context7.com not reachable here); offline tests; not built here |
+| chrome-devtools | Google's Chrome DevTools MCP 1.12.0 (ChromeDevTools/chrome-devtools-mcp, Apache-2.0; commit `af283441`) with Debian's `chromium` 156.0.8078.79-1~deb13u1: 32 default tools (pages, input, snapshots, screenshots, screencasts, console, network, emulation, performance traces, Lighthouse, heap snapshots); usage statistics (Clearcut to `play.googleapis.com`), the npm update check, CrUX lookups and configuration discovery off, the statistics sender and the update script removed from the image, page-defined tools (third-party, WebMCP), extensions and PWAs off by flag; `--headless --isolated --no-file-navigations`, Puppeteer over a pipe. **Reviewed completely, fit to sign once CI passes** (own code read line by line, the bundle reproduced from source and its parts compared with their upstream releases) | full; `--memory 2g --pids 512`, 2 CPUs, a 768m /tmp | `tools/list`, the resolved configuration and the telemetry fail-closed checked locally against the installed package on Node.js 26 (no Chromium here); the smoke spec (a `data:` page, snapshot, script, a heavy page, a screenshot; a `file:` URL, a write to `/etc` and an extension tool refused) in CI; offline tests |
 
 ### The three file-analysis servers, and the cooldown rule
 
@@ -110,15 +140,13 @@ fuzzers, SQL injection, password cracking) or capture network traffic. They stay
 |---|---|---|
 | ghidra | pyghidra-mcp 0.3.0 + Ghidra 12.2 (Apache-2.0) | Re-pin before building: 2026-11-16 or an older release (pyghidra-mcp 0.3.0 and 24 locked dependencies too new); Debian versions of the JDK, unzip and python3 to pin; memory (needs about 4 GiB); chromadb's embedding model offline |
 | codebase-memory | DeusData/codebase-memory-mcp 0.12.1 (MIT), static release binary | all pins set (release SHA-256, Debian git); not built or smoke-tested; memory for large repositories; needs `/out` writable |
-| chrome-devtools | ChromeDevTools/chrome-devtools-mcp 1.12.0 (Apache-2.0) + Debian Chromium | npm package integrity to pin (npm not reachable when prepared); Chromium's limits; upstream supports Chrome only |
-| context7 | upstash/context7-mcp 4.5.0 (MIT) | Re-pin before building: 2026-11-17 or an older release (4.5.0 of 2026-11-03, pnpm 10.34.9 of 2026-10-25); all pins set (pnpm by SHA-256, Debian versions); build not run; allowlist `context7.com:443`, optional `CONTEXT7_API_KEY` |
 | browserbase | browserbase/mcp-server-browserbase 3.0.0 (Apache-2.0) | all pins set; build not run (Node 20 vs. Stagehand 3.0.8); the CDP host the session API returns is unverified; three secrets |
 | agentql | tinyfish-io/agentql-mcp 1.0.1 = npm `agentql-mcp` (MIT), commit `affb3a5c` (no git tag) | all pins set (npm tarball SHA-512/SHA-256, lockfile by commit, Debian versions); build not run; allowlist `api.agentql.com:443`, `AGENTQL_API_KEY` required; node-fetch ignores `HTTPS_PROXY` |
 | reddit | karanb192/reddit-mcp-buddy 1.1.14 = npm `reddit-mcp-buddy` (MIT), 2026-07-29, commit `dfd3f094` (npm provenance; the tag was moved later, CI-only) | all pins set (npm tarball SHA-512/SHA-256, lockfile by commit, Debian versions); build not run; read-only (no write tools in this release); allowlist `www.reddit.com:443`, `oauth.reddit.com:443`; `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` (an app Reddit approved) and `REDDIT_USER_AGENT`, without them only RSS browsing; 1.2.0 (too new) fixes a zod memory issue, uncut error bodies and cache-key collisions; Node 20's fetch ignores `HTTPS_PROXY` |
 | rea | morluto/rea 6.8.0 (MIT), without native engines | Re-pin before building: 2026-11-08 or an older release (6.8.0 of 2026-10-25); Node.js >= 22.23.4 from nodejs.org: version and SHA-256 to pin; compile step not run; which tools work without engines |
 
 Each has a `PROVENANCE.md` with the audit notes and a Dockerfile that refuses to build until the
-pins are set (codebase-memory, context7, browserbase, agentql and reddit have all pins set but were
+pins are set (codebase-memory, browserbase, agentql and reddit have all pins set but were
 not built yet).
 The Debian versions of the new candidates were read from the trixie, trixie-updates and
 trixie-security indexes of 2026-11-05 (nodejs `20.19.2+dfsg-1+deb13u3`, npm `9.2.0~ds1-3`, git
@@ -135,7 +163,7 @@ folder to `servers/` and add it to the CI matrix.
 | oraios/serena 2.1.0 (GPL-3.0-or-later, SolidLSP MIT) | MCP server of LSP-based code tools that edit the project, with a shell tool | runs where the project and its toolchains are: a kit (agent-side MCP server); it downloads language servers at run time |
 | ruvnet/ruflo 3.71.4 (MIT) | agent meta-harness: hooks on every tool call, daemon, several hundred MCP tools (terminal_execute, npm auto-install, federation relays) | a kit at most, after its own review; it reconfigures the agent and runs commands itself |
 | koala73/worldmonitor 2.11.8 (AGPL-3.0-only) | dashboard app; hosted MCP `https://worldmonitor.app/mcp` | remote service: allowlist `worldmonitor.app:443`, `X-WorldMonitor-Key` or OAuth; its skills plugin is a kit |
-| upstash/context7 | also hosted at `https://mcp.context7.com/mcp` | remote service as an alternative to the context7 candidate |
+| upstash/context7 | also hosted at `https://mcp.context7.com/mcp` | remote service as an alternative to servers/context7 |
 | browserbase | also hosted at `https://mcp.browserbase.com/mcp` | remote service as an alternative to the browserbase candidate |
 | mindsdb/mindshub 26.1.0 (Elastic-2.0, integrations MIT; formerly mindsdb/mindsdb) | federated SQL server; its MCP (`query` tool, schema resources) is a route of its HTTP API (`:47334/mcp/streamable`, `/mcp/sse`) | a long-running stateful server, not one container per connection: run it yourself and add it as a remote endpoint |
 | Blender Lab MCP (projects.blender.org/lab/blender_mcp, not reachable from here) | add-on inside a running Blender plus a stdio bridge to `localhost:9876` | host-only: needs the Blender GUI on the host and runs arbitrary `bpy` Python there; source, version and licence unverified |
@@ -273,8 +301,8 @@ next to this one, so they are not duplicated here.
   symbol's source, bounded text search and a project map, `/work` read-only, without ast-grep
   ([LOCAL_LLM_TOOLS.md](LOCAL_LLM_TOOLS.md)); a structural `find_pattern` on the `ast-grep` 0.51.0 binary only if
   capable models ask for it.
-- **sequential-thinking** (modelcontextprotocol/servers): reviewed, small and clean, but of little use for small
-  models; 2.1.1 from 2026-11-18 if asked for. **time**: small, no network.
+- **sequential-thinking**: built ([servers/sequential-thinking](../servers/sequential-thinking), 2.0.0, asked for
+  on 2026-11-14); re-pin to 2.1.1 from 2026-11-18. **time**: small, no network.
 - **git** (mcp-server-git, MIT): reviewed, not packaged - exec runs git with pagers, editors and prompts off.
 - **SearXNG** client: search through your own SearXNG instance (allowlist of that host).
 - **arXiv / Wikipedia** search: own small servers, allowlist.
