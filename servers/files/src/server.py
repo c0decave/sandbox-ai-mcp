@@ -63,8 +63,10 @@ MARKDOWN_SUFFIXES = (".md", ".markdown", ".mdx", ".mkd", ".mdown")
 MAX_BYTES_DEFAULT = 8 << 20     # FILES_MAX_BYTES: bytes one call reads or writes
 MAX_BYTES_LIMIT = 256 << 20
 MAX_PATH = 4096
-MAX_READ_LINES = 1000           # lines of one read_file answer
-MAX_READ_CHARS = 60_000         # characters of one read_file answer
+# One read_file answer: Claude Code, Qwen Code and Hermes show the model only a short preview and a file path of a
+# tool result much above 25,000 characters, so a part stays below that (next_start_line goes on).
+MAX_READ_LINES = 400            # lines of one read_file answer
+MAX_READ_CHARS = 24_000         # characters of one read_file answer
 MAX_ENTRIES = 500               # entries of list_dir, results of glob
 MAX_VISIT = 200_000             # entries glob and search look at
 MAX_RESULTS = 200               # search matches
@@ -792,11 +794,11 @@ CHANGES = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHi
 
 @mcp.tool(annotations=READS)
 def read_file(path: str, start_line: int = 1, end_line: int | None = None, line_numbers: bool = False) -> dict:
-    """Reads a text file. path: relative to /work (docs/a.md) or absolute (/work/docs/a.md). Returns at most 1000
-    lines per call: start_line and end_line (1-based, inclusive) pick a part; next_start_line says where to go
-    on. line_numbers=true puts "N<TAB>" before each line (never copy these numbers into edits). The answer's
-    sha256 is the whole file's: pass it as expected_sha256 to write_file or write_markdown. Line breaks are shown
-    as \\n whatever the file uses (line_endings says which; writes keep them)."""
+    """Reads a text file. path: relative to /work (docs/a.md) or absolute (/work/docs/a.md). Returns at most 400
+    lines or 24,000 characters per call: start_line and end_line (1-based, inclusive) pick a part; next_start_line
+    says where to go on. line_numbers=true puts "N<TAB>" before each line (never copy these numbers into edits).
+    The answer's sha256 is the whole file's: pass it as expected_sha256 to write_file or write_markdown. Line breaks
+    are shown as \\n whatever the file uses (line_endings says which; writes keep them)."""
     def work():
         first = _int(start_line, "start_line", 1)
         last = None if end_line is None else _int(end_line, "end_line", 1)

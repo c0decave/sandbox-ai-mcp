@@ -30,7 +30,7 @@ expect its tools; its writes are anchored to the checked directory since 2.0.1, 
 
 | Tool | Writes? | What |
 |---|---|---|
-| `read_file` | no | a text file, at most 1000 lines / 60,000 characters per call (`start_line`, `end_line`, `next_start_line`), optional line numbers, the whole file's sha256, its line breaks, BOM, encoding; a binary file by size and sha256 only |
+| `read_file` | no | a text file, at most 400 lines / 24,000 characters per call (`start_line`, `end_line`, `next_start_line`; a part stays below the 25,000 characters above which Claude Code, Qwen Code and Hermes show the model only a preview and a file path), optional line numbers, the whole file's sha256, its line breaks, BOM, encoding; a binary file by size and sha256 only |
 | `list_dir` | no | a folder's entries (type, size, a link's target), depth 1-5, at most 500; `/` lists the mounted folders and whether they are writable |
 | `glob` | no | paths matching `*`, `?`, `[...]`, `**`, at most 500 |
 | `search` | no | plain text or a regular expression, line by line, `include` glob, at most 200 matches; binary files and files over the limit skipped; stopped after 20 s |
@@ -111,7 +111,7 @@ looks binary (NUL, more than 5% control characters) needs `allow_binary`. Lone s
 `FILES_MAX_BYTES` (default 8 MiB, 1K-256M) per read or write; `copy` at most 1 GiB and 10,000 entries (a folder is
 copied into a temporary folder and renamed into place at the end).
 
-**Bounded answers and time.** Reads in parts (1000 lines, 60,000 characters), lists and globs at most 500 entries,
+**Bounded answers and time.** Reads in parts (400 lines, 24,000 characters), lists and globs at most 500 entries,
 search at most 200 matches with lines cut to 300 characters, diffs at most 400 lines, previews 12 lines; glob and
 search look at no more than 200,000 entries. Every call is stopped after 120 s, search, glob and diff after 20 s, by
 a timer signal (FastMCP calls these synchronous tools on the main thread), which also stops a regular expression

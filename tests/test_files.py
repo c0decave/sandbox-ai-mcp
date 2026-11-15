@@ -290,13 +290,25 @@ class Reading(Base):
     def test_long_files_come_in_parts(self):
         self.put("long.txt", "".join(f"{i}\n" for i in range(1, 2501)))
         first = self.ok(self.m.read_file("long.txt"))
-        self.assertEqual((first["end_line"], first["next_start_line"], first["truncated"]), (1000, 1001, True))
-        last = self.ok(self.m.read_file("long.txt", start_line=2001))
+        self.assertEqual((first["end_line"], first["next_start_line"], first["truncated"]), (400, 401, True))
+        last = self.ok(self.m.read_file("long.txt", start_line=2201))
         self.assertEqual((last["end_line"], last.get("truncated")), (2500, None))
         self.put("wide.txt", ("y" * 1000 + "\n") * 100)
         wide = self.ok(self.m.read_file("wide.txt"))
         self.assertLessEqual(len(wide["content"]), self.m.MAX_READ_CHARS + 100)
         self.assertTrue(wide["truncated"])
+        self.assertEqual(wide["next_start_line"], 24)  # 23 lines of 1001 characters fit into 24,000
+
+    def test_one_part_fits_what_clients_show(self):
+        """Claude Code, Qwen Code and Hermes show the model only a preview (0.5-2.6 KB) and a file path of a tool
+        result much above 25,000 characters: one part of read_file stays below that, and the tool's description says
+        how much it returns."""
+        self.assertEqual((self.m.MAX_READ_LINES, self.m.MAX_READ_CHARS), (400, 24_000))
+        self.assertIn("at most 400 lines or 24,000 characters per call", " ".join(self.m.read_file.__doc__.split()))
+        self.put("big.txt", "".join(f"line {i:05d} " + "x" * 80 + "\n" for i in range(1, 2001)))
+        part = self.ok(self.m.read_file("big.txt", line_numbers=True))
+        self.assertLessEqual(len(part["content"]), 24_000)
+        self.assertEqual(part["next_start_line"], part["end_line"] + 1)
 
     def test_binary_other_encodings_crlf_and_bom_are_reported(self):
         self.put("bin", b"\x00\x01\x02")
