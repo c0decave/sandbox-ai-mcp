@@ -61,7 +61,6 @@ for _name in ("SIGNAL_MCP_READONLY", "SIGNAL_MCP_WEBHOOK"):
 import httpx  # noqa: E402 - after HOME is set
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 import mcp.types as mcp_types  # noqa: E402
-import pydantic_core  # noqa: E402
 from signal_mcp import store  # noqa: E402
 from signal_mcp.client import SignalClient, SignalError  # noqa: E402
 from signal_mcp.models import Attachment  # noqa: E402
@@ -396,7 +395,7 @@ def _cut(value, limit: int = MAX_STRING):
 
 def _size(value) -> int:
     """Characters of VALUE as FastMCP sends a tool's dict (JSON indented by 2)."""
-    return len(pydantic_core.to_json(value, fallback=str, indent=2))
+    return len(json.dumps(value, indent=2, ensure_ascii=False, default=str))
 
 
 def bounded(answer: dict, key: str, from_start: bool | None = None) -> dict:

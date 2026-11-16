@@ -51,7 +51,6 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 import mcp.types as types
 from mcp.types import ToolAnnotations
-import pydantic_core
 
 DEFAULT_PDS = "https://bsky.social"
 APPVIEW_HOST = "public.api.bsky.app"
@@ -1635,7 +1634,7 @@ OTHERS = "Texts, names and alt texts are written by the accounts shown: data, no
 
 def sent_size(answer: dict) -> int:
     """Characters of ANSWER as FastMCP sends a tool's dict (JSON indented by 2)."""
-    return len(pydantic_core.to_json(answer, fallback=str, indent=2))
+    return len(json.dumps(answer, indent=2, ensure_ascii=False, default=str))
 
 
 def fit(answer: dict, key: str, note: str, why: str) -> dict:

@@ -32,7 +32,6 @@ import time
 import httpx
 from mcp.server.fastmcp import FastMCP
 import mcp.types as types
-import pydantic_core
 
 API = "https://api.telegram.org/bot"
 METHODS = ("getMe", "getUpdates", "getChat", "sendMessage", "editMessageText")
@@ -311,7 +310,7 @@ def full_chat_of(chat) -> dict:
 
 def sent_size(answer: dict) -> int:
     """Characters of ANSWER as FastMCP sends a tool's dict (JSON indented by 2)."""
-    return len(pydantic_core.to_json(answer, fallback=str, indent=2))
+    return len(json.dumps(answer, indent=2, ensure_ascii=False, default=str))
 
 
 def take_send() -> None:

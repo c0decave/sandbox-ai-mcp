@@ -39,6 +39,7 @@ import asyncio
 import collections
 import datetime
 import hashlib
+import json
 import logging
 import os
 import re
@@ -48,7 +49,6 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 import mcp.types as mcp_types
-import pydantic_core
 from telethon import TelegramClient, errors, utils
 from telethon.sessions import StringSession
 from telethon.tl import functions, types
@@ -636,7 +636,7 @@ def _page(rows: list[dict]) -> dict:
 
 def sent_size(answer: dict) -> int:
     """Characters of ANSWER as FastMCP sends a tool's dict (JSON indented by 2)."""
-    return len(pydantic_core.to_json(answer, fallback=str, indent=2))
+    return len(json.dumps(answer, indent=2, ensure_ascii=False, default=str))
 
 
 def fit(answer: dict, key: str, why: str) -> dict:
