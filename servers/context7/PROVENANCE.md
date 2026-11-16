@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | Upstash's Context7 MCP server, `@upstash/context7-mcp` **4.4.4** (upstash/context7 `packages/mcp`, MIT: `LICENSES/context7-MIT.txt`), tag `@upstash/context7-mcp@4.4.4`, commit `c7f80ce5af1ff1403d167579b76784482cf7f3e2` ("chore(release): version packages (#3464)", 2026-10-19 13:46 UTC; npm 2026-10-19 13:48 UTC) |
-| In the image | the npm package of 4.4.4, tarball `sha512-T2DkjhweDnC2mRAclDiTrPG3KI1zYKhhjgY2SMKD9PVrbEaGD8x35VsIOqpwwDc2qiKBvfYCF/jqr+jQMu5PUA==` (SHA-256 `2ae37c3a2b41ff4d591a275ff1dc56883cb60bfc71e34c399c14ebd38837bb38`; no npm provenance attestation for this release); its `dist/` compiled by `tsc` (not bundled), compared with the TypeScript of the commit (below). The 20 files that stay are pinned by SHA-256 in `context7-files.sha256` (two of them as patched) |
+| In the image | the npm package of 4.4.4, tarball `sha512-T2DkjhweDnC2mRAclDiTrPG3KI1zYKhhjgY2SMKD9PVrbEaGD8x35VsIOqpwwDc2qiKBvfYCF/jqr+jQMu5PUA==` (SHA-256 `2ae37c3a2b41ff4d591a275ff1dc56883cb60bfc71e34c399c14ebd38837bb38`; no npm provenance attestation for this release); its `dist/` compiled by `tsc` (not bundled), compared with the TypeScript of the commit (below). The 20 files that stay are pinned by SHA-256 in `context7-files.sha256` (three of them as patched) |
 | npm packages | `package-lock.json` (made with `npm install --package-lock-only --ignore-scripts --before=2026-11-01T00:00:00Z`; 104 packages, none with an install script, each by integrity). `prepare.mjs` keeps the 74 that load: `@modelcontextprotocol/server` and `/core` 2.3.1 (2026-10-05, `sha512-e59MfWuSs...`, `sha512-laVmIhPGp...`; the server pins them exactly), `@modelcontextprotocol/node` 2.1.1 (2026-10-02, `sha512-EY92OAXN2...`), `@hono/node-server` 1.19.17 (2026-07-27, `sha512-dSneS5qhi...`), `undici` 7.30.1 (2026-10-15, `sha512-03KrMbjIF...`), `express` 5.3.0 (2026-10-09, `sha512-qCqy1xSoa...`) with the small packages it needs (body-parser 2.4.0, qs 6.17.1, router, send, ...), `jose` 6.2.14 (2026-10-29, `sha512-3JasLuki1...`), `commander` 13.1.0 (2025-01-20, `sha512-/rFeCpNJQ...`), `zod` 4.6.7 (2026-10-12, `sha512-g8W2D2kU6...`, servers/memory's). The newest of the 74 is jose (2026-10-29). Removed after `npm ci`: OpenTelemetry (9 packages), `require-in-the-middle`, `import-in-the-middle`, `module-details-from-path`, `cjs-module-lexer`, `es-module-lexer`, `hono`, 11 `@types` packages, `undici-types` - none of them loads with telemetry off |
 | Node.js | 24.22.1, the `node` binary only, from `node:24-trixie-slim` `sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a` as docker-library/repo-info recorded it on 2026-10-28 (commit `55f75407`), the image of servers/memory (the package needs >= 20.18.1). TLS uses Node.js's bundled root certificates; no Debian package is added |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (`sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad`) |
@@ -95,6 +95,11 @@ telemetry, analytics, update check or crash report exists in the server.
    through a browser and rewrites the MCP client's configuration. The key belongs in sandbox-ai's secret store.
 2. `dist/lib/encryption.js` (`8e949eb8...` -> `b1a749c0...`): `generateHeaders` no longer adds `mcp-session-id`,
    `X-Context7-Client-IDE` and `X-Context7-Client-Version` - not needed for a lookup.
+3. `dist/index.js` (`05aa837e...` -> `f7ba8b2c...`, review of 2026-11-17): the server no longer declares the `prompts`
+   and `resources` capabilities, of which it has nothing (empty lists). Agents act on the capability: they offer a
+   model tools for MCP resources (Hermes four more per server), which local models took for the way to the server's
+   tools (sandbox-ai research round 1). `resources/list` and `prompts/list` are then unknown methods, as for a server
+   that never had them.
 
 Each file is checked by SHA-256 before and after, each replaced text must occur exactly once; the build stops
 otherwise. `prepare.mjs` also removes the packages that do not load and the server's telemetry modules, and checks
@@ -109,6 +114,7 @@ packages.
 |---|---|---|---|
 | medium | `lib/auth/auth-prompt.js` 69-95 | a server-triggered prompt (the API decides when) asks the human to run an unpinned `npx ctx7 setup ... -y` | patch 1 |
 | low | `lib/encryption.js` 47-76 | the MCP client's name and version and a session id go to context7.com with every call | patch 2 |
+| low | `index.js` 196-200 | the prompts and resources capabilities declared with nothing behind them (local models took the resource tools agents then offer) | patch 3 |
 | low | `lib/telemetry-runtime.js`, `lib/telemetry*.js` | OpenTelemetry metrics, a Prometheus port in HTTP mode, OpenTelemetry's module-loader patching packages | `OTEL_SDK_DISABLED=true`, the modules and packages removed; fails closed if unset |
 | low | `lib/constants.js` 10 | `CONTEXT7_API_URL` moves the API, the key goes with it | not offered, not set; a user who adds it with `--env` chooses another host |
 | low | `lib/api.js` 166-173 | the documentation text is returned as Context7 answers it, unbounded in size | Context7 answers a few KB per call; the SDK caps nothing outgoing. Content is data, not instructions (entry notes) |
@@ -149,6 +155,6 @@ tools of later releases do not exist in 4.4.4.
 ## Verdict
 
 The server reviewed completely (line by line, compared with its source), the SDK by its diff to the reviewed 2.4.0,
-the other packages that load on their risky surfaces, as for servers/memory; two patches (the sign-in nudge, the
-identifying headers), telemetry removed. Fit to sign once CI has built it and both smoke reports pass, including the
+the other packages that load on their risky surfaces, as for servers/memory; three patches (the sign-in nudge, the
+identifying headers, tools only), telemetry removed. Fit to sign once CI has built it and both smoke reports pass, including the
 real calls.

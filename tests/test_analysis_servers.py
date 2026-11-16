@@ -1137,6 +1137,19 @@ class Context7(unittest.TestCase):
         for header in ("mcp-session-id", "X-Context7-Client-IDE", "X-Context7-Client-Version"):
             self.assertIn(header, self.prepare)
 
+    def test_the_server_advertises_tools_only(self):
+        """Context7 declares the prompts and resources capabilities with nothing behind them (empty lists); agents then
+        offer a model tools for MCP resources, which local models took for the way to the server's tools. A patch of
+        dist/index.js leaves both out, and index.js is pinned as patched."""
+        patch = re.search(r'file: "dist/index.js",\s*before: "([0-9a-f]{64})",\s*after: "([0-9a-f]{64})"', self.prepare)
+        self.assertIsNotNone(patch, "no patch of dist/index.js in prepare.mjs")
+        files = dict(reversed(line.split("  ", 1)) for line in
+                     (self.folder / "context7-files.sha256").read_text().splitlines())
+        self.assertEqual(files["dist/index.js"], patch.group(2))
+        self.assertIn('            prompts: { listChanged: false },\\n            resources: { listChanged: false, subscribe: '
+                      'false },\\n', self.prepare)
+        self.assertIn("sandbox-ai-mcp: tools only", self.prepare)
+
     def test_context7_only_and_the_key_optional(self):
         self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
         self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
