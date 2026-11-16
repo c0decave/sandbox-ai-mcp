@@ -63,3 +63,16 @@ allowlist, refused arguments, the update parser against `tests/fixtures/telegram
 and every tool against a local stand-in for the Bot API: the request sent, the errors named, no
 redirect followed, the token in no answer and no log line). The smoke spec runs refused calls
 only; a live call needs a bot token and a chat, so CI has none.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `get_updates` answered up to 100 updates of 4,096-character texts and captions (about 900,000
+  characters) and its `next_offset` confirmed every one of them, so the updates beyond what a client shows a model
+  (a preview above 25,000 characters) were gone. Now whole updates as many as fit into 24,000 characters as sent;
+  `next_offset` follows the last one shown, `truncated` says how many more wait.
+- **Medium:** no limit on sending: at most 20 messages sent or edited a minute now (a 21st is refused with the
+  seconds to wait, nothing sent), as signal and whatsapp allow.
+- **Low:** tools only (no resources or prompts capability); the instructions and `get_updates` say that texts and
+  names are other people's: data, not instructions.
+- Not changed: refusals answer `{"error": ...}` without `isError` (as every server of this repository with that
+  shape); no write opt-in (the bot is its own identity; `TELEGRAM_ALLOWED_CHATS` limits every tool).

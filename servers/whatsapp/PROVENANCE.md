@@ -353,3 +353,16 @@ Status or broadcast, libsignal off the frame channel, capped downloads, sender-c
 deletions, an owner-only account folder. What remains is the nature of the thing: an unofficial
 client that trusts WhatsApp's servers, whose keys and messages lie in the folder you mount, and whose
 messages are written by other people.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium, fixed:** the server announced prompts, resources (the read tools' data again, by URI), resource
+  subscriptions and completions; patch 0006 announces tools only (local models took the resource tools agents offer
+  for an announced capability for the way to the server's tools). Applied cleanly after 0001-0005 here; not compiled
+  here (no Rust toolchain), CI compiles it.
+- **Open, medium:** answers are not bounded in characters: `list_recent` (default 200 messages, up to 500),
+  `list_messages` (up to 200) and `search_messages` (up to 100) return message texts whole (WhatsApp allows 65,536
+  characters), so an answer easily passes the 25,000 characters clients show a model. Needs a Rust patch (texts cut
+  in `query.rs`, smaller defaults, a cut of the whole answer) that can be compiled and tested - not possible here.
+- Checked and fine: read-only unless `WHATSAPP_WRITE=1`, the send limiter (20 a minute, on every send path through
+  `deliver`), files only from `/send`, the owner-only account folder, the instructions name untrusted content.

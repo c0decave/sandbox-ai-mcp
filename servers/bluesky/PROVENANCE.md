@@ -360,3 +360,13 @@ suite (`SANDBOX_AI_CHECKOUT=... python -m unittest discover -s tests`: 297 tests
 (Podman, Bubblewrap) have passed. No backdoor, telemetry, other host or path for the app password or a token was
 found; the scope check reads the right claim and fails closed; deletes cannot leave the account's own repository.
 The seven findings are fixed and the remaining risks are listed above.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `list_my_posts` (50 posts of up to 3,000 characters: about 160,000) and `get_post_thread` (100 posts:
+  up to 330,000, and 45,000 for 100 short replies) answered far beyond what clients show a model; both keep whole
+  posts within 24,000 characters as sent now (a thread its parents and the post first), `truncated`/`cut` say how
+  many more.
+- **Low:** tools only (no resources or prompts capability).
+- Checked and fine: the session, scope check and redaction, the write switch, the upload folder, the metadata
+  stripping, the lost-answer handling; `tests/test_bluesky.py` (49) green.

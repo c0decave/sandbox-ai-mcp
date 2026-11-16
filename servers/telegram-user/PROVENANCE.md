@@ -153,3 +153,16 @@ used); the client's options (`flood_sleep_threshold=0`, no update loop, the fixe
 in-memory session, no file); `login.py` (only the session on stdout, no file, no terminal
 without `--show`); and the secrets in no answer and no log line. The smoke spec runs refused calls
 only: a live call needs an account, so CI has none.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `get_messages`, `search_messages`, `search_global` and `get_replies` answered up to 200 messages of
+  4,096 characters (about 900,000), `list_dialogs` and `search_chats` were unbounded as a whole; every answer is at
+  most 24,000 characters as sent now (whole entries; `count` and `next_offset_id` follow the last message shown, so
+  the next call goes on there), and a message's links are at most 6,000 characters together (50 hidden links of
+  2,048 made one message 105,000).
+- **Medium:** `send_message` sends at most 20 messages a minute (Telegram bans user accounts that flood).
+- **Low:** pyasn1 re-locked to 0.6.5 as planned from 2026-11-10; tools only; instructions name untrusted content.
+- Open, low: `download_media` checks `/out/telegram-user` for a link before `mkdir` and opens the file with
+  `O_NOFOLLOW` (the last component only): a folder swapped for a link in between would be followed - `/out` is the
+  user's folder and only this server writes there.

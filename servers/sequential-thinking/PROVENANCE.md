@@ -109,3 +109,9 @@ content. No other tool, prompt or resource.
 Reviewed completely (the server line by line against its source, chalk in full, the SDK and zod by servers/memory's
 review of the identical files); no patch needed, thought logging off. Fit to sign once CI has built it and both smoke
 reports pass.
+
+## Review of 2026-11-17 (group C)
+
+Run here (Node.js 26, the lock's packages, the dist files' SHA-256 checked): the smoke spec through a stand-in engine
+(ok); tools only (no resources or prompts capability); the schema valid (draft 2020-12 and 7); answers are counts,
+a few hundred characters. Nothing changed; the history cap of 2.1.1 comes with the planned re-pin.
