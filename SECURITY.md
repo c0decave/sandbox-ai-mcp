@@ -45,6 +45,12 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   followed out of its folder, a link followed by a walk at all, a folder swapped for a link meanwhile); a device, pipe
   or socket opened; a call that runs past its time limit, or a project file, `.gitignore` or pattern that makes one
   hang or exhaust the container's memory; a project file name or line that fakes a line of an answer;
+- jadx and cfr: a read of anything but the file the call names inside `/work` (`..`, a link, a pipe, a file swapped
+  for another meanwhile: the JVM gets the checked file's descriptor); a write outside the server's scratch folder below
+  the container's `/tmp`; a JVM started with a variable, an option or a jadx plugin the server did not choose (for cfr:
+  a CFR option other than the three switches, an output folder, a mapping file); a call that runs past its time limit
+  or an answer beyond its bounds; a class, file or string name of the input that fakes a line of an answer. Known and
+  documented in `servers/cfr/PROVENANCE.md`: CFR follows a JAR's `Class-Path` to resolve types, inside the container;
 - bluesky: the app password or a session token reaching a tool answer, a log line or a host other than the PDS
   (`BLUESKY_PDS`, default `bsky.social`); a request to any host but the PDS and `public.api.bsky.app`; a write
   without `BLUESKY_WRITE=1`; a post deleted that is not the account's own; an image uploaded from outside `/upload`
@@ -68,7 +74,8 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   an image other than the one reviewed).
 
 Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chrome DevTools MCP, the MCP filesystem server,
-Chromium, pyghidra-mcp, Ghidra, Telethon, radare2, r2mcp, capa, binwalk and its extractors, the Python packages) belong
+Chromium, pyghidra-mcp, Ghidra, Telethon, radare2, r2mcp, capa, binwalk and its extractors, jadx, CFR, OpenJDK, the
+Python packages) belong
 upstream, unless the packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a
 crafted file is such an upstream matter; it happens inside a container with no network, no
 capabilities and a read-only root.

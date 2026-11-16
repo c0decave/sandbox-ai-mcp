@@ -4,3 +4,5 @@ __pycache__/
 /tests/fixtures/hello
 /tests/fixtures/caps
 /tests/fixtures/firmware.bin
+/tests/fixtures/demo.apk
+/tests/fixtures/demo.jar

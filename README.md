@@ -40,6 +40,8 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [radare2](servers/radare2) | static analysis of a binary you hold, through radare2's own MCP server r2mcp: functions, imports, exports, sections, symbols, strings, disassembly, decompilation (r2's `pdc`), cross references. Reads the folder mounted read-only at `/work`; radare2's own sandbox allows no exec, no sockets and no writes | none | - |
 | [capa](servers/capa) | what a binary can do: Mandiant capa with the pinned capa-rules names its capabilities, mapped to MITRE ATT&CK and MBC. Reads `/work` read-only, writes its report inside the container | none | - |
 | [binwalk](servers/binwalk) | what is inside a firmware file: signature scan, extraction of embedded archives and file systems, entropy, hex dump. Reads `/work` read-only; extraction writes only into a `/out` you mount writable (else the container's own /tmp) | none | - |
+| [jadx](servers/jadx) | Android and Java reverse engineering with jadx 1.5.6, headless (our own server on jadx's library): open an APK, DEX, JAR, AAR, AAB, XAPK, APKS, APKM, .class or .smali file and get its classes and packages, a class's outline, the Java source of a class or one method, smali, cross references (who calls a method, uses a field or class), a search of the decompiled code and of names, the decoded AndroidManifest.xml and resources. Answers in parts of 400 lines / 24,000 characters. Reads `/work` read-only, saves nothing; needs 2g memory, 256 processes, a 256m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | none | - |
+| [cfr](servers/cfr) | Java decompilation with CFR 0.152 (our own server): the classes of a JAR, WAR, EAR or ZIP (or a .class file), a class's outline from the class file, the Java source of a class or one method (renaming and anti-obfuscation on request), a search of the string constants of every class. Reads `/work` read-only, saves nothing; needs 1g memory. For APK/DEX and Kotlin use jadx | none | - |
 | [memory](servers/memory) | the official MCP Knowledge Graph memory server (2.0.1): entities, observations and relations in one JSONL file, search by substring, open nodes, read the graph; for OSINT cases. The graph is `/data/memory.jsonl` in a folder you mount writable, one folder per case; no tool takes a path | none | - (the memory is the `/data` folder) |
 | [sequential-thinking](servers/sequential-thinking) | the official MCP sequential-thinking server (2.0.0): one tool with which an agent writes its reasoning down as numbered thoughts that can revise or branch from earlier ones; kept in memory for one connection only, nothing read or written, thought logging off | none | - |
 | [exec](servers/exec) | shell commands for agents on small local models, in the project folder: a time limit per call (the whole process tree stopped on it), stdin empty and no terminal (CI=1, pagers, editors and prompts off), output cut to its start and end with the lines omitted counted, background jobs (status, wait, tail, stop), `run_tests` (only the failures of pytest, unittest, jest, vitest, go test, cargo test), `lint` (pyflakes, shellcheck, JSON, YAML). The project folder mounted writable at `/work`; needs 2g memory, 512 processes and a 512m /tmp (sandbox-ai 0.1.94 applies them from the catalog) | none | - |
@@ -121,6 +123,8 @@ sandbox-ai mcp add bluesky --network full --env BLUESKY_HANDLE=alice.bsky.social
 sandbox-ai mcp add radare2 --mount /work=~/samples:ro            # no network at all
 sandbox-ai mcp add capa --mount /work=~/samples:ro
 sandbox-ai mcp add binwalk --mount /work=~/firmware:ro --mount /out=~/extracted:rw
+sandbox-ai mcp add jadx --mount /work=~/apks:ro                  # APK/DEX/JAR decompiler, no network
+sandbox-ai mcp add cfr --mount /work=~/jars:ro                   # JAR/class decompiler, no network
 sandbox-ai mcp add playwright --network full   # 0.1.94: the catalog's limits (before: --memory 2g --pids 512)
 sandbox-ai mcp add chrome-devtools --network full   # DevTools on its own headless Chromium (once signed)
 sandbox-ai mcp add gowitness --network full    # 0.1.94: the catalog's limits (2g, 512 processes, 768m /tmp)
@@ -137,6 +141,7 @@ sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/proje
 sandbox-ai mcp add code-search --mount /work=~/projects/app:ro   # find and read code by name, read-only
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
+sandbox-ai claude --mcp jadx --mcp cfr
 ```
 
 sandbox-ai starts each server with the run line below, one container per agent connection,
@@ -152,7 +157,7 @@ podman run --rm -i --init --pull=never --log-driver=none --cap-drop=ALL \
 An **allowlist** entry gets the full network in sandbox-ai only when it is added with
 `--network full` (the hosts it needs are shown); sandbox-ai has no per-server egress proxy yet.
 
-**The file-analysis servers (radare2, capa, binwalk)** are `network: none`: their container has no
+**The file-analysis servers (radare2, capa, binwalk, jadx, cfr)** are `network: none`: their container has no
 network namespace at all, so the files they read reach nobody. Mount the folder with the files
 **read-only** (`--mount /work=DIR:ro`, the default mode); the only server that writes anything to a
 folder of yours is binwalk, into `/out`, and only when you mount one writable. Everything they

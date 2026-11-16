@@ -1,0 +1,102 @@
+{
+  "name": "cfr",
+  "network": "none",
+  "memory": "1g",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "expect_tools": [
+    "list_classes",
+    "decompile_class",
+    "decompile_method"
+  ],
+  "calls": [
+    {
+      "tool": "list_files",
+      "arguments": {},
+      "expect": "/work/demo.jar"
+    },
+    {
+      "tool": "list_classes",
+      "arguments": {
+        "path": "/work/demo.jar"
+      },
+      "expect": "org.example.demo.Checker"
+    },
+    {
+      "tool": "class_outline",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "public boolean checkPassword(java.lang.String)"
+    },
+    {
+      "tool": "decompile_class",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "Decompiled with CFR 0.152",
+      "timeout": 120
+    },
+    {
+      "tool": "decompile_class",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Main",
+        "rename_duplicate_members": true
+      },
+      "expect": "checker.checkPassword(input)",
+      "timeout": 120
+    },
+    {
+      "tool": "decompile_method",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Checker",
+        "method_name": "checkPassword"
+      },
+      "expect": "return \"hunter2\".equals(candidate);",
+      "timeout": 120
+    },
+    {
+      "tool": "search_strings",
+      "arguments": {
+        "path": "demo.jar",
+        "text": "HUNTER"
+      },
+      "expect": "org.example.demo.Checker: string 'hunter2'"
+    },
+    {
+      "tool": "list_classes",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "only files in /work can be read",
+      "expect_error": true
+    },
+    {
+      "tool": "decompile_method",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Checker",
+        "method_name": "--outputdir"
+      },
+      "expect": "method_name: only the name",
+      "expect_error": true
+    },
+    {
+      "tool": "decompile_class",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "no class org.example.demo.Checker",
+      "expect_error": true
+    }
+  ]
+}
