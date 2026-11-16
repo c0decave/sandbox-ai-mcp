@@ -34,7 +34,11 @@ small models are better off with files.
 **Answer sizes.** Claude Code, Qwen Code and Hermes show the model only a 0.5-2.6 KB preview and a file path of a tool
 result much above 25,000 characters, so the model never sees the content. files' `read_file` therefore answers at
 most 400 lines or 24,000 characters per call (`next_start_line` says where to go on); web-fetch's `fetch_page` gives
-20,000 characters by default (`max_characters`, `start`).
+20,000 characters by default and at most 24,000 and 400 lines with text per part, whatever `max_characters` asks
+(`next_start` says where to go on). openosint and osint-mcp answer at most 24,000 characters (osint-mcp cuts its
+longest lists and says how many entries it left out), searxng's results stay within about 18,000 characters
+(`omitted` counts the rest). The servers of this repository advertise tools only: no empty resources or prompts,
+whose resource tools local models took for the way to the server's tools.
 
 **Errors that end loops.** web-fetch's errors say what happened (refused, reset, no answer within 30 s, no route, the
 TLS certificate) and what to do next (not to fetch the URL again in a loop, another source); a connection that fails

@@ -127,7 +127,10 @@ UPSTREAM_VERSION = "2.36.1"
 #: Environment variables whose values never leave the container: replaced in every answer and log line.
 SECRETS = ("HIBP_API_KEY", "VIRUSTOTAL_API_KEY", "ABUSEIPDB_API_KEY", "IP2LOCATION_API_KEY", "IPINFO_TOKEN",
            "GITHUB_TOKEN", "BRIGHTDATA_API_KEY")
-MAX_ANSWER = 64 << 10
+#: Characters of one answer at most: Claude Code, Qwen Code and Hermes show a model only a preview of a tool result
+#: much above 25,000 characters (docs/LOCAL_LLM_TOOLS.md).
+MAX_ANSWER = 24_000
+CUT = f"\n[answer cut at {MAX_ANSWER:,} characters]"
 #: A tool that does not answer within this long is given up (its own timeouts are shorter).
 DEADLINE = 240.0
 ERROR_PREFIXES = ("Scan error:", "Internal error:", "Invalid", "Error:", '{"status": "disabled_in_passive_mode"')
@@ -223,10 +226,23 @@ def _answer(tool: str, target: str, text: str, json_output: bool) -> str:
                   "(sandbox-ai mcp add openosint ... --env NAME), then run this again.", text)
     text = redact(text)
     if len(text) > MAX_ANSWER:
-        text = text[:MAX_ANSWER] + f"\n[answer cut at {MAX_ANSWER // 1024} KiB]"
+        text = text[:MAX_ANSWER - len(CUT)] + CUT
     if text.lstrip().startswith(ERROR_PREFIXES):
         raise ToolError(text)
-    return to_json(tool, target, text) if json_output else text
+    if not json_output:
+        return text
+    answer = to_json(tool, target, text)
+    if len(answer) <= MAX_ANSWER:
+        return answer
+    # The JSON envelope (one indented, quoted line each) is larger than the text: as many lines as fit, then CUT.
+    lines, low, high = text.splitlines(), 0, len(text.splitlines())
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(to_json(tool, target, "\n".join(lines[:middle]) + CUT)) <= MAX_ANSWER:
+            low = middle
+        else:
+            high = middle - 1
+    return to_json(tool, target, "\n".join(lines[:low]) + CUT)
 
 
 async def _run(tool: str, target: str, call, json_output: bool) -> str:
@@ -453,5 +469,17 @@ async def search_footprint(
     return await _run("search_footprint", value, call, json_output)
 
 
+def tools_only(server):
+    """SERVER (a FastMCP) advertises tools only: FastMCP registers the handlers of resources and prompts for every
+    server, and the capabilities of the initialize answer follow the handlers, so a server that publishes neither
+    advertised both. Agents then offer a model tools for MCP resources (Hermes four more per server), which local
+    models took for the way to the server's tools (sandbox-ai research round 1, "the MCP-resource trap")."""
+    import mcp.types as types
+    for request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
+                    types.ListPromptsRequest, types.GetPromptRequest):
+        server._mcp_server.request_handlers.pop(request, None)
+
+
 if __name__ == "__main__":
+    tools_only(mcp)
     mcp.run("stdio")

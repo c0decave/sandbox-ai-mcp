@@ -135,6 +135,14 @@ here; imported by `requests`, which tldextract imports) ships mypyc-compiled cop
    with a stand-in and checks that each went over TCP to those resolvers, and that without Tor upstream's resolver
    is untouched. The names HTTP and TLS connect to are still resolved by `getaddrinfo`, through tor's DNSPort.
 
+**Review of 2026-11-17 (changed in `src/server.py`):** answer sizes - `subdomains` of a large domain (thousands of
+names), `wayback` with up to 500 snapshots, `recon_batch` of ten domains and `certificate_history` answered far more
+than the 25,000 characters Claude Code, Qwen Code and Hermes show a model (beyond that only a preview). Every tool
+now answers through `bounded`: an answer above 24,000 characters (as JSON) has its longest lists halved until it
+fits and says so (`shortened`: the list's path and how many entries were left out; `note`). And the server
+advertises tools only: the SDK declared `resources` and `prompts` with nothing behind them (`tools_only`, as in
+the other servers of this repository).
+
 No backdoor, no hidden network use, no code execution (no `subprocess`, `exec`, `eval`, `pickle` or dynamic
 import in osint-mcp), no credentials read. Files read: Python's packages, `/etc/resolv.conf` (dnspython),
 the CA certificates (`ssl`, certifi) and tldextract's bundled suffix list; none written. osint-mcp reads

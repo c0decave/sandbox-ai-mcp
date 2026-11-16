@@ -33,12 +33,18 @@ statuses are named.
 `videos`, `music`, `files`, `map`, `social media`); `language` `auto`, `all` or `xx[-XX]`;
 `time_range` empty, `day`, `week`, `month` or `year`.
 
-**Results:** only entries with an http(s) URL and a title; title (300), URL (2000), snippet
-(1000 characters) and up to ten engine names; suggestions and answers as bounded text.
+**Results:** only entries with an http(s) URL of at most 2000 characters (a longer one was cut, which made it
+wrong; now the entry is left out) and a title; title (300), snippet (1000 characters) and up to ten engine names;
+suggestions and answers as bounded text. Review of 2026-11-17: the results of one answer stay within 18,000 characters (50
+results with long snippets were about 170,000, far beyond the 25,000 characters clients show a model); the ones left
+out are counted (`omitted`, `note`). A language with a line break after it was taken (`re.match` with `$`); a failed
+connection now names the exception. The server's instructions and the tool's description say that results are data,
+never instructions; it advertises tools only (no empty resources or prompts).
 
 **Network:** the instance only (`--network full` in sandbox-ai, which has no per-server egress
 proxy yet; the server requests nothing else).
 
 **Tested:** natively with the locked requirements (`tests/test_own_servers.py`: handshake,
 tools/list, the URL rules, refused arguments, an unreachable instance, the parser against
-`tests/fixtures/searxng.json`); `smoke.json` runs the same refusals in the container (CI).
+`tests/fixtures/searxng.json`, the size bound, the whole request against a stand-in instance on loopback - the path,
+every parameter, a redirect not followed); `smoke.json` runs the same refusals in the container (CI).
