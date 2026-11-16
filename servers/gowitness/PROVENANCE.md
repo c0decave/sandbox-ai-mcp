@@ -148,3 +148,14 @@ of the commit. In CI after the build: the smoke spec (a screenshot of `https://e
 `image/png`, `screenshot_many` must record its title, three refused calls), the tools/list against `tools.json`,
 Trivy, and the Bubblewrap run. gowitness was not compiled here (no Go toolchain where this was written): the image
 build is the first compilation of the reduced tree.
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer announces the MCP capabilities resources and prompts (FastMCP registers both for every server; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools).
+
+- **M - answers above what clients show.** Every field was bounded, the answer was not: a busy page (50 requests
+  with long URLs, many headers, console messages) gave far more than 25,000 characters, `screenshot_many` five of
+  them (144,000 in the test). The longest lists (network, console, headers, cookies, technologies, TLS names) are cut
+  step by step now until the text is at most 24,000 characters as sent; `lists_cut` names them, `counts` keeps the
+  full lengths. Open (not changed): a screenshot may be up to 5 MiB, and some model providers refuse images of
+  about that size.

@@ -313,3 +313,18 @@ by the tool inside its container and never executed.
      async with stdio_server() as (read_stream, write_stream):
          await app.run(read_stream, write_stream, app.create_initialization_options())
 ```
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer lists its past scans as MCP resources (get_scan_results gives them; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools).
+
+- **M - the time limit did not stop binwalk.** `asyncio.wait_for` ended the wait, binwalk and the extractors it
+  started (7z, unsquashfs, ...) ran on, as many as the agent started. binwalk runs in a session of its own now; on
+  the limit the whole process group is killed, and whatever of it is left when it ends.
+- **M - an extraction had no size limit.** `/out` is a folder of the user's computer: an archive that unpacks to
+  gigabytes filled the disk. The extraction folder is measured every 0.5 s and the run stopped past
+  `BINWALK_MAX_EXTRACT` (default 2 GiB; `500M`, `4G`, ...), status `stopped`, what was extracted until then kept.
+- **L - output and errors.** Output that is not UTF-8 failed the scan (`decode()`); it is decoded with
+  replacement now. Each of the 100 stored results kept all of binwalk's output: 64 KiB now (32 MiB read at most per
+  stream); stderr in an answer: its last 4,000 characters. A refused call, an unknown scan and an unknown tool are
+  errors (`isError`) instead of ordinary answers; `binwalk_entropy` counts against the concurrent scans.
