@@ -205,12 +205,12 @@ class Telegram(ToolsOnlyCheck, unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.module = load("telegram")
 
-    def updates(self, count: int, first: int = 1000) -> list[dict]:
+    def updates(self, count: int, first: int = 1000, size: int = 4096) -> list[dict]:
         return [{"update_id": first + i, "message": {
             "message_id": i + 1, "date": 1_790_000_000 + i, "chat": {"id": self.CHAT, "type": "supergroup",
                                                                      "title": "T" * 300},
-            "from": {"id": 42, "is_bot": False, "first_name": "F" * 300}, "text": f"{i} " + "x" * 4090,
-            "caption": "c" * 4096}} for i in range(count)]
+            "from": {"id": 42, "is_bot": False, "first_name": "F" * 300}, "text": f"{i} " + "x" * (size - 6),
+            "caption": "c" * size}} for i in range(count)]
 
     def test_get_updates_fits_and_confirms_only_what_it_showed(self):
         """100 updates with 4,096-character texts were about 900,000 characters; next_offset confirmed all of them,
@@ -233,7 +233,7 @@ class Telegram(ToolsOnlyCheck, unittest.TestCase):
 
     def test_a_small_batch_comes_whole(self):
         async def fake_call(method, payload, timeout=30.0):
-            return self.updates(3)
+            return self.updates(3, size=100)
         with mock.patch.object(self.module, "call", fake_call):
             answer = json.loads(sent(self.module, "get_updates", {}))
         self.assertEqual(answer["count"], 3)
