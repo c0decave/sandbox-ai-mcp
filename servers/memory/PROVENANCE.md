@@ -128,3 +128,13 @@ cloud or project tool exists.
 
 Reviewed completely (the server line by line, the SDK on its whole path, zod and Ajv on their risky surfaces); no
 patch needed. Ready for CI; sign once both smoke reports pass.
+
+## Review of 2026-11-17 (group C)
+
+All nine tools run here (Node.js 26, the lock's packages, the dist files' SHA-256 checked): the smoke spec through a
+stand-in engine (ok) and the three delete tools. Schemas valid (draft 2020-12 and 7). **Open, medium:** the server
+announces `resources` (with `subscribe`: the whole graph again, as `memory://knowledge-graph`), which agents turn
+into resource tools local models mistake for the server's tools, and `read_graph` (also `search_nodes`,
+`open_nodes`) answers the whole match, text and structured content, without a bound. Both need a patch of
+`dist/index.js`; left for the re-pin to 2.1.x/2.2 (from 2026-11-18; 2.1.0 adds read modes to these tools), which
+changes that file anyway.

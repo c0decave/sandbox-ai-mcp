@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` and `src/login.py` (MIT, `LICENSES/`) |
 | Service | Telegram's MTProto API (the protocol of the official apps), as a user account |
-| Python packages | `mcp==1.30.0` (the same lock as telegram) and `telethon==1.45.0` (MIT, PyPI, 2026-09-10) with `pyaes==1.6.1` (MIT), `rsa==4.9.1` (Apache-2.0), `pyasn1==0.6.4` (BSD-2-Clause; 0.6.5 of 2026-10-27 fixes four quadratic-time decoding advisories, GHSA-2qm8-x737-gmw5, -mm57-4v3p-rchx, -9m75-vc3g-4x39, -fm9c-5rcf-2q5p, but is too new under the pinning rule until 2026-11-10; Telethon decodes with it only RSA public keys, its built-in ones and the CDN keys Telegram sends over the encrypted connection, so no outside input reaches it: re-lock to 0.6.5 from 2026-11-10), hash-locked in `requirements.txt` |
+| Python packages | `mcp==1.30.0` (the same lock as telegram) and `telethon==1.45.0` (MIT, PyPI, 2026-09-10) with `pyaes==1.6.1` (MIT), `rsa==4.9.1` (Apache-2.0), `pyasn1==0.6.5` (BSD-2-Clause; 2026-10-27, re-locked on 2026-11-17 from 0.6.4: it fixes four quadratic-time decoding advisories, GHSA-2qm8-x737-gmw5, -mm57-4v3p-rchx, -9m75-vc3g-4x39, -fm9c-5rcf-2q5p; Telethon decodes with it only RSA public keys, its built-in ones and the CDN keys Telegram sends over the encrypted connection, so no outside input reached it before either), hash-locked in `requirements.txt` |
 | Build only | `setuptools==84.2.1`, hash-locked in `requirements-build.txt`, removed from the image after the build |
 | Debian packages | `python3=3.13.5-1` (no ca-certificates: nothing here speaks TLS) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
@@ -153,3 +153,16 @@ used); the client's options (`flood_sleep_threshold=0`, no update loop, the fixe
 in-memory session, no file); `login.py` (only the session on stdout, no file, no terminal
 without `--show`); and the secrets in no answer and no log line. The smoke spec runs refused calls
 only: a live call needs an account, so CI has none.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `get_messages`, `search_messages`, `search_global` and `get_replies` answered up to 200 messages of
+  4,096 characters (about 900,000), `list_dialogs` and `search_chats` were unbounded as a whole; every answer is at
+  most 24,000 characters as sent now (whole entries; `count` and `next_offset_id` follow the last message shown, so
+  the next call goes on there), and a message's links are at most 6,000 characters together (50 hidden links of
+  2,048 made one message 105,000).
+- **Medium:** `send_message` sends at most 20 messages a minute (Telegram bans user accounts that flood).
+- **Low:** pyasn1 re-locked to 0.6.5 as planned from 2026-11-10; tools only; instructions name untrusted content.
+- Open, low: `download_media` checks `/out/telegram-user` for a link before `mkdir` and opens the file with
+  `O_NOFOLLOW` (the last component only): a folder swapped for a link in between would be followed - `/out` is the
+  user's folder and only this server writes there.

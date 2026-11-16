@@ -216,3 +216,14 @@ then `smoke.json` (with `/data` mounted read-only: `get_status` naming it, four 
 Podman and Bubblewrap with sandbox-ai's run lines. **Not tested:** the image was not built here (no
 container engine), and nothing ran against a real account: sending, receiving and SQLite's native
 library (loaded once an account exists) are first exercised when an account is linked.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `bounded()` counted compact JSON against 128 KiB while FastMCP sends the answer indented by 2: 50
+  messages of 4,000 characters were 213,000 characters as a client got them. Answers are measured as sent now and
+  kept within 24,000 characters (whole entries; `truncated` and `left_out`).
+- **Low:** tools only; the instructions name untrusted content.
+- Checked and fine: the write opt-in and allowed recipients, signal-mcp's send limiter (20 a minute, waiting), the
+  daemon started and stopped by the server only (manual receive mode, no proxy), the history database 0600, no
+  message text in the log. Run here with signal-mcp 1.43.3's six modules (the PyPI wheel, the same SHA-256 as
+  `signal-mcp-files.sha256`): `tests/test_signal.py` (16) and the review's tests (2).

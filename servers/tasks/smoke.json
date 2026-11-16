@@ -82,6 +82,14 @@
       "expect": "2. [ ] add quoting"
     },
     {
+      "tool": "block_step",
+      "arguments": {
+        "step": 3,
+        "reason": "needs the network"
+      },
+      "expect": "Step 3 blocked: needs the network"
+    },
+    {
       "tool": "complete_step",
       "arguments": {
         "step": 99

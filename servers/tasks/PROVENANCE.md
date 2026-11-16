@@ -133,3 +133,17 @@ through the Podman machine's virtiofs - not tested here) makes every change fail
 than lose a change; the agent can rewrite `.tasks` behind the server's back (checked on reading).
 
 **Verdict: fit to sign - yes.** No backdoor, no network code, no write outside `/work/.tasks`.
+
+## Review of 2026-11-17 (group C)
+
+- **High:** `block_step` failed on every call: `in_thread()` passed no keyword argument (`note_required`), so the
+  tool answered "in_thread() got an unexpected keyword argument" and nothing was blocked; the tests called
+  `change_state` directly and the smoke spec never called it. Fixed; `tests/test_review_group_c.py`
+  `test_block_step_works_as_a_tool` and a `block_step` call in `smoke.json`.
+- **Medium:** answers of a full plan (200 steps of 500 characters) were 76,000-162,000 characters (`list_steps`,
+  `add_steps`, `remove_step`, `set_goal`, `progress`, `next_step` with only blocked steps left); every answer is at
+  most 24,000 characters now, cut by whole lines with the number left out.
+- **Low:** the server announced the resources and prompts capabilities and has neither: tools only now.
+- Checked and fine: the lock, the atomic writes, the read-only workspace, links and pipes in the way, no network,
+  uid 10001. Run here: the whole smoke spec with a stand-in engine (13 calls, ok), `tests/test_tasks.py` (14) and the
+  review's tests (4).
