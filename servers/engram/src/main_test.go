@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -139,6 +140,32 @@ func TestAPanicIsAToolError(t *testing.T) {
 	result, err := handler(context.Background(), mcp.CallToolRequest{})
 	if err != nil || result == nil || !result.IsError || !strings.Contains(text(result), "internal error") {
 		t.Fatalf("%+v %v", result, err)
+	}
+}
+
+// An answer longer than clients show a model is cut (review of 2026-11-17): mem_get_observation with include_history
+// answered up to 50 versions of 50,000 bytes each, twice (the text and the history in its envelope).
+func TestLongAnswersAreCut(t *testing.T) {
+	long := strings.Repeat("é", maxAnswer+5000)
+	handler := guard("mem_x", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return mcp.NewToolResultText(long), nil
+	}, "")
+	result, err := handler(context.Background(), mcp.CallToolRequest{})
+	if err != nil || result == nil || result.IsError {
+		t.Fatalf("%+v %v", result, err)
+	}
+	got := text(result)
+	if n := utf8.RuneCountInString(got); n > maxAnswer {
+		t.Fatalf("%d characters, more than %d", n, maxAnswer)
+	}
+	if !strings.HasPrefix(got, "ééé") || !strings.Contains(got, "cut: the answer had 29000 characters") {
+		t.Fatalf("%q", got[len(got)-300:])
+	}
+	short := guard("mem_x", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return mcp.NewToolResultText("short"), nil
+	}, "")
+	if result, _ := short(context.Background(), mcp.CallToolRequest{}); text(result) != "short" {
+		t.Fatalf("a short answer changed: %q", text(result))
 	}
 }
 

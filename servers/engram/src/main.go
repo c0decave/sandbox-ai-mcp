@@ -12,6 +12,8 @@
 //   - no tool looks at other folders: the directory/cwd arguments of mem_session_start and
 //     mem_current_project are taken out of their schemas and refused (Engram would scan them and run git);
 //   - every call is bounded (argument sizes, limits) and a panic in a handler becomes a tool error;
+//   - every answer is at most maxAnswer characters (review of 2026-11-17: clients show a model only a preview of
+//     a longer one, and mem_get_observation with include_history answered megabytes);
 //   - stdin lines are capped (one JSON-RPC message per line).
 package main
 
@@ -27,6 +29,7 @@ import (
 	"regexp"
 	"sort"
 	"syscall"
+	"unicode/utf8"
 
 	engram "github.com/Gentleman-Programming/engram/v3/internal/mcp"
 	"github.com/Gentleman-Programming/engram/v3/internal/store"
@@ -51,6 +54,9 @@ const (
 	maxShortText = 1 << 10
 	maxLimit     = 100
 	maxContext   = 50
+	// Characters of one answer's text: Claude Code, Qwen Code and Hermes show a model only a preview and a file
+	// path of a tool result much above 25,000 characters (sandbox-ai-mcp docs/LOCAL_LLM_TOOLS.md).
+	maxAnswer = 24000
 )
 
 // projectName is what ENGRAM_PROJECT may be: Engram's normalised form, nothing it would change.
@@ -195,8 +201,42 @@ func guard(name string, next server.ToolHandlerFunc, unavailable string) server.
 				result, err = mcp.NewToolResultError(name+": internal error (the server's log has it)"), nil
 			}
 		}()
-		return next(ctx, req)
+		result, err = next(ctx, req)
+		return bounded(result), err
 	}
+}
+
+// bounded cuts every text of RESULT to maxAnswer characters, with a last line saying how long it was and how to ask
+// for less. Engram's answers are JSON envelopes: a cut one is no longer valid JSON, which the note says.
+func bounded(result *mcp.CallToolResult) *mcp.CallToolResult {
+	if result == nil {
+		return result
+	}
+	for i, content := range result.Content {
+		c, ok := content.(mcp.TextContent)
+		if !ok {
+			continue
+		}
+		length := utf8.RuneCountInString(c.Text)
+		if length <= maxAnswer {
+			continue
+		}
+		note := fmt.Sprintf("\n[cut: the answer had %d characters, more than an answer holds (%d); the rest is not "+
+			"shown. Ask for less: mem_search shows previews, mem_get_observation without include_history, a smaller "+
+			"limit]", length, maxAnswer)
+		keep := maxAnswer - utf8.RuneCountInString(note)
+		cut := 0
+		for index := range c.Text { // the byte offset of rune number keep
+			if keep == 0 {
+				cut = index
+				break
+			}
+			keep--
+		}
+		c.Text = c.Text[:cut] + note
+		result.Content[i] = c
+	}
+	return result
 }
 
 // checkArguments says what is wrong with a call's arguments, or "".
