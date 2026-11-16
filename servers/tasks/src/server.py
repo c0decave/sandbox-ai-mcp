@@ -14,6 +14,9 @@ a readable copy beside it, /work/.tasks/PLAN.md, for the human. Every change hol
 /work/.tasks/.lock), reads the plan, changes it and writes it through a temporary file renamed over the old one, so
 several connections can share one plan. No tool takes a path; sizes are bounded; nothing else is read or written. No
 network.
+
+sandbox-ai-mcp review 2026-11-17: block_step works (in_thread passed no keyword argument: every call failed), every
+answer is at most 24,000 characters (whole lines; what is left out is counted), and the server announces tools only.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ import stat
 import time
 
 from mcp.server.fastmcp import FastMCP
+import mcp.types as types
 from mcp.types import ToolAnnotations
 
 #: The project folder (mounted writable); the plan lives in its .tasks folder.
@@ -52,6 +56,9 @@ MAX_NOTES = 100         # notes kept of the plan (the oldest go)
 MAX_FILE = 4 << 20      # bytes of plan.json read at most
 RECENT_NOTES = 5        # plan notes next_step shows
 NOTE_PREVIEW = 120      # characters of a note in a list
+#: Characters of one answer: Claude Code, Qwen Code and Hermes show a model only a preview and a file path of a tool
+#: result much above 25,000 characters (docs/LOCAL_LLM_TOOLS.md), so a long plan is cut by whole lines.
+MAX_ANSWER = 24_000
 
 
 class ArgumentError(ValueError):
@@ -414,8 +421,26 @@ REMOVES = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHi
 READS = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 
 
-async def in_thread(function, *args) -> str:
-    return await asyncio.to_thread(function, *args)
+def fitted(text: str) -> str:
+    """TEXT, at most MAX_ANSWER characters: whole lines from the start, then how many more were left out."""
+    if len(text) <= MAX_ANSWER:
+        return text
+    lines = text.split("\n")
+    kept, size = [], 0
+    for line in lines:
+        if size + len(line) + 1 > MAX_ANSWER - 200:
+            break
+        kept.append(line)
+        size += len(line) + 1
+    if not kept:  # one line longer than an answer (never made here: a step is at most 500 characters)
+        kept, size = [lines[0][:MAX_ANSWER - 200]], MAX_ANSWER - 200
+    left = len(lines) - len(kept)
+    return "\n".join(kept) + (f"\n... {left} more lines not shown (an answer holds at most {MAX_ANSWER} "
+                              "characters): progress gives a shorter summary, next_step the step to work on")
+
+
+async def in_thread(function, *args, **options) -> str:
+    return fitted(await asyncio.to_thread(function, *args, **options))
 
 
 def do_set_goal(goal, clear_steps) -> str:
@@ -602,6 +627,18 @@ async def remove_step(step: int) -> str:
     """
     return await in_thread(do_remove_step, step)
 
+
+def tools_only(server: FastMCP) -> None:
+    """SERVER announces tools only: FastMCP registers the resources and prompts handlers for every server, and the
+    SDK announces each registered one as a capability. This server publishes neither, and an announced capability
+    makes agents offer the model tools for it (resource tools Claude Code, OpenCode, Pi and Hermes add), which local
+    models take for the way to the server's own tools."""
+    for request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
+                    types.ListPromptsRequest, types.GetPromptRequest):
+        server._mcp_server.request_handlers.pop(request, None)
+
+
+tools_only(mcp)
 
 if __name__ == "__main__":
     mcp.run("stdio")
