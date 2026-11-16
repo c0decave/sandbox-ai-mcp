@@ -350,6 +350,23 @@ class TelegramUser(ToolsOnlyCheck, unittest.TestCase):
                 self.assertEqual(answer["next_offset_id"], shown[-1]["id"])
                 self.assertIn("not shown", answer["truncated"])
 
+    def test_a_message_full_of_hidden_links_still_fits(self):
+        """50 hidden links of 2,048 characters made one message about 105,000 characters: a page could not show it
+        at all. A message's links are at most 6,000 characters together now, and a page shows one message at least
+        (one that showed none would have skipped it with next_offset_id)."""
+        from telethon.tl import types
+        t = self.t
+        text = "link " * 50
+        entities = [types.MessageEntityTextUrl(offset=5 * i, length=4, url="https://example.com/" + "u" * 2028)
+                    for i in range(50)]
+        self.fake.messages = [t.message(900 - i, text, entities=entities) for i in range(3)]
+        answer = json.loads(sent(self.module, "get_messages", {"chat": "@leakchannel", "limit": 3}))
+        self.assertLessEqual(as_sent(answer), MAX_ANSWER)
+        self.assertGreaterEqual(answer["count"], 1)
+        links = answer["messages"][0]["links"]
+        self.assertTrue(0 < len(links) < 50)
+        self.assertLessEqual(sum(len(link["url"]) + len(link.get("text", "")) for link in links), 6000)
+
     def test_search_global_and_replies_fit(self):
         t = self.t
         self.fake.messages = [t.message(1000 - i, "y" * 4096) for i in range(200)]
