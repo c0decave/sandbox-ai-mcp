@@ -16,13 +16,17 @@ signatures baked into the image (an empty rules folder used to replace capa's
 rules); numbers are range-checked and stored results are bounded.
 
 sandbox-ai-mcp review 2026-11-17: no MCP resources (the scans' results only through
-the tools), so the server announces tools only.
+the tools), so the server announces tools only; capa runs in a session of its own and
+the time limit kills it; its report is parsed from its output and not written to /tmp
+(64 MiB: a few large reports made every later analysis fail), nor kept in memory; its
+error output is cut to its end; a refused call is an error (isError).
 """
 
 import asyncio
 import json
 import logging
 import os
+import signal
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -85,6 +89,10 @@ INPUT_ROOTS = tuple(p for p in os.environ.get("MCP_INPUT_ROOTS", "/work").split(
 #: Results kept in memory (the oldest are dropped).
 MAX_STORED_RESULTS = 100
 MAX_TIMEOUT = 3600
+#: capa's JSON report is read up to this size (a larger one is refused); its stderr likewise.
+MAX_READ_OUTPUT = 64 << 20
+#: Characters of capa's error output in an answer (its end).
+MAX_ERROR = 4000
 
 
 class ArgumentError(ValueError):
@@ -117,6 +125,49 @@ def _int(value, name: str, low: int, high: int, default):
     if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
         raise ArgumentError(f"{name}: an integer from {low} to {high}")
     return value
+
+
+class TooLarge(Exception):
+    """capa's report is larger than MAX_READ_OUTPUT."""
+
+
+async def _read_stream(stream, limit: int) -> tuple[bytes, bool]:
+    """(STREAM read to its end with at most LIMIT bytes kept, whether more came)."""
+    kept = bytearray()
+    more = False
+    while True:
+        chunk = await stream.read(65536)
+        if not chunk:
+            return bytes(kept), more
+        if len(kept) + len(chunk) > limit:
+            more = True
+        if len(kept) < limit:
+            kept += chunk[:limit - len(kept)]
+
+
+async def run_tool(cmd: list[str], timeout: float) -> tuple[int, bytes, bytes, bool]:
+    """(exit status, stdout, stderr, stdout cut) of CMD in a session of its own, stdin empty; after TIMEOUT seconds
+    (asyncio.TimeoutError) the whole process group is killed, and whatever of it is left when it ends."""
+    process = await asyncio.create_subprocess_exec(
+        *cmd, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        start_new_session=True)
+    reading = asyncio.gather(_read_stream(process.stdout, MAX_READ_OUTPUT),
+                             _read_stream(process.stderr, MAX_READ_OUTPUT), process.wait())
+    try:
+        (out, cut), (err, _), code = await asyncio.wait_for(asyncio.shield(reading), timeout)
+        return code, out, err, cut
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        if not reading.done():
+            reading.cancel()
+        await asyncio.gather(reading, return_exceptions=True)
+        try:
+            await asyncio.wait_for(process.wait(), 10)
+        except asyncio.TimeoutError:
+            pass
 
 
 def _remember(store: dict, key: str, value, active: set) -> None:
@@ -165,7 +216,6 @@ async def run_capa_analysis(
     timeout: int | None = None,
 ) -> AnalysisResult:
     scan_id = str(uuid.uuid4())[:8]
-    output_file = Path(settings.output_dir) / f"capa_{scan_id}.json"
 
     result = AnalysisResult(
         scan_id=scan_id,
@@ -181,25 +231,13 @@ async def run_capa_analysis(
     logger.info(f"Starting capa analysis {scan_id} for: {filepath}")
 
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=float(timeout or settings.default_timeout),
-        )
+        returncode, stdout, stderr, cut = await run_tool(cmd, float(timeout or settings.default_timeout))
 
         result.completed_at = datetime.now()
-        output_content = stdout.decode()
-        result.raw_output = output_content
-
-        # Save to file
-        output_file.write_text(output_content)
-
-        result.capabilities = parse_capa_json(output_content)
+        if cut:
+            raise TooLarge(f"capa's report is larger than {MAX_READ_OUTPUT >> 20} MiB")
+        # parsed here, never stored: the summary is what the tools give
+        result.capabilities = parse_capa_json(stdout.decode("utf-8", "replace"))
 
         # Generate stats
         namespace_counts = {}
@@ -217,9 +255,9 @@ async def run_capa_analysis(
             "attack_techniques": list(attack_techniques)[:20],
         }
 
-        result.status = "completed" if process.returncode == 0 else "failed"
-        if process.returncode != 0:
-            result.error = stderr.decode()
+        result.status = "completed" if returncode == 0 else "failed"
+        if returncode != 0:
+            result.error = stderr.decode("utf-8", "replace").strip()[-MAX_ERROR:]
 
     except asyncio.TimeoutError:
         result.status = "timeout"
@@ -307,7 +345,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     try:
         if name == "capa_analyze":
             if len(active_scans) >= settings.max_concurrent_scans:
-                return [TextContent(type="text", text="Max concurrent scans reached.")]
+                raise ArgumentError(f"Max concurrent scans ({settings.max_concurrent_scans}) reached: wait for one to "
+                                    "end (list_active_scans)")
 
             filepath = _input_path(arguments.get("filepath"))
 
@@ -321,16 +360,17 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             result = scan_results.get(str(arguments.get("scan_id", "")))
             if result:
                 return [TextContent(type="text", text=json.dumps(format_analysis_summary(result), indent=2))]
-            return [TextContent(type="text", text="Analysis not found")]
+            raise ArgumentError(f"Analysis not found (the last {MAX_STORED_RESULTS} are kept)")
 
         elif name == "list_active_scans":
             active = [{"scan_id": s, "filepath": scan_results[s].filepath} for s in active_scans if s in scan_results]
             return [TextContent(type="text", text=json.dumps({"active_scans": active}, indent=2))]
 
-        return [TextContent(type="text", text=f"Unknown tool: {name}")]
+        raise ArgumentError(f"Unknown tool: {name[:100]}")
 
     except Exception as e:
-        return [TextContent(type="text", text=f"Error: {str(e)}")]
+        # an error of the call (isError): the SDK answers it as the tool's error
+        raise RuntimeError(f"Error: {str(e)}") from None
 
 
 async def main():

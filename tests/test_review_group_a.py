@@ -6,16 +6,27 @@ files, filesystem); each test failed before its fix.
   get_analysis_results give as well). Agents act on the capability: OpenCode, Claude Code and Pi offer the model
   resource tools for it, Hermes four more tools per server, and local models take them for the way to the server's
   tools (research-llm round 1, "the MCP-resource trap"). They announce tools only now.
+- binwalk and capa (the FuzzingLabs servers): a call's time limit ended the wait, not binwalk or capa - the program
+  and the extractors binwalk started ran on, as many as the agent started; an extraction into the writable /out (a
+  folder of the user's computer) had no size limit, so a small archive that unpacks to gigabytes filled the user's
+  disk; capa wrote each report into the container's /tmp (64 MiB) and never read it again, so after a few large
+  reports every analysis failed; everything binwalk or capa printed was kept in memory for each of 100 results; a
+  refused call came back as an ordinary answer (isError false).
 """
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -87,6 +98,165 @@ class ToolsOnly(unittest.TestCase):
                 self.assertTrue(answers[1]["result"]["tools"])
                 for request in (2, 3):  # a client that asks anyway: the method does not exist
                     self.assertEqual(answers[request]["error"]["code"], -32601, answers[request])
+
+
+
+def alive(marker: str) -> list[int]:
+    """Processes (not zombies) whose command line contains MARKER."""
+    found = []
+    for name in os.listdir("/proc"):
+        if not name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{name}/cmdline", "rb") as handle:
+                line = handle.read().replace(b"\0", b" ").decode("utf-8", "replace")
+            with open(f"/proc/{name}/stat", "rb") as handle:
+                state = handle.read().decode().rsplit(")", 1)[1].split()[0]
+        except OSError:
+            continue
+        if marker in line and state != "Z":
+            found.append(int(name))
+    return found
+
+
+class FakeTools(unittest.TestCase):
+    """A folder of stand-in programs (binwalk, capa, xxd) on PATH and an input folder with a file to analyse."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp(prefix="review-a-")
+        self.addCleanup(shutil.rmtree, self.base, True)
+        self.bin = os.path.join(self.base, "bin")
+        self.work = os.path.join(self.base, "work")
+        self.out = os.path.join(self.base, "out")
+        for folder in (self.bin, self.work, self.out):
+            os.mkdir(folder)
+        Path(self.work, "fw.bin").write_bytes(b"\x00" * 64)
+        # a number of seconds no other process sleeps: `sleep MARKER` finds the stand-ins' children
+        self.marker = f"{3000 + os.getpid() % 1000}.{time.monotonic_ns() % 10**9:09d}"
+        self.addCleanup(self.kill_leftovers)
+
+    def kill_leftovers(self):
+        for pid in alive(self.marker) + alive(self.bin):
+            try:
+                os.kill(pid, 9)
+            except ProcessLookupError:
+                pass
+
+    def tool(self, name: str, script: str) -> None:
+        path = Path(self.bin, name)
+        path.write_text("#!/bin/sh\n" + script.replace("MARKER", self.marker))
+        path.chmod(0o755)
+
+    def environment(self) -> dict:
+        return {"PATH": self.bin + ":" + os.environ.get("PATH", "/usr/bin:/bin"), "MCP_INPUT_ROOTS": self.work}
+
+    def module(self, name: str):
+        with mock.patch.dict(os.environ, {**self.environment(), "BINWALK_OUTPUT_DIR": self.out,
+                                          "CAPA_OUTPUT_DIR": self.out}):
+            module = load(name)
+        patcher = mock.patch.dict(os.environ, self.environment())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return module
+
+    def call(self, module, tool: str, arguments: dict) -> dict:
+        contents = asyncio.run(module.call_tool(tool, arguments))
+        return json.loads(contents[0].text)
+
+
+@unittest.skipIf(mcp is None, "the servers' requirements are not installed")
+@unittest.skipUnless(sys.platform.startswith("linux"), "the servers run in a Linux container")
+class Binwalk(FakeTools):
+    def test_the_time_limit_stops_binwalk_and_what_it_started(self):
+        # binwalk -e starts extractors (7z, unsquashfs, ...): on the time limit all of them go, not only the wait
+        self.tool("binwalk", "sleep MARKER &\nsleep MARKER\n")
+        m = self.module("binwalk")
+        started = time.monotonic()
+        answer = self.call(m, "binwalk_scan", {"filepath": "fw.bin", "timeout": 1})
+        self.assertEqual(answer["status"], "timeout")
+        self.assertLess(time.monotonic() - started, 20)
+        deadline = time.monotonic() + 5
+        while alive("sleep " + self.marker) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual(alive("sleep " + self.marker), [])
+
+    def test_an_extraction_that_grows_past_its_limit_is_stopped(self):
+        # a small archive that unpacks to gigabytes must not fill the user's /out
+        self.tool("binwalk", 'while [ "$1" != "-C" ]; do shift; done\nmkdir -p "$2"\n'
+                             'while true; do head -c 1048576 /dev/zero >> "$2/bomb"; sleep 0.05; done\n')
+        m = self.module("binwalk")
+        with mock.patch.object(m, "OUT_DIR", Path(self.out)), mock.patch.dict(os.environ,
+                                                                              {"BINWALK_MAX_EXTRACT": "4M"}):
+            answer = self.call(m, "binwalk_extract", {"filepath": "fw.bin", "timeout": 60})
+        self.assertEqual(answer["status"], "stopped", answer)
+        self.assertIn("4 MiB", answer["error"])
+        self.assertLess(sum(f.stat().st_size for f in Path(self.out).rglob("*") if f.is_file()), 64 << 20)
+        self.assertEqual(alive(self.bin), [])
+
+    def test_output_that_is_not_utf8_and_huge_output_are_taken(self):
+        self.tool("binwalk", "printf '\\nDECIMAL       HEXADECIMAL     DESCRIPTION\\n'\n"
+                             "printf '0             0x0             Zip archive data, name: \\377\\376.txt\\n'\n"
+                             "head -c 20000000 /dev/zero | tr '\\0' 'x'\n")
+        m = self.module("binwalk")
+        answer = self.call(m, "binwalk_scan", {"filepath": "fw.bin"})
+        self.assertEqual(answer["status"], "completed", answer.get("error"))
+        self.assertEqual(answer["signatures"][0]["offset"], 0)
+        self.assertIn("\ufffd", answer["signatures"][0]["description"])
+        kept = m.scan_results[answer["scan_id"]]
+        self.assertLessEqual(len(kept.raw_output), m.MAX_KEPT_OUTPUT)
+
+    def test_a_refused_call_is_an_error(self):
+        answers = rpc("binwalk", handshake(("tools/call", {"name": "binwalk_scan",
+                                                           "arguments": {"filepath": "/etc/passwd"}}),
+                                           ("tools/call", {"name": "get_scan_results",
+                                                           "arguments": {"scan_id": "nope"}})),
+                      env=self.environment())
+        for index in (1, 2):
+            self.assertTrue(answers[index]["result"]["isError"], answers[index])
+        self.assertIn("only paths under", answers[1]["result"]["content"][0]["text"])
+
+
+@unittest.skipIf(mcp is None, "the servers' requirements are not installed")
+@unittest.skipUnless(sys.platform.startswith("linux"), "the servers run in a Linux container")
+class Capa(FakeTools):
+    REPORT = json.dumps({"rules": {"create TCP socket": {"meta": {"namespace": "communication/socket/tcp",
+                                                                   "scope": "basic block", "attack": [],
+                                                                   "mbc": [{"objective": "Communication",
+                                                                            "id": "C0001.011"}]}}}})
+
+    def test_no_report_is_left_in_tmp(self):
+        # each report used to stay in the container's /tmp (64 MiB): after a few large ones every analysis failed
+        Path(self.bin, "report.json").write_text(self.REPORT)
+        self.tool("capa", f"cat {self.bin}/report.json\n")
+        m = self.module("capa")
+        for _ in range(3):
+            answer = self.call(m, "capa_analyze", {"filepath": "fw.bin"})
+            self.assertEqual(answer["status"], "completed", answer.get("error"))
+            self.assertEqual(answer["capabilities"][0]["name"], "create TCP socket")
+        self.assertEqual(os.listdir(self.out), [])
+        self.assertIsNone(m.scan_results[answer["scan_id"]].raw_output)
+
+    def test_the_time_limit_stops_capa(self):
+        self.tool("capa", "sleep MARKER &\nsleep MARKER\n")
+        m = self.module("capa")
+        answer = self.call(m, "capa_analyze", {"filepath": "fw.bin", "timeout": 1})
+        self.assertEqual(answer["status"], "timeout")
+        deadline = time.monotonic() + 5
+        while alive("sleep " + self.marker) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual(alive("sleep " + self.marker), [])
+
+    def test_a_long_failure_is_cut_and_a_refused_call_is_an_error(self):
+        self.tool("capa", "head -c 3000000 /dev/zero | tr '\\0' 'e' >&2\nexit 1\n")
+        m = self.module("capa")
+        answer = self.call(m, "capa_analyze", {"filepath": "fw.bin"})
+        self.assertEqual(answer["status"], "failed")
+        self.assertLessEqual(len(answer["error"]), 5000)
+        answers = rpc("capa", handshake(("tools/call", {"name": "capa_analyze", "arguments": {"filepath": "/etc/passwd"}}),
+                                        ("tools/call", {"name": "get_analysis_results", "arguments": {"scan_id": "x"}})),
+                      env=self.environment())
+        for index in (1, 2):
+            self.assertTrue(answers[index]["result"]["isError"], answers[index])
 
 
 if __name__ == "__main__":
