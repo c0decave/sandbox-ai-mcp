@@ -15,8 +15,16 @@ reaches tor's DNSPort, which answers A, AAAA and PTR only: MX, TXT, NS, SOA and 
 email_security and the DNS parts of recon_domain and compare_domains. A TCP connection goes through tor's TransPort
 and an exit like every other: the resolver sees the exit's address, never yours. The names that HTTP and TLS
 connect to are still looked up by the system (getaddrinfo), through tor's DNSPort.
+
+Answers are bounded (bounded): subdomains of a large domain, wayback with up to 500 snapshots, recon_batch of ten
+domains and certificate_history answered far more than the 25,000 characters clients such as Claude Code, Qwen Code
+and Hermes show a model (beyond that a model sees only a preview). An answer above MAX_ANSWER characters has its
+longest lists cut until it fits, and says which and how many entries ("shortened", "note"). The server advertises
+tools only (tools_only): it publishes no resources or prompts.
 """
+import copy
 import ipaddress
+import json
 import os
 
 import dns.asyncresolver
@@ -91,6 +99,71 @@ class TorResolver(dns.asyncresolver.Resolver):
 
 if behind_tor():
     dns.asyncresolver.Resolver = TorResolver
+
+
+# -- answers a model can read -----------------------------------------------------------------------------------------
+
+#: Characters of one answer at most (as JSON, as the SDK sends it).
+MAX_ANSWER = 24_000
+
+
+def _size(value) -> int:
+    return len(json.dumps(value, indent=2, ensure_ascii=False, default=str))
+
+
+def _lists(value, path=""):
+    """(path, list) of every list in VALUE, nested ones included."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield from _lists(item, f"{path}.{key}" if path else str(key))
+    elif isinstance(value, list):
+        yield path, value
+        for index, item in enumerate(value):
+            yield from _lists(item, f"{path}[{index}]")
+
+
+def bounded(answer):
+    """ANSWER (a tool's dict) as it is when its JSON has at most MAX_ANSWER characters; else a copy whose longest
+    lists are halved until it fits, with "shortened" (path: entries left out) and a "note"."""
+    if not isinstance(answer, dict) or _size(answer) <= MAX_ANSWER:
+        return answer
+    answer, cut = copy.deepcopy(answer), {}
+    while _size(answer) > MAX_ANSWER - 600:  # room for "shortened" and the note
+        found = [(_size(items), path, items) for path, items in _lists(answer) if len(items) > 1]
+        if not found:
+            break
+        _, path, items = max(found, key=lambda entry: entry[0])
+        keep = len(items) // 2
+        cut[path] = cut.get(path, 0) + len(items) - keep
+        del items[keep:]
+    answer["shortened"] = cut
+    answer["note"] = (f"answer shortened to fit {MAX_ANSWER:,} characters (what a model is shown of a tool result): "
+                      "'shortened' says how many entries of each list were left out; ask for less (a lower limit, "
+                      "fewer domains, a narrower URL) to see them")
+    return answer
+
+
+def bound_answers(mcp):
+    """Every tool of MCP (an MCPServer) answers through bounded."""
+    for tool in mcp._tool_manager.list_tools():
+        original = tool.fn
+
+        async def answer(__original=original, **arguments):
+            return bounded(await __original(**arguments))
+        tool.fn = answer
+
+
+def tools_only(mcp):
+    """MCP (an MCPServer) advertises tools only: the SDK registers the handlers of resources and prompts for every
+    server, and the capabilities of the initialize answer follow the handlers, so a server that publishes neither
+    advertised both. Agents then offer a model tools for MCP resources, which local models took for the way to the
+    server's tools (sandbox-ai research round 1, "the MCP-resource trap")."""
+    for method in ("resources/list", "resources/read", "resources/templates/list", "prompts/list", "prompts/get"):
+        mcp._lowlevel_server._request_handlers.pop(method, None)
+
+
+bound_answers(server.mcp)
+tools_only(server.mcp)
 
 if __name__ == "__main__":
     server.main()

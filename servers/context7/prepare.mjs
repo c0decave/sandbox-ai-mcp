@@ -1,6 +1,6 @@
 // Prepares the installed @upstash/context7-mcp 4.4.4 for the image (see PROVENANCE.md): keeps only the packages that
 // run on the stdio path with OpenTelemetry off, removes the telemetry modules that would load the rest, and applies
-// two patches. Usage: node prepare.mjs NODE_MODULES_DIR (after npm ci --omit=dev --ignore-scripts).
+// three patches. Usage: node prepare.mjs NODE_MODULES_DIR (after npm ci --omit=dev --ignore-scripts).
 // Every kept package must have its locked version, each patched file must be the reviewed one before and after
 // (SHA-256), each replaced text must occur exactly once; anything else stops the build.
 import { createHash } from "node:crypto";
@@ -66,6 +66,20 @@ const PATCHES = [
       [
         '    if (context.clientInfo?.ide) {\n        headers["X-Context7-Client-IDE"] = context.clientInfo.ide;\n    }\n    if (context.clientInfo?.version) {\n        headers["X-Context7-Client-Version"] = context.clientInfo.version;\n    }\n',
         "    // sandbox-ai-mcp: no client name or version.\n",
+      ],
+    ],
+  },
+  {
+    // 3. Tools only: the server declares the prompts and resources capabilities and has none of either (empty
+    //    lists). Agents act on the capability: they offer a model tools for MCP resources (Hermes four more per
+    //    server), which local models took for the way to the server's tools (sandbox-ai research round 1).
+    file: "dist/index.js",
+    before: "05aa837e6586447e02fcd97a13f992e4f625efa8498371610a82cea6d235eccc",
+    after: "f7ba8b2c2eec330b75fff62ce9cfcd8e327ce624da0f64cbcec80959c5c7cb23",
+    replace: [
+      [
+        "            prompts: { listChanged: false },\n            resources: { listChanged: false, subscribe: false },\n",
+        "            // sandbox-ai-mcp: tools only (no prompts or resources capability: it publishes none).\n",
       ],
     ],
   },

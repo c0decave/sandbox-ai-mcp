@@ -37,7 +37,13 @@ most 400 lines or 24,000 characters per call (`next_start_line` says where to go
 (JSON doubles line breaks, quotes and backslashes); every other answer of files (`list_dir`, `glob`, `search`,
 `diff`), of gowitness and of whatweb is cut to 24,000 characters as sent too, and says what it left out; code-search
 and exec answer plain text of at most 24,000 and 16,000 characters; web-fetch's `fetch_page` gives 20,000 characters
-by default (`max_characters`, `start`).
+by default and at most 24,000 and 400 lines with text per part, whatever `max_characters` asks (`next_start` says
+where to go on). openosint and osint-mcp answer at most 24,000 characters (osint-mcp cuts its longest lists and says
+how many entries it left out), searxng's results stay within about 18,000 characters (`omitted` counts the rest).
+tasks, telegram, telegram-user, bluesky, signal and engram answer at most 24,000 characters as sent too (cut by whole
+lines or entries, with what is left out named); memory and whatsapp do not yet (memory with its re-pin, whatsapp with a
+patch still to be built). The servers of this repository advertise tools only: no empty resources or prompts, whose
+resource tools local models took for the way to the server's tools.
 
 **Errors that end loops.** web-fetch's errors say what happened (refused, reset, no answer within 30 s, no route, the
 TLS certificate) and what to do next (not to fetch the URL again in a loop, another source); a connection that fails

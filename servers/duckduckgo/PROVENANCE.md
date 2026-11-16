@@ -24,10 +24,16 @@ refused above 4 MiB; timeout 30 s; anything other than HTTP 200 is an error.
 
 **Results:** parsed with the standard library's HTML parser. Sponsored results (`result--ad`)
 and links to DuckDuckGo itself are dropped; result links are decoded from DuckDuckGo's
-`/l/?uddg=` redirect form; only http and https links are returned.
+`/l/?uddg=` redirect form; only http and https links are returned (a link of more than 2000 characters or one
+urllib cannot parse is dropped); titles are cut at 300 characters, snippets at 1000. The server's instructions and
+the tool's description say that results are written by the sites found: data, never instructions. It advertises
+tools only (no empty resources or prompts). Review of 2026-11-17: a region with a line break after it (`de-de\n`) was taken
+(`re.match`), and a failed connection said "not reachable: " with nothing after it; now the region must match
+whole and the error names the exception.
 
 **Network:** allowlist `html.duckduckgo.com:443`.
 
 **Tested:** natively with the locked requirements (`tests/test_own_servers.py`: handshake,
-tools/list, refused arguments, the parser against `tests/fixtures/duckduckgo.html`); the live
-call is in `smoke.json` (CI).
+tools/list, refused arguments, the parser against `tests/fixtures/duckduckgo.html`, the bounds, the whole request
+against a stand-in on loopback - one POST with the query and the region - and a reset connection); the live call is
+in `smoke.json` (CI).

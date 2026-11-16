@@ -2,7 +2,7 @@
 # Context7 documentation API (context7.com) - two tools that send a library name or ID and a question there and return
 # the documentation text it answers with. Network: allowlist context7.com:443; CONTEXT7_API_KEY optional.
 # package-lock.json pins the release and its packages by integrity; prepare.mjs keeps only what runs on the stdio path
-# with OpenTelemetry off and applies two patches; context7-files.sha256 pins every file of the server. See
+# with OpenTelemetry off and applies three patches; context7-files.sha256 pins every file of the server. See
 # PROVENANCE.md for the audit.
 ARG DEBIAN_IMAGE=docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
 # node:24-trixie-slim (Node.js 24.22.1, from nodejs.org checked against its signed SHASUMS256) as docker-library/

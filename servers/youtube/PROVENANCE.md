@@ -281,3 +281,13 @@ OK (youtube pending its first digest).
 **Verdict: fit to sign - yes**, once CI has built the image from this tree and both sandbox-ai smoke reports
 (Podman, Bubblewrap) have passed. No backdoor, telemetry, other host or path for a secret was found. The seven
 findings are fixed and the remaining risks are listed above.
+
+## Review of 2026-11-17
+
+`src/server.py` and `src/authorize.py` read again in full: no new finding in the tools, the secrets handling, the
+upload protocol, the public guard or the file checks. One change: the server advertises tools only - FastMCP
+declared `resources` and `prompts` with nothing behind them, and agents then offer a model resource tools that local
+models took for the way to the server's tools (`tools_only`, as in the other servers of this repository; test
+`test_youtube_offers_tools_only`). The tool schemas pass JSON Schema draft 2020-12 and draft 7 checks. Not run
+against Google (oauth2.googleapis.com and www.googleapis.com are not reachable from the review's sandbox):
+`tests/test_youtube.py` (49 tests, a fake Google) covers every tool.
