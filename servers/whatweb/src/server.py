@@ -235,9 +235,13 @@ def check_url(url) -> str:
     return url
 
 
-def _text(value) -> str:
+#: The plugins whose string is where a redirect leads: kept up to an URL's length (next_hop follows it as given).
+REDIRECTS = ("RedirectLocation", "Meta-Refresh-Redirect")
+
+
+def _text(value, limit: int = MAX_VALUE) -> str:
     text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-    return text[:MAX_VALUE]
+    return text[:limit]
 
 
 def summarize(entry: dict) -> dict:
@@ -250,7 +254,8 @@ def summarize(entry: dict) -> dict:
         for field in FIELDS:
             values = found.get(field)
             if isinstance(values, list) and values:
-                plugin[field] = [_text(v) for v in values[:MAX_VALUES]]
+                limit = MAX_URL if name in REDIRECTS and field == "string" else MAX_VALUE
+                plugin[field] = [_text(v, limit) for v in values[:MAX_VALUES]]
         if isinstance(found.get("certainty"), int) and not isinstance(found.get("certainty"), bool):
             plugin["certainty"] = found["certainty"]
         plugins[_text(name)] = plugin

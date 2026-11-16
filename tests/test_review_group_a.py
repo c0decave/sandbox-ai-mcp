@@ -21,6 +21,8 @@ files, filesystem); each test failed before its fix.
   URLs, many headers and console messages, five of them in screenshot_many, or a page that makes WhatWeb's plugins
   match many strings, gave answers far above what clients show. The longest lists are cut now until the answer fits
   (counts keeps the full numbers).
+- whatweb: a redirect's Location (or meta refresh) longer than 500 characters was cut to 500 like any value a site
+  returns, and the server then followed (and checked) the cut URL.
 """
 from __future__ import annotations
 
@@ -397,6 +399,15 @@ class WebAnswers(unittest.TestCase):
         found = json.loads(text)
         self.assertTrue(found["targets"][0]["plugins"])
         self.assertIn("cut", found["values_cut"])
+
+
+    def test_whatweb_follows_a_long_redirect_as_given(self):
+        m = load("whatweb")
+        location = "https://b.example/" + "p" * 1500
+        target = m.summarize({"target": "https://a.example/", "http_status": 301,
+                              "plugins": {"RedirectLocation": {"string": [location]}, "Title": {"string": ["x" * 900]}}})
+        self.assertEqual(m.next_hop("https://a.example/", target), location)
+        self.assertEqual(len(target["plugins"]["Title"]["string"][0]), m.MAX_VALUE)
 
 
 if __name__ == "__main__":
