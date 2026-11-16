@@ -12,6 +12,11 @@ files, filesystem); each test failed before its fix.
   disk; capa wrote each report into the container's /tmp (64 MiB) and never read it again, so after a few large
   reports every analysis failed; everything binwalk or capa printed was kept in memory for each of 100 results; a
   refused call came back as an ordinary answer (isError false).
+- files: an answer above 25,000 characters reaches the model of Claude Code, Qwen Code or Hermes only as a short
+  preview and a file path (docs/LOCAL_LLM_TOOLS.md, "Answer sizes"). read_file was cut for that, but counted the
+  characters of the content, not of the answer the client gets (JSON: every line break, quote and backslash takes
+  two), and list_dir (500 entries: 58,000), glob, search (max_results 200: 70,000) and diff (40,000) were not cut at
+  all. Every answer stays within 24,000 characters as sent now and says how to get the rest.
 """
 from __future__ import annotations
 
@@ -257,6 +262,80 @@ class Capa(FakeTools):
                       env=self.environment())
         for index in (1, 2):
             self.assertTrue(answers[index]["result"]["isError"], answers[index])
+
+
+
+@unittest.skipIf(mcp is None, "the servers' requirements are not installed")
+class FilesAnswers(unittest.TestCase):
+    """What the client gets of files' answers: FastMCP's text of the returned dict."""
+
+    LIMIT = 25_000
+
+    @classmethod
+    def setUpClass(cls):
+        cls.m = load("files")
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix="review-a-files-")
+        self.addCleanup(shutil.rmtree, self.work, True)
+        patcher = mock.patch.object(self.m, "ROOTS", {"/work": self.work})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        env = mock.patch.dict(os.environ, {"FILES_READONLY": "", "FILES_MAX_BYTES": "", "FILES_TRASH": ""})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def sent(self, tool: str, arguments: dict) -> tuple[str, dict]:
+        """(the text the client gets, the answer)."""
+        result = asyncio.run(self.m.mcp.call_tool(tool, arguments))
+        contents = result[0] if isinstance(result, tuple) else result
+        text = contents[0].text
+        return text, json.loads(text)
+
+    def many_files(self, count: int = 600) -> None:
+        os.mkdir(os.path.join(self.work, "d"))
+        for index in range(count):
+            Path(self.work, "d", f"a_file_with_a_fairly_long_descriptive_name_{index:04d}.txt").write_text(
+                'needle "quoted" ' * 30 + "\n")
+
+    def test_listings_and_searches_fit_what_clients_show(self):
+        self.many_files()
+        for tool, arguments, key in (("list_dir", {"path": "d"}, "entries"), ("list_dir", {"depth": 3}, "entries"),
+                                     ("glob", {"pattern": "**/*.txt"}, "matches"),
+                                     ("search", {"pattern": "needle", "max_results": 200}, "matches")):
+            with self.subTest(tool=tool, arguments=arguments):
+                text, answer = self.sent(tool, arguments)
+                self.assertLessEqual(len(text), self.LIMIT)
+                self.assertTrue(answer[key])
+                self.assertEqual(answer["count"], len(answer[key]))
+                self.assertIn("truncated", answer)
+
+    def test_a_long_diff_fits(self):
+        Path(self.work, "a.txt").write_text("".join(f'line "{i}" \\ old {"x" * 80}\n' for i in range(3000)))
+        text, answer = self.sent("diff", {"path_a": "a.txt", "content": "".join(f"new {i}\n" for i in range(3000))})
+        self.assertLessEqual(len(text), self.LIMIT)
+        self.assertIn("truncated", answer)
+        self.assertTrue(answer["diff"].startswith("--- /work/a.txt"))
+
+    def test_read_file_counts_what_is_sent(self):
+        # JSON doubles quotes, backslashes, tabs and line breaks: a JSON file read in parts, every part fits
+        Path(self.work, "data.json").write_text("".join(f'  "key_{i:05d}": "a \\"quoted\\" value\\t{i:09d} x",\n'
+                                                       for i in range(3000)))
+        lines, start = [], 1
+        while True:
+            text, answer = self.sent("read_file", {"path": "data.json", "start_line": start, "line_numbers": True})
+            self.assertLessEqual(len(text), self.LIMIT)
+            lines += [line.split("\t", 1)[1] for line in answer["content"].splitlines()]
+            if "next_start_line" not in answer:
+                break
+            self.assertEqual(answer["next_start_line"], answer["end_line"] + 1)
+            start = answer["next_start_line"]
+        self.assertEqual("\n".join(lines) + "\n", Path(self.work, "data.json").read_text())
+        # one line longer than an answer: cut so that the answer fits
+        Path(self.work, "one.txt").write_text('"' * 40_000 + "\n")
+        text, answer = self.sent("read_file", {"path": "one.txt"})
+        self.assertLessEqual(len(text), self.LIMIT)
+        self.assertIn("cut_line", answer)
 
 
 if __name__ == "__main__":

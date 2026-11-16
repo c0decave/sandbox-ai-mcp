@@ -67,7 +67,8 @@ MAX_PATH = 4096
 # One read_file answer: Claude Code, Qwen Code and Hermes show the model only a short preview and a file path of a
 # tool result much above 25,000 characters, so a part stays below that (next_start_line goes on).
 MAX_READ_LINES = 400            # lines of one read_file answer
-MAX_READ_CHARS = 24_000         # characters of one read_file answer
+MAX_READ_CHARS = 24_000         # characters of one read_file answer's content, as sent (JSON-escaped)
+MAX_ANSWER = 24_000             # characters of any answer as the client gets it (FastMCP's indented JSON)
 MAX_ENTRIES = 500               # entries of list_dir, results of glob
 MAX_VISIT = 200_000             # entries glob and search look at
 MAX_RESULTS = 200               # search matches
@@ -620,6 +621,42 @@ def numbered(lines: list[str], first: int, limit: int = MAX_PREVIEW, width: int 
     return out
 
 
+def sent_size(value) -> int:
+    """Characters of VALUE as the client gets it: FastMCP sends a tool's dict as JSON indented by 2."""
+    return len(json.dumps(value, indent=2, ensure_ascii=False, default=str))
+
+
+def escaped_size(text: str) -> int:
+    """Characters of TEXT inside a JSON string (a line break, quote, backslash or tab takes two)."""
+    return len(json.dumps(text, ensure_ascii=False)) - 2
+
+
+def fit(answer: dict, key: str, why: str) -> dict:
+    """ANSWER with its list or text KEY cut from the end (whole items, whole lines) until the answer as sent is at
+    most MAX_ANSWER characters; "truncated" says WHY ({count}: the items or lines kept) when it was cut, "count"
+    follows a cut list."""
+    if sent_size(answer) <= MAX_ANSWER:
+        return answer
+    whole = answer[key]
+    items = whole if isinstance(whole, list) else whole.split("\n")
+    answer["truncated"] = why
+    low, high = 0, len(items)
+    while low < high:  # the most items that fit
+        middle = (low + high + 1) // 2
+        answer[key] = items[:middle] if isinstance(whole, list) else "\n".join(items[:middle])
+        if "count" in answer and isinstance(whole, list):
+            answer["count"] = middle
+        if sent_size(answer) <= MAX_ANSWER:
+            low = middle
+        else:
+            high = middle - 1
+    answer[key] = items[:low] if isinstance(whole, list) else "\n".join(items[:low])
+    if "count" in answer and isinstance(whole, list):
+        answer["count"] = low
+    answer["truncated"] = why.format(count=low)
+    return answer
+
+
 def unified(a: list[str], b: list[str], name_a: str, name_b: str, context: int = 3) -> tuple[str, bool]:
     out, size, cut = [], 0, False
     for line in difflib.unified_diff(a, b, name_a, name_b, n=context, lineterm=""):
@@ -834,13 +871,17 @@ def read_file(path: str, start_line: int = 1, end_line: int | None = None, line_
             while index < stop:
                 line = lines[index]
                 piece = f"{index + 1}\t{line}" if numbers else line
-                if size + len(piece) > MAX_READ_CHARS and out:
+                cost = escaped_size(piece) + 2  # as sent: JSON-escaped, with its line break (\\n)
+                if size + cost > MAX_READ_CHARS and out:
                     break
-                if len(piece) > MAX_READ_CHARS:
-                    piece = piece[:MAX_READ_CHARS]
-                    answer["cut_line"] = f"line {index + 1} is longer than {MAX_READ_CHARS} characters: cut"
+                if cost > MAX_READ_CHARS:
+                    while escaped_size(piece) + 2 > MAX_READ_CHARS:
+                        piece = piece[:len(piece) - max(1, (escaped_size(piece) + 2 - MAX_READ_CHARS) // 2)]
+                    cost = escaped_size(piece) + 2
+                    answer["cut_line"] = f"line {index + 1} is longer than one answer holds: cut after " \
+                                         f"{len(piece)} characters"
                 out.append(piece)
-                size += len(piece) + 1
+                size += cost
                 index += 1
             # each line shown with its line break, the last one of the file only if it has one
             ends = index < total or doc.text.endswith("\n")
@@ -931,7 +972,8 @@ def list_dir(path: str = WORK, depth: int = 1) -> dict:
                 answer["followed_links"] = place.links
             if truncated:
                 answer["truncated"] = f"only the first {MAX_ENTRIES} entries: list a sub-folder or use glob"
-            return answer
+            return fit(answer, "entries", "only the first {count} entries (more do not fit into one answer): "
+                                          "list a sub-folder, a smaller depth or use glob")
     return guarded(work)
 
 
@@ -1046,7 +1088,8 @@ def glob(pattern: str, path: str = WORK) -> dict:
                 answer["truncated"] = f"only the first {MAX_ENTRIES}: narrow the pattern"
             if budget.stopped:
                 answer["stopped"] = budget.stopped
-            return answer
+            return fit(answer, "matches", "only the first {count} matches (more do not fit into one answer): "
+                                          "narrow the pattern or the path")
     return guarded(work)
 
 
@@ -1173,7 +1216,8 @@ def search(pattern: str, path: str = WORK, regex: bool = False, ignore_case: boo
             answer["files_skipped"] = skipped
         if stopped or budget.stopped:
             answer["stopped"] = stopped or budget.stopped
-        return answer
+        return fit(answer, "matches", "only the first {count} matches (more do not fit into one answer): "
+                                      "narrow the search (path, include, pattern)")
     return guarded(work)
 
 
@@ -1284,7 +1328,8 @@ def diff(path_a: str, path_b: str | None = None, content: str | None = None, con
             answer["sha256_a"] = sha_a
         if cut:
             answer["truncated"] = f"the diff is longer than {MAX_DIFF_LINES} lines: only its start is shown"
-        return answer
+        return fit(answer, "diff", "the diff is longer than one answer holds: only its first {count} lines are "
+                                     "shown")
     return guarded(work)
 
 
