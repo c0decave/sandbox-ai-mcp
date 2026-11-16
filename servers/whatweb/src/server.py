@@ -33,6 +33,7 @@ import tempfile
 import urllib.parse
 
 from mcp.server.fastmcp import FastMCP
+import mcp.types as types
 
 logging.basicConfig(level=logging.INFO, stream=sys.stderr,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -420,6 +421,19 @@ async def plugin_info(search: str) -> dict:
         return {"search": search, "plugins": found[:200], "text": text[:MAX_INFO], "more": len(text) > MAX_INFO}
     except (ArgumentError, OSError) as exc:
         return {"error": str(exc)}
+
+
+def tools_only(server: FastMCP) -> None:
+    """SERVER announces tools only: FastMCP registers the resources and prompts handlers for every server, and the
+    SDK announces each registered one as a capability. This server publishes neither, and an announced capability
+    makes agents offer the model tools for it (resource tools Claude Code, OpenCode, Pi and Hermes add), which local
+    models take for the way to the server's own tools."""
+    for request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
+                    types.ListPromptsRequest, types.GetPromptRequest):
+        server._mcp_server.request_handlers.pop(request, None)
+
+
+tools_only(mcp)
 
 
 if __name__ == "__main__":

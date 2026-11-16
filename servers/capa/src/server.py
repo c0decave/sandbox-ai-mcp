@@ -14,6 +14,9 @@ axross-mcp-hub patch: files are read only from /work (the folder axross mounts)
 and passed as absolute paths; capa runs with the pinned capa-rules and FLIRT
 signatures baked into the image (an empty rules folder used to replace capa's
 rules); numbers are range-checked and stored results are bounded.
+
+sandbox-ai-mcp review 2026-11-17: no MCP resources (the scans' results only through
+the tools), so the server announces tools only.
 """
 
 import asyncio
@@ -27,7 +30,7 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Resource, TextContent, Tool
+from mcp.types import TextContent, Tool
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -328,29 +331,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     except Exception as e:
         return [TextContent(type="text", text=f"Error: {str(e)}")]
-
-
-@app.list_resources()
-async def list_resources() -> list[Resource]:
-    return [
-        Resource(
-            uri=f"capa://results/{scan_id}",
-            name=f"Capa: {Path(result.filepath).name}",
-            mimeType="application/json",
-        )
-        for scan_id, result in scan_results.items()
-        if result.status == "completed"
-    ]
-
-
-@app.read_resource()
-async def read_resource(uri: str) -> str:
-    if uri.startswith("capa://results/"):
-        scan_id = uri.replace("capa://results/", "")
-        result = scan_results.get(scan_id)
-        if result:
-            return json.dumps(format_analysis_summary(result), indent=2)
-    return json.dumps({"error": "Resource not found"})
 
 
 async def main():

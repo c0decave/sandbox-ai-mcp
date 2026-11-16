@@ -18,6 +18,9 @@ every path is resolved and passed as an absolute path (never an option), numbers
 are range-checked, extraction goes to /out when a writable folder is mounted
 there (else /tmp, 64 MiB), the entropy scan does not try to plot, and stored
 results are bounded.
+
+sandbox-ai-mcp review 2026-11-17: no MCP resources (the scans' results only through
+the tools), so the server announces tools only.
 """
 
 import asyncio
@@ -32,7 +35,6 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
-    Resource,
     TextContent,
     Tool,
 )
@@ -679,38 +681,6 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     except Exception as e:
         logger.exception(f"Error executing tool {name}: {e}")
         return [TextContent(type="text", text=f"Error: {str(e)}")]
-
-
-@app.list_resources()
-async def list_resources() -> list[Resource]:
-    """List available resources."""
-    resources = []
-
-    for scan_id, result in scan_results.items():
-        if result.status == "completed":
-            sig_count = len(result.signatures)
-            resources.append(
-                Resource(
-                    uri=f"binwalk://results/{scan_id}",
-                    name=f"Scan Results: {result.filename} ({sig_count} signatures)",
-                    description=f"{result.scan_type} scan completed at {result.completed_at}",
-                    mimeType="application/json",
-                )
-            )
-
-    return resources
-
-
-@app.read_resource()
-async def read_resource(uri: str) -> str:
-    """Read a resource."""
-    if uri.startswith("binwalk://results/"):
-        scan_id = uri.replace("binwalk://results/", "")
-        result = scan_results.get(scan_id)
-        if result:
-            return json.dumps(format_scan_summary(result), indent=2)
-
-    return json.dumps({"error": "Resource not found"})
 
 
 async def main():

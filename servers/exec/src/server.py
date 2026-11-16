@@ -43,6 +43,7 @@ import time
 import xml.etree.ElementTree as ElementTree
 
 from mcp.server.fastmcp import FastMCP
+import mcp.types as types
 from mcp.types import ToolAnnotations
 
 #: The project folder (mounted writable); every start folder must lie inside it.
@@ -1487,6 +1488,19 @@ def main() -> None:
         mcp.run("stdio")
     finally:
         JOBS.stop_all()
+
+
+def tools_only(server: FastMCP) -> None:
+    """SERVER announces tools only: FastMCP registers the resources and prompts handlers for every server, and the
+    SDK announces each registered one as a capability. This server publishes neither, and an announced capability
+    makes agents offer the model tools for it (resource tools Claude Code, OpenCode, Pi and Hermes add), which local
+    models take for the way to the server's own tools."""
+    for request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
+                    types.ListPromptsRequest, types.GetPromptRequest):
+        server._mcp_server.request_handlers.pop(request, None)
+
+
+tools_only(mcp)
 
 
 if __name__ == "__main__":
