@@ -262,3 +262,7 @@ start exec as sandbox-ai does (`tests/test_smoke_test.py`, and with `SANDBOX_AI_
 E3 and E4 remain as described, and exec still refuses commands under Bubblewrap. To verify in CI: the
 `sandbox-ai-bwrap` smoke of exec passes (it was expected to fail before), and the Podman smoke's `cat
 /proc/$PPID/environ` (now PID 1's) is still refused.
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer announces the MCP capabilities resources and prompts (FastMCP registers both for every server; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools). Nothing else found: every tool was run (its own tests, real commands) and its answers stay small.

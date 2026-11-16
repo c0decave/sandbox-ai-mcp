@@ -239,3 +239,13 @@ removed (reported); `#word` at a line's start becomes a heading (reported, by de
 item made (only the repository's own `smoke.json` uses it).
 
 **Verdict: fit to sign - yes.** No backdoor, no network code, nothing written or read outside the mounted folders.
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer announces the MCP capabilities resources and prompts (FastMCP registers both for every server; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools).
+
+- **M - answers above what clients show** (docs/LOCAL_LLM_TOOLS.md, "Answer sizes"). `read_file` counted its
+  content's characters, not the answer the client gets (JSON doubles line breaks, quotes, backslashes and tabs: a
+  JSON file's part was 26,000); `list_dir` (500 entries: 58,000-65,000), `glob`, `search` (max_results 200: up to
+  93,000) and `diff` (up to 41,000) were not cut. Every answer is at most 24,000 characters as sent now, whole
+  entries, matches or lines, with `truncated` saying how many and `count` following.

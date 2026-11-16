@@ -226,3 +226,15 @@ They are read by the tool inside its container and never executed.
      async with stdio_server() as (read_stream, write_stream):
          await app.run(read_stream, write_stream, app.create_initialization_options())
 ```
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer lists its past analyses as MCP resources (get_analysis_results gives them; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools).
+
+- **M - capa's reports filled `/tmp`.** Each report was written to `/tmp/capa-mcp` (the container's 64 MiB tmpfs)
+  and never read again; after a few large ones every analysis failed (the write raised, the result was `error`).
+  The report is parsed from capa's output now and neither written nor kept in memory (64 MiB read at most).
+- **M - the time limit did not stop capa** (the wait ended, capa ran on): a session of its own, the process group
+  killed on the limit.
+- **L** - stderr in an answer is its last 4,000 characters; refused calls, unknown analyses and tools are errors
+  (`isError`).

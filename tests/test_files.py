@@ -796,7 +796,11 @@ class Looking(Base):
         self.refused(self.m.list_dir(depth=9), "depth")
         for i in range(600):
             self.put(f"many/{i:03}", "")
-        self.assertIn("first 500", self.ok(self.m.list_dir("many"))["truncated"])
+        # 500 entries at most, and only as many as fit into one answer (tests/test_review_group_a.py FilesAnswers)
+        listing = self.ok(self.m.list_dir("many"))
+        self.assertRegex(listing["truncated"], r"^only the first \d+ entries")
+        self.assertEqual(listing["count"], len(listing["entries"]))
+        self.assertLess(listing["count"], 500)
 
     def test_glob(self):
         for name in ("a.md", "docs/b.md", "docs/deep/c.md", "docs/x.txt", ".git/d.md", "src/e.py"):

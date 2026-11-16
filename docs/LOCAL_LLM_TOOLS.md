@@ -33,8 +33,11 @@ small models are better off with files.
 
 **Answer sizes.** Claude Code, Qwen Code and Hermes show the model only a 0.5-2.6 KB preview and a file path of a tool
 result much above 25,000 characters, so the model never sees the content. files' `read_file` therefore answers at
-most 400 lines or 24,000 characters per call (`next_start_line` says where to go on); web-fetch's `fetch_page` gives
-20,000 characters by default (`max_characters`, `start`).
+most 400 lines or 24,000 characters per call (`next_start_line` says where to go on), counted as the answer is sent
+(JSON doubles line breaks, quotes and backslashes); every other answer of files (`list_dir`, `glob`, `search`,
+`diff`), of gowitness and of whatweb is cut to 24,000 characters as sent too, and says what it left out; code-search
+and exec answer plain text of at most 24,000 and 16,000 characters; web-fetch's `fetch_page` gives 20,000 characters
+by default (`max_characters`, `start`).
 
 **Errors that end loops.** web-fetch's errors say what happened (refused, reset, no answer within 30 s, no route, the
 TLS certificate) and what to do next (not to fetch the URL again in a loop, another source); a connection that fails
