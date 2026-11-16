@@ -17,6 +17,10 @@ files, filesystem); each test failed before its fix.
   characters of the content, not of the answer the client gets (JSON: every line break, quote and backslash takes
   two), and list_dir (500 entries: 58,000), glob, search (max_results 200: 70,000) and diff (40,000) were not cut at
   all. Every answer stays within 24,000 characters as sent now and says how to get the rest.
+- gowitness and whatweb: what a site returns was bounded per field, not per answer - a page with 50 requests of long
+  URLs, many headers and console messages, five of them in screenshot_many, or a page that makes WhatWeb's plugins
+  match many strings, gave answers far above what clients show. The longest lists are cut now until the answer fits
+  (counts keeps the full numbers).
 """
 from __future__ import annotations
 
@@ -336,6 +340,63 @@ class FilesAnswers(unittest.TestCase):
         text, answer = self.sent("read_file", {"path": "one.txt"})
         self.assertLessEqual(len(text), self.LIMIT)
         self.assertIn("cut_line", answer)
+
+
+
+def text_of(result) -> str:
+    """The text part of a tool's result (FastMCP's contents, or (contents, structured))."""
+    contents = result[0] if isinstance(result, tuple) else result
+    return "\n".join(content.text for content in contents if getattr(content, "type", "") == "text")
+
+
+@unittest.skipIf(mcp is None, "the servers' requirements are not installed")
+class WebAnswers(unittest.TestCase):
+    LIMIT = 25_000
+
+    def big_page(self, index: int = 0) -> dict:
+        """gowitness's record of a busy page: long URLs, many headers, cookies and console messages."""
+        return {"url": f"https://site{index}.example/", "final_url": f"https://site{index}.example/", "response_code": 200,
+                "title": "T" * 600, "headers": [{"key": f"X-H{i}", "value": "v" * 1200} for i in range(80)],
+                "technologies": [{"value": f"Tech{i}"} for i in range(150)],
+                "cookies": [{"name": f"c{i}", "domain": "d" * 250, "path": "/"} for i in range(80)],
+                "console": [{"type": "log", "value": "m" * 600} for i in range(30)],
+                "network": [{"url": f"https://cdn.example/{i}/" + "p" * 600, "status_code": 200, "mime_type": "text/js",
+                             "remote_ip": "192.0.2.1"} for i in range(80)],
+                "tls": {"protocol": "TLS 1.3", "san_list": [{"value": "s" * 300} for _ in range(60)]}}
+
+    def test_gowitness_answers_fit(self):
+        m = load("gowitness")
+
+        async def witness(url, opts):
+            return m.summary(self.big_page(len(url))), None
+
+        with mock.patch.object(m, "witness", witness), mock.patch.object(m, "check_url", lambda url: url):
+            one = text_of(asyncio.run(m.mcp.call_tool("screenshot", {"url": "https://a.example/"})))
+            many = text_of(asyncio.run(m.mcp.call_tool("screenshot_many", {
+                "urls": [f"https://{'a' * i}.example/" for i in range(1, 6)]})))
+        for text in (one, many):
+            self.assertLessEqual(len(text), self.LIMIT)
+        found = json.loads(one)
+        self.assertEqual(found["counts"]["network"], 80)
+        self.assertLess(len(found["network"]), 50)
+        self.assertIn("cut", found["lists_cut"])
+        self.assertEqual(len(json.loads(many)["results"]), 5)
+
+    def test_whatweb_answers_fit(self):
+        m = load("whatweb")
+        target = {"target": "https://a.example/", "http_status": 200,
+                  "plugins": {f"Plugin{i:03d}": {field: ["x" * 600] * 25 for field in ("string", "version", "module")}
+                              for i in range(250)}}
+
+        async def scan(url, aggression):
+            return m.summarize(target)
+
+        with mock.patch.object(m, "scan", scan), mock.patch.object(m, "check_url", lambda url: url):
+            text = text_of(asyncio.run(m.mcp.call_tool("fingerprint", {"url": "https://a.example/"})))
+        self.assertLessEqual(len(text), self.LIMIT)
+        found = json.loads(text)
+        self.assertTrue(found["targets"][0]["plugins"])
+        self.assertIn("cut", found["values_cut"])
 
 
 if __name__ == "__main__":
