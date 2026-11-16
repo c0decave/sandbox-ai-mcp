@@ -252,6 +252,7 @@ Noted, not changed (residual risks):
 | `0003-store-sender-checks.patch` | `e18728e12e62456ce8f5c0a16fef3d15e31fc4bbd117736ed7220382b4751e7e` | `store.rs`: sender checks on edits, deletions and re-stored ids |
 | `0004-durations-in-range.patch` | `1d3c3e7df280ec6a5d71d12fcfe5c964c86ddda57d9e9b5a17154e99e7de9a1a` | `dates.rs`: no duration jiff cannot hold |
 | `0005-private-account-folder.patch` | `f9098def16c84c8f59a818751d8a6b6f6eba310af42bc7cee4f3be70236babf7` | `lock.rs`: `accounts/` and `accounts/<alias>/` 0700 |
+| `0006-tools-only.patch` | `31bb1745b2cbe10a0b74564a37081dbc37bcb639e828a1ab99c52fa7cb20dfac` | `mcp/mod.rs`: tools only - prompts, resources, resource subscriptions and completions stay implemented but are not announced (review of 2026-11-17) |
 
 The Go patch was compiled, vetted and unit-tested here (the send folder with symlinks into the data
 folder, `..`, `/proc/self/environ`, a send folder inside the data folder; the media limit's values;
@@ -269,7 +270,9 @@ names reduced to `[A-Za-z0-9._-]`; images and audio up to 8 MiB also inline) and
 (asks your phone for up to 500 older messages of a chat, waits up to 45 s). Resources
 (`whatsapp://...`), resource subscriptions and the five prompts (`catch_up`, `summarize_chat`,
 `draft_reply`, `daily_digest`, `extract_actions`: texts only, each says not to send) read the
-database only.
+database only; since patch 0006 none of them is announced (the server announces tools only: an
+announced capability makes agents offer the model resource and prompt tools, which local models took
+for the way to the server's tools), so clients do not ask for them.
 
 **With `WHATSAPP_WRITE=1` (25 more):** `send_message`, `send_media` (from `/send` only),
 `send_location`, `send_poll`, `react`, `edit_message` (own, 15 min), `delete_message` (own within
