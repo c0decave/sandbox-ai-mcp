@@ -142,3 +142,13 @@ reported, and the timeout killing the run. Not built or run here (no Podman, no 
 checks the commit, the licence's SHA-256, the 1,832 plugin files, the removals, `--version` and that all 1,831
 plugin names load without an error) and the smoke spec (`https://example.com/` fingerprinted with its title,
 `plugin_info` for WordPress, four refused calls) run in CI.
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer announces the MCP capabilities resources and prompts (FastMCP registers both for every server; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools).
+
+- **M - answers above what clients show.** 200 plugins with 20 values of 500 characters per field: a page that
+  makes many plugins match gave megabytes (6 MB in the test). The values per field, then their length, then the
+  last plugins are cut until the answer is at most 24,000 characters as sent (`values_cut`, `plugins_truncated`).
+- **L - a long redirect was followed cut.** A Location or meta refresh was cut to 500 characters like any value,
+  and the cut URL followed (after its check). Redirect targets are kept up to 2,048 characters now.

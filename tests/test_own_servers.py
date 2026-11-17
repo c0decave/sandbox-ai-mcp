@@ -317,6 +317,281 @@ class Servers(unittest.TestCase):
             error = asyncio.run(module.fetch_page(f"http://v4.example.org:{port}/old"))["error"]
         self.assertIn("answered HTTP 404: the page does not exist; do not fetch this URL again", error)
 
+    def check_tools_only(self, name, untrusted=True):
+        """NAME advertises tools only (no resources or prompts: it publishes none, and local models took the
+        resource tools their agents then offer for the way to the server's tools); UNTRUSTED: its instructions
+        say that what it returns is third-party data, never instructions."""
+        answers = rpc(name, session())
+        capabilities = answers[0]["result"]["capabilities"]
+        self.assertIn("tools", capabilities)
+        self.assertNotIn("resources", capabilities)
+        self.assertNotIn("prompts", capabilities)
+        if untrusted:
+            self.assertRegex(answers[0]["result"].get("instructions") or "", r"never (as )?instructions")
+        return answers
+
+    def test_duckduckgo_checks_and_bounds(self):
+        """A region with a line break after it is refused (re.match took "de-de\\n"); titles and snippets are
+        bounded; a connection that fails says how, also when the exception has no text."""
+        module = load("duckduckgo")
+        error = asyncio.run(module.web_search("x", region="de-de\n"))["error"]
+        self.assertIn("region", error)
+        page = ('<div class="result"><a class="result__a" href="https://example.com/">' + "T" * 5000 + '</a>'
+                '<a class="result__snippet">' + "s " * 50000 + "</a></div>")
+        found = module.parse_results(page, 10)
+        self.assertLessEqual(len(found[0]["title"]), 300)
+        self.assertLessEqual(len(found[0]["snippet"]), 1000)
+        with local_reset() as port:
+            module.ENDPOINT = f"http://127.0.0.2:{port}/html/"
+            error = asyncio.run(module.web_search("x"))["error"]
+        self.assertRegex(error, r"DuckDuckGo not reachable \((ReadError|RemoteProtocolError|ConnectError)")
+
+    def test_brave_search_checks_and_bounds(self):
+        """A country with a line break after it is refused; Brave's <strong> highlighting and HTML entities are
+        turned into text; titles and descriptions are bounded, a result with an over-long URL left out; a failed
+        connection says how."""
+        module = load("brave-search")
+        with mock.patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-1234"}):
+            error = asyncio.run(module.web_search("x", country="de\n"))["error"]
+        self.assertIn("country", error)
+        data = {"web": {"results": [{"title": "too long", "url": "https://example.com/" + "x" * 5000},
+                                    {"title": "A &amp; <strong>B</strong>", "url": "https://example.com/",
+                                     "description": "The <strong>example</strong> " + "d" * 5000}]},
+                "results": [{"title": "N" * 1000, "url": "https://example.org/", "description": "<b>n</b>",
+                             "age": "2 days", "meta_url": {"hostname": "example.org"}}]}
+        web = module.web_results(data)[0]
+        self.assertEqual(web["title"], "A & B")
+        self.assertTrue(web["description"].startswith("The example ddd"))
+        self.assertLessEqual(len(web["description"]), 1000)
+        self.assertEqual(len(module.web_results(data)), 1)  # a URL of more than 2000 characters (cut, it is wrong)
+        news = module.news_results(data)[0]
+        self.assertLessEqual(len(news["title"]), 300)
+        self.assertEqual(news["description"], "n")
+        with mock.patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-1234"}), local_reset() as port:
+            module.API = f"http://127.0.0.2:{port}/res/v1/"
+            error = asyncio.run(module.web_search("x"))["error"]
+        self.assertRegex(error, r"Brave Search not reachable \((ReadError|RemoteProtocolError|ConnectError)")
+        self.assertNotIn("test-key-1234", error)
+
+    def test_searxng_checks_and_bounds(self):
+        """A language with a line break after it is refused; fifty results with long snippets still fit what clients
+        show a model (about 25,000 characters), the ones left out counted; a result whose URL is over-long is left
+        out (cut, it would be wrong)."""
+        module = load("searxng")
+        with mock.patch.dict(os.environ, {"SEARXNG_URL": "http://127.0.0.1:9"}):
+            error = asyncio.run(module.web_search("x", language="de\n"))["error"]
+        self.assertIn("language", error)
+        data = {"results": [{"title": f"Result {n} " + "t" * 400, "url": f"https://example.com/{n}/" + "u" * 1500,
+                             "content": "c " * 1000, "engines": ["a", "b"]} for n in range(50)],
+                "suggestions": ["s" * 400] * 20, "answers": ["a" * 600] * 20}
+        found = module.results_of(data, 50)
+        answer = {"query": "x", "results": found, "count": len(found), **module.extras_of(data)}
+        self.assertLessEqual(len(json.dumps(answer, indent=2)), 25_000)
+        self.assertGreater(len(found), 5)
+        self.assertEqual(module.omitted(data, found, 50), 50 - len(found))
+
+    def test_duckduckgo_and_brave_ask_their_endpoints(self):
+        """The whole way through a stand-in of each service on loopback: DuckDuckGo gets one POST with the query and
+        the region, Brave one GET with the key in its header (never in an answer); the recorded answers come back."""
+        import urllib.parse as parse
+        seen = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def reply(self, kind, body):
+                self.send_response(200)
+                self.send_header("Content-Type", kind)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self):  # noqa: N802
+                form = self.rfile.read(int(self.headers["Content-Length"])).decode()
+                seen.append(("POST", self.path, parse.parse_qs(form)))
+                self.reply("text/html", (ROOT / "tests/fixtures/duckduckgo.html").read_bytes())
+
+            def do_GET(self):  # noqa: N802
+                seen.append(("GET", self.path, self.headers.get("X-Subscription-Token")))
+                self.reply("application/json", (ROOT / "tests/fixtures/brave-web.json").read_bytes())
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        duckduckgo = load("duckduckgo")
+        duckduckgo.ENDPOINT = f"http://127.0.0.1:{port}/html/"
+        found = asyncio.run(duckduckgo.web_search("example domain", max_results=5, region="de-de"))
+        self.assertEqual(found["results"][0]["url"], "https://example.com/")
+        self.assertEqual(seen[0], ("POST", "/html/", {"q": ["example domain"], "kl": ["de-de"]}))
+        brave = load("brave-search")
+        brave.API = f"http://127.0.0.1:{port}/res/v1/"
+        with mock.patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-1234"}):
+            found = asyncio.run(brave.web_search("example", count=3, country="de", freshness="pw"))
+        self.assertEqual(found["results"], [{"title": "Example Domain", "url": "https://example.com/",
+                                             "description": "Example description"}])
+        method, path, key = seen[1]
+        self.assertEqual((method, key), ("GET", "test-key-1234"))
+        self.assertEqual(parse.parse_qs(path.partition("?")[2]),
+                         {"q": ["example"], "count": ["3"], "offset": ["0"], "country": ["DE"], "freshness": ["pw"]})
+        self.assertNotIn("test-key-1234", json.dumps(found))
+
+    def test_searxng_asks_its_instance(self):
+        """The whole way through an instance (a stand-in on loopback): one GET of /search with the arguments, the
+        recorded answer read back; a redirect is not followed."""
+        import urllib.parse as parse
+        asked = []
+        recorded = (ROOT / "tests/fixtures/searxng.json").read_bytes()
+
+        def respond(handler):
+            asked.append(handler.path)
+            if "redirect" in handler.path:
+                return handler.answer(302, "text/plain", b"", {"Location": "http://10.0.0.1/"})
+            handler.answer(200, "application/json", recorded)
+        with local_http(respond) as port:
+            answers = rpc("searxng", session(("web_search", {"query": "example domain", "category": "news",
+                                                             "language": "de", "time_range": "week", "page": 2}),
+                                             ("web_search", {"query": "redirect"})),
+                          env={"SEARXNG_URL": f"http://127.0.0.1:{port}/searx/"})
+        found = result(answers[2])
+        self.assertEqual([r["url"] for r in found["results"]],
+                         ["https://example.com/", "https://www.iana.org/help/example-domains"])
+        path, _, query = asked[0].partition("?")
+        self.assertEqual(path, "/searx/search")
+        self.assertEqual(parse.parse_qs(query), {"q": ["example domain"], "format": ["json"], "categories": ["news"],
+                                                 "language": ["de"], "pageno": ["2"], "safesearch": ["1"],
+                                                 "time_range": ["week"]})
+        self.assertEqual(result(answers[3]), {"error": "SearXNG answered HTTP 302"})
+        self.assertEqual(len(asked), 2)
+
+    def test_web_fetch_offers_tools_only(self):
+        self.check_tools_only("web-fetch")
+
+    def test_duckduckgo_offers_tools_only(self):
+        self.check_tools_only("duckduckgo")
+
+    def test_brave_search_offers_tools_only(self):
+        self.check_tools_only("brave-search")
+
+    def test_searxng_offers_tools_only(self):
+        self.check_tools_only("searxng")
+
+    def test_youtube_offers_tools_only(self):
+        self.check_tools_only("youtube", untrusted=False)
+
+    def test_openosint_offers_tools_only(self):
+        try:
+            import openosint  # noqa: F401 - the reviewed modules, installed by the Dockerfile
+        except ImportError:
+            self.skipTest("OpenOSINT's reviewed modules are not installed (they are in the image)")
+        self.check_tools_only("openosint")
+
+    def test_web_fetch_connects_only_to_the_address_it_checked(self):
+        """DNS rebinding: a name that resolves to a public address for the check and to another one a moment later,
+        when the connection is made, must not reach that other address. The connection is made to an address
+        checked when it is made (here 127.0.0.1 stands for a public address; 127.0.0.2 for the local network)."""
+        import ipaddress
+        with local_http(lambda handler: handler.answer(200, "text/plain", b"secret of the local network"),
+                        host="127.0.0.2") as port:
+            module, _ = self.web_fetch_on_loopback({"rebind.example.org": ["127.0.0.1"]})
+            module.public = lambda address: address == ipaddress.ip_address("127.0.0.1")
+            answers = iter([["127.0.0.1"], ["127.0.0.1"]])  # fetch_page's check, fetch_once's check
+
+            def getaddrinfo(host, port_, family=0, type=0, proto=0, flags=0):
+                addresses = next(answers, ["127.0.0.2"])  # the checks' lookups public, every later one not
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (a, int(port_))) for a in addresses]
+
+            with mock.patch("socket.getaddrinfo", getaddrinfo):
+                page = asyncio.run(module.fetch_page(f"http://rebind.example.org:{port}/"))
+        self.assertNotIn("secret", json.dumps(page))
+        self.assertIn("not a public address", page.get("error", ""), page)
+
+    def test_web_fetch_reads_a_page_whose_head_is_not_closed(self):
+        """HTML lets </head> out (minified pages do): the body's text must not be dropped with the head."""
+        module = load("web-fetch")
+        page = module.page_text("<html><head><title>T</title><meta charset=utf-8><body><p>Hello</p></body></html>",
+                                "https://example.org/")
+        self.assertEqual((page["title"], page["text"]), ("T", "Hello"))
+        page = module.page_text("<head><title>T</title><link rel=x href=/a><p>Hi <a href=/b>b</a>",
+                                "https://example.org/")
+        self.assertEqual((page["title"], page["text"], page["links"]), ("T", "Hi b", ["https://example.org/b"]))
+        page = module.page_text("<title>Page</title><body><svg><title>icon</title></svg><p>x</p>", "https://e.org/")
+        self.assertEqual((page["title"], page["text"]), ("Page", "x"))  # an SVG's title is not the page's
+
+    def test_web_fetch_parts_fit_what_clients_show(self):
+        """Claude Code, Qwen Code and Hermes show the model only a preview of a tool result much above 25,000
+        characters: a part is at most 24,000 characters and 400 lines with text (blank lines between blocks not
+        counted) whatever max_characters says, links and title are bounded, and next_start goes on where a part ended (the parts together are the whole text)."""
+        lines = [f"line {number} w" + "w" * (number % 120) for number in range(3000)]
+        body = ("<html><head><title>" + "T" * 100_000 + "</title></head><body>"
+                + "".join(f"<p>{line}</p>" for line in lines)
+                + "".join(f"<a href='/{number}/{'x' * 3000 if number % 7 == 0 else 'y'}'>l</a>" for number in range(600))
+                + "</body></html>").encode()
+        with local_http(lambda handler: handler.answer(200, "text/html", body)) as port:
+            module, _ = self.web_fetch_on_loopback({"big.example.org": ["127.0.0.1"]})
+            url = f"http://big.example.org:{port}/"
+            parts, start = [], 0
+            while start is not None:
+                page = asyncio.run(module.fetch_page(url, max_characters=100000, start=start, links=True))
+                self.assertNotIn("error", page)
+                self.assertLessEqual(len(json.dumps(page, ensure_ascii=False, indent=2)), 25_000)
+                self.assertLessEqual(len(page["text"]), 24_000)
+                self.assertLessEqual(len([line for line in page["text"].splitlines() if line.strip()]), 400)
+                self.assertLessEqual(len(page["title"]), 300)
+                self.assertTrue(all(len(link) <= 500 for link in page["links"]))
+                parts.append(page["text"])
+                start = page.get("next_start")
+                self.assertEqual(page["more"], start is not None)
+        whole = module.page_text(body.decode(), url)["text"]
+        self.assertTrue(whole.startswith("\n\n".join(lines)))  # a blank line between paragraphs
+        self.assertEqual("".join(parts), whole)
+        self.assertEqual(len(whole), page["total_characters"])
+        self.assertGreater(len(parts), 3)
+
+    def test_web_fetch_decodes_the_page_in_its_charset(self):
+        """A page in ISO-8859-1 or windows-1252 (the Content-Type's charset, or a <meta charset> without one) is text,
+        not replacement characters."""
+        latin = "<html><body><p>Grüße aus Köln</p></body></html>".encode("iso-8859-1")
+        meta = '<html><head><meta charset="windows-1252"></head><body><p>“Grüße”</p></body></html>'.encode("cp1252")
+        module, _ = self.web_fetch_on_loopback({"old.example.org": ["127.0.0.1"]})
+        with local_http(lambda handler: handler.answer(200, "text/html; charset=ISO-8859-1", latin)) as port:
+            page = asyncio.run(module.fetch_page(f"http://old.example.org:{port}/"))
+        self.assertEqual(page.get("text"), "Grüße aus Köln", page)
+        with local_http(lambda handler: handler.answer(200, "text/html", meta)) as port:
+            page = asyncio.run(module.fetch_page(f"http://old.example.org:{port}/"))
+        self.assertEqual(page.get("text"), "“Grüße”", page)
+
+    def test_web_fetch_gives_up_after_its_deadline(self):
+        """A host that sends a byte now and then (within each read's time limit) cannot keep a call open for ever:
+        the whole fetch has a deadline, and the error says so."""
+        def drip(handler):
+            handler.send_response(200)
+            handler.send_header("Content-Type", "text/plain")
+            handler.end_headers()
+            for _ in range(40):
+                try:
+                    handler.wfile.write(b"x")
+                    handler.wfile.flush()
+                except OSError:
+                    return
+                time.sleep(0.1)
+
+        module, _ = self.web_fetch_on_loopback({"slow.example.org": ["127.0.0.1"]}, timeout=1)
+        module.DEADLINE = 1.5
+        with local_http(drip) as port:
+            began = time.monotonic()
+            page = asyncio.run(module.fetch_page(f"http://slow.example.org:{port}/"))
+        self.assertLess(time.monotonic() - began, 3.5)
+        self.assertIn("no complete answer within 1.5 s", page.get("error", ""), page)
+
+    def test_web_fetch_answers_a_malformed_url_with_an_error(self):
+        module = load("web-fetch")
+        for url in ("http://[::1", "http://example.org:99999/", "http://exa­mple..org/"):
+            page = asyncio.run(module.fetch_page(url))
+            self.assertIn("error", page, url)
+
     def test_whatweb(self):
         """WhatWeb's server: refusals, the address check, the bounded answer, redirects followed by the server
         (each hop checked), and WhatWeb's run line - against a stand-in for WhatWeb (no Ruby, no network)."""
@@ -738,8 +1013,12 @@ class Servers(unittest.TestCase):
         self.assertIn("[1 geo point(s)", stripped)
         with self.assertRaises(module.ToolError):
             module._answer("search_ip", "8.8.8.8", "Scan error: ipinfo.io returned HTTP 500.", False)
-        long = module._answer("search_dns", "example.com", "x" * (module.MAX_ANSWER + 10), False)
-        self.assertTrue(long.endswith("[answer cut at 64 KiB]"))
+        long = module._answer("search_dns", "example.com", "x" * 100_000, False)
+        self.assertLessEqual(len(long), 24_000)  # clients show a model only a preview of a larger tool result
+        self.assertTrue(long.endswith("[answer cut at 24,000 characters]"))
+        cut_json = module._answer("search_dns", "example.com", "line of text\n" * 10_000, True)
+        self.assertLessEqual(len(cut_json), 24_000)
+        self.assertEqual(json.loads(cut_json)["tool"], "search_dns")
         with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "ghp_testtokenvalue"}):
             stream = io.StringIO()
             handler = logging.StreamHandler(stream)
@@ -1008,6 +1287,32 @@ class OsintMcp(unittest.TestCase):
         self.assertEqual(page["legal_links"], ["https://example.com/contact"])  # same origin only
         self.assertEqual(page["external_link_domains"], ["other.example.net"])
         self.assertEqual(page["company_identifiers"], [{"label": "VAT", "value": "RO 1234567"}])
+
+    def test_osint_mcp_offers_tools_only(self):
+        Servers.check_tools_only(self, "osint-mcp")  # (a method of the other class, for any TestCase)
+
+    def test_osint_mcp_answers_fit_what_clients_show(self):
+        """subdomains of a large domain (thousands of names), wayback with up to 500 snapshots and recon_batch of ten
+        domains answered far more than the 25,000 characters clients show a model: an answer is shortened to fit,
+        its longest lists cut, and it says what was cut and how much."""
+        from unittest import mock
+        module = load("osint-mcp")
+        from osint_mcp import sources
+
+        async def many(client, domain):
+            return {"domain": domain, "certs_seen": 9000,
+                    "subdomains": [f"host-{n}.{domain}" for n in range(5000)]}
+        with mock.patch.object(sources, "crtsh_subdomains", many):
+            answer = asyncio.run(module.server.mcp.call_tool("subdomains", {"domain": "example.com"}))
+        text = answer.content[0].text
+        self.assertLessEqual(len(text), 24_000)
+        data = json.loads(text)
+        self.assertEqual(data["certs_seen"], 9000)
+        self.assertEqual(data["subdomains"][0], "host-0.example.com")
+        self.assertEqual(data["shortened"]["subdomains"], 5000 - len(data["subdomains"]))
+        self.assertIn("24,000", data["note"])
+        small = {"domain": "example.com", "subdomains": ["a.example.com"]}
+        self.assertEqual(module.bounded(small), small)  # an answer that fits is left as it is
 
     def test_osint_mcp_dns_over_tcp_behind_tor(self):
         """Behind sandbox-ai's Tor profile (SANDBOX_AI_TOR=1) no UDP passes, and tor's DNSPort, where port 53 is sent,

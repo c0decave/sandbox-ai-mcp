@@ -1159,5 +1159,17 @@ async def list_my_videos(max_results: int = 10) -> dict:
     return await _guarded(work())
 
 
+def tools_only(server):
+    """SERVER (a FastMCP) advertises tools only: FastMCP registers the handlers of resources and prompts for every
+    server, and the capabilities of the initialize answer follow the handlers, so a server that publishes neither
+    advertised both. Agents then offer a model tools for MCP resources (Hermes four more per server), which local
+    models took for the way to the server's tools (sandbox-ai research round 1, "the MCP-resource trap")."""
+    import mcp.types as types
+    for request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
+                    types.ListPromptsRequest, types.GetPromptRequest):
+        server._mcp_server.request_handlers.pop(request, None)
+
+
 if __name__ == "__main__":
+    tools_only(mcp)
     mcp.run("stdio")

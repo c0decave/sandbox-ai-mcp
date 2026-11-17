@@ -293,3 +293,7 @@ spec passes natively over stdio against a read-only seeded folder.
 no network code, nothing written or read outside the mounted folders; the ten findings were availability and
 answer-integrity bugs (a crash on a name, memory and time beyond the container's limits, faked answer lines), all
 fixed with tests.
+
+## Review of 2026-11-17 (group A)
+
+All fixed test-first (`tests/test_review_group_a.py`, each test failed before its fix). Tools only: the server no longer announces the MCP capabilities resources and prompts (FastMCP registers both for every server; agents offer the model resource tools for an announced capability, and local models take them for the way to the server's tools). Nothing else found: every tool was run against this repository; answers are plain text capped at 24,000 characters.

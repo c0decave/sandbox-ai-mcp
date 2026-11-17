@@ -18,12 +18,21 @@ every path is resolved and passed as an absolute path (never an option), numbers
 are range-checked, extraction goes to /out when a writable folder is mounted
 there (else /tmp, 64 MiB), the entropy scan does not try to plot, and stored
 results are bounded.
+
+sandbox-ai-mcp review 2026-11-17: no MCP resources (the scans' results only through
+the tools), so the server announces tools only; binwalk runs in a session of its own
+and the time limit kills it with every extractor it started; an extraction stops at
+BINWALK_MAX_EXTRACT bytes (default 2 GiB: /out is a folder of the user's computer);
+output that is not UTF-8 is taken, what is kept of it bounded; a refused call is an
+error (isError).
 """
 
 import asyncio
 import json
 import logging
 import os
+import re
+import signal
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +41,6 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
-    Resource,
     TextContent,
     Tool,
 )
@@ -108,6 +116,17 @@ INPUT_ROOTS = tuple(p for p in os.environ.get("MCP_INPUT_ROOTS", "/work").split(
 #: Results kept in memory (the oldest are dropped).
 MAX_STORED_RESULTS = 100
 MAX_TIMEOUT = 3600
+#: Of binwalk's stdout and of its stderr at most this is read into memory (the rest is read and dropped).
+MAX_READ_OUTPUT = 32 << 20
+#: What a stored result keeps of binwalk's output (get_scan_results shows at most 10,000 characters of it).
+MAX_KEPT_OUTPUT = 64 << 10
+#: Characters of binwalk's error output in an answer (its end).
+MAX_ERROR = 4000
+#: An extraction is stopped when its folder holds more than this (BINWALK_MAX_EXTRACT, like 500M or 4G).
+DEFAULT_MAX_EXTRACT = 2 << 30
+#: Seconds between two looks at the size of an extraction's folder.
+WATCH_SECONDS = 0.5
+OUT_DIR = Path("/out")
 
 
 class ArgumentError(ValueError):
@@ -142,6 +161,93 @@ def _int(value, name: str, low: int, high: int, default):
     return value
 
 
+def max_extract() -> int:
+    """BINWALK_MAX_EXTRACT in bytes (a number, optionally with K, M or G), DEFAULT_MAX_EXTRACT when unset."""
+    text = os.environ.get("BINWALK_MAX_EXTRACT", "").strip()
+    if not text:
+        return DEFAULT_MAX_EXTRACT
+    match = re.fullmatch(r"([0-9]{1,13})([kKmMgG]?)", text)
+    if not match or int(match.group(1)) == 0:
+        raise ArgumentError("BINWALK_MAX_EXTRACT (the user's setting): a number of bytes like 500M or 4G")
+    return int(match.group(1)) << {"": 0, "k": 10, "m": 20, "g": 30}[match.group(2).lower()]
+
+
+def _size_text(size: int) -> str:
+    if size % (1 << 30) == 0:
+        return f"{size >> 30} GiB"
+    return f"{size / (1 << 20):g} MiB"
+
+
+class Stopped(Exception):
+    """A run stopped before its end; the text says why."""
+
+
+async def _read_stream(stream, limit: int) -> bytes:
+    """STREAM to its end, at most LIMIT bytes of it kept."""
+    kept = bytearray()
+    while True:
+        chunk = await stream.read(65536)
+        if not chunk:
+            return bytes(kept)
+        if len(kept) < limit:
+            kept += chunk[:limit - len(kept)]
+
+
+def _tree_size(path: Path) -> int:
+    """Bytes of the files below PATH (links not followed)."""
+    total = 0
+    for base, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(base, name)).st_size
+            except OSError:
+                pass
+    return total
+
+
+def _kill_group(process) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)  # the program and everything it started: a session of their own
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+async def run_tool(cmd: list[str], timeout: float, watch: Path | None = None,
+                   max_bytes: int | None = None) -> tuple[int, bytes, bytes]:
+    """(exit status, stdout, stderr) of CMD, run in a session of its own with stdin empty. After TIMEOUT seconds
+    (asyncio.TimeoutError), or when the folder WATCH holds more than MAX_BYTES (Stopped), the whole process group
+    is killed: binwalk and the extractors it started. What is left of it when it ends is killed too."""
+    process = await asyncio.create_subprocess_exec(
+        *cmd, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        start_new_session=True)
+    reading = asyncio.gather(_read_stream(process.stdout, MAX_READ_OUTPUT),
+                             _read_stream(process.stderr, MAX_READ_OUTPUT), process.wait())
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    try:
+        while True:
+            left = deadline - loop.time()
+            if left <= 0:
+                raise asyncio.TimeoutError
+            done, _ = await asyncio.wait({reading}, timeout=min(WATCH_SECONDS, left))
+            if done:
+                out, err, code = reading.result()
+                return code, out, err
+            if watch is not None and max_bytes is not None and \
+                    await asyncio.to_thread(_tree_size, watch) > max_bytes:
+                raise Stopped(f"the extraction grew past {_size_text(max_bytes)} (BINWALK_MAX_EXTRACT): stopped; "
+                              f"what was extracted until then is in {watch}")
+    finally:
+        _kill_group(process)
+        if not reading.done():
+            reading.cancel()
+        await asyncio.gather(reading, return_exceptions=True)
+        try:
+            await asyncio.wait_for(process.wait(), 10)
+        except asyncio.TimeoutError:
+            pass
+
+
 def _remember(store: dict, key: str, value, active: set) -> None:
     store[key] = value
     while len(store) > MAX_STORED_RESULTS:
@@ -154,7 +260,7 @@ def _remember(store: dict, key: str, value, active: set) -> None:
 
 def _extraction_base() -> Path:
     """/out when the user mounted a writable folder there, else the output dir."""
-    out = Path("/out")
+    out = OUT_DIR
     if out.is_dir() and os.access(out, os.W_OK):
         return out
     return Path(settings.output_dir)
@@ -261,20 +367,14 @@ async def run_binwalk_scan(
     logger.debug(f"Command: {' '.join(cmd)}")
 
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=float(timeout or settings.default_timeout),
-        )
+        returncode, stdout, stderr = await run_tool(
+            cmd, float(timeout or settings.default_timeout),
+            watch=extraction_dir if scan_type == "extract" else None,
+            max_bytes=max_extract() if scan_type == "extract" else None)
 
         result.completed_at = datetime.now()
-        stdout_text = stdout.decode()
-        result.raw_output = stdout_text
+        stdout_text = stdout.decode("utf-8", "replace")
+        result.raw_output = stdout_text[:MAX_KEPT_OUTPUT]
 
         # Parse output based on scan type
         if scan_type == "signature":
@@ -301,11 +401,11 @@ async def run_binwalk_scan(
                 "entropy_edges": len(result.entropy_data),
             }
 
-        if process.returncode == 0:
+        if returncode == 0:
             result.status = "completed"
             logger.info(f"Scan {scan_id} completed successfully")
         else:
-            stderr_text = stderr.decode()
+            stderr_text = stderr.decode("utf-8", "replace")[-MAX_ERROR:]
             if stderr_text and "error" in stderr_text.lower():
                 result.status = "failed"
                 result.error = stderr_text
@@ -318,6 +418,13 @@ async def run_binwalk_scan(
         result.error = f"Scan timed out after {timeout or settings.default_timeout} seconds"
         result.completed_at = datetime.now()
         logger.error(f"Scan {scan_id} timed out")
+
+    except Stopped as e:
+        result.status = "stopped"
+        result.error = str(e)
+        result.extracted_files = list_extracted_files(extraction_dir)
+        result.completed_at = datetime.now()
+        logger.error(f"Scan {scan_id} stopped: {e}")
 
     except Exception as e:
         result.status = "error"
@@ -340,18 +447,8 @@ async def get_hexdump(
     cmd = ["xxd", "-s", str(offset), "-l", str(length), filepath]
 
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        stdout, _ = await asyncio.wait_for(
-            process.communicate(),
-            timeout=30.0,
-        )
-
-        return stdout.decode()
+        _, stdout, _ = await run_tool(cmd, 30.0)
+        return stdout.decode("utf-8", "replace")
 
     except Exception as e:
         return f"Error getting hexdump: {e}"
@@ -517,12 +614,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     try:
         if name == "binwalk_scan":
             if len(active_scans) >= settings.max_concurrent_scans:
-                return [
-                    TextContent(
-                        type="text",
-                        text=f"Maximum concurrent scans ({settings.max_concurrent_scans}) reached.",
-                    )
-                ]
+                raise ArgumentError(f"Maximum concurrent scans ({settings.max_concurrent_scans}) reached: "
+                                    "wait for one to end (list_active_scans)")
 
             filepath = _input_path(arguments.get("filepath"))
 
@@ -541,12 +634,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         elif name == "binwalk_extract":
             if len(active_scans) >= settings.max_concurrent_scans:
-                return [
-                    TextContent(
-                        type="text",
-                        text=f"Maximum concurrent scans ({settings.max_concurrent_scans}) reached.",
-                    )
-                ]
+                raise ArgumentError(f"Maximum concurrent scans ({settings.max_concurrent_scans}) reached: "
+                                    "wait for one to end (list_active_scans)")
 
             filepath = _input_path(arguments.get("filepath"))
 
@@ -565,6 +654,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             ]
 
         elif name == "binwalk_entropy":
+            if len(active_scans) >= settings.max_concurrent_scans:
+                raise ArgumentError(f"Maximum concurrent scans ({settings.max_concurrent_scans}) reached: "
+                                    "wait for one to end (list_active_scans)")
             filepath = _input_path(arguments.get("filepath"))
 
             result = await run_binwalk_scan(
@@ -619,9 +711,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     )
                 ]
             else:
-                return [
-                    TextContent(type="text", text=f"Scan '{scan_id}' not found")
-                ]
+                raise ArgumentError(f"Scan '{scan_id[:100]}' not found (the last {MAX_STORED_RESULTS} are kept)")
 
         elif name == "list_extractions":
             extractions = []
@@ -672,45 +762,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             ]
 
         else:
-            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+            raise ArgumentError(f"Unknown tool: {name[:100]}")
 
     except ArgumentError as e:
-        return [TextContent(type="text", text=f"Error: {e}")]
+        # an error of the call (isError): the SDK answers it as the tool's error
+        raise ArgumentError(f"Error: {e}") from None
     except Exception as e:
         logger.exception(f"Error executing tool {name}: {e}")
-        return [TextContent(type="text", text=f"Error: {str(e)}")]
-
-
-@app.list_resources()
-async def list_resources() -> list[Resource]:
-    """List available resources."""
-    resources = []
-
-    for scan_id, result in scan_results.items():
-        if result.status == "completed":
-            sig_count = len(result.signatures)
-            resources.append(
-                Resource(
-                    uri=f"binwalk://results/{scan_id}",
-                    name=f"Scan Results: {result.filename} ({sig_count} signatures)",
-                    description=f"{result.scan_type} scan completed at {result.completed_at}",
-                    mimeType="application/json",
-                )
-            )
-
-    return resources
-
-
-@app.read_resource()
-async def read_resource(uri: str) -> str:
-    """Read a resource."""
-    if uri.startswith("binwalk://results/"):
-        scan_id = uri.replace("binwalk://results/", "")
-        result = scan_results.get(scan_id)
-        if result:
-            return json.dumps(format_scan_summary(result), indent=2)
-
-    return json.dumps({"error": "Resource not found"})
+        raise RuntimeError(f"Error: {str(e)}") from None
 
 
 async def main():

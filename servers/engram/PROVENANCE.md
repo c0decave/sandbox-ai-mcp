@@ -277,3 +277,13 @@ Reviewed completely: every linked line of Engram and mcp-go, the other modules o
 point ours. One medium finding (E-1) and the folder-scanning arguments (E-2) are handled in the entry point; nothing
 needed a patch. Ready for CI; sign once both smoke reports pass. Only CI can show that the entry point compiles
 against Engram and mcp-go as reviewed.
+
+## Review of 2026-11-17 (group C)
+
+- **Medium:** `mem_get_observation` answered up to 50,000 bytes, with `include_history` up to 50 versions of that,
+  twice (the text and the history in its JSON envelope). `guard()` cuts every answer to 24,000 characters now and says
+  how long it was and how to ask for less (`TestLongAnswersAreCut`).
+- Checked and fine: tools only (mcp-go `WithToolCapabilities` alone), no folder arguments, argument bounds, no
+  network. Engram's own module could not be built here (its golang.org/x and modernc.org modules are not reachable);
+  `main.go` and `main_test.go` were compiled, vetted and tested against stand-ins of `internal/mcp` and
+  `internal/store` with mcp-go v0.44.0 (go.sum's hash): eight tests green. The image build runs them against Engram.

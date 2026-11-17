@@ -1,0 +1,23 @@
+diff --git a/crates/wa-mcp/src/mcp/mod.rs b/crates/wa-mcp/src/mcp/mod.rs
+index 5a36218..abf8179 100644
+--- a/crates/wa-mcp/src/mcp/mod.rs
++++ b/crates/wa-mcp/src/mcp/mod.rs
+@@ -166,13 +166,11 @@ impl WaServer {
+ impl ServerHandler for WaServer {
+     fn get_info(&self) -> ServerConfig {
+         ServerConfig::new(
+-            ServerCapabilities::builder()
+-                .enable_tools()
+-                .enable_prompts()
+-                .enable_resources()
+-                .enable_resources_subscribe()
+-                .enable_completions()
+-                .build(),
++            // sandbox-ai-mcp: tools only. The prompts, resources (the read tools' data again, by URI) and
++            // completions stay implemented but are not announced: an announced capability makes agents offer the
++            // model tools for it (Claude Code, OpenCode and Pi resource tools, Hermes four more per server), which
++            // local models take for the way to the server's tools.
++            ServerCapabilities::builder().enable_tools().build(),
+         )
+         .with_server_info(
+             Implementation::new("wa-mcp", env!("CARGO_PKG_VERSION"))

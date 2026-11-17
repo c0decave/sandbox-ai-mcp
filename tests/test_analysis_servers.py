@@ -1137,6 +1137,19 @@ class Context7(unittest.TestCase):
         for header in ("mcp-session-id", "X-Context7-Client-IDE", "X-Context7-Client-Version"):
             self.assertIn(header, self.prepare)
 
+    def test_the_server_advertises_tools_only(self):
+        """Context7 declares the prompts and resources capabilities with nothing behind them (empty lists); agents then
+        offer a model tools for MCP resources, which local models took for the way to the server's tools. A patch of
+        dist/index.js leaves both out, and index.js is pinned as patched."""
+        patch = re.search(r'file: "dist/index.js",\s*before: "([0-9a-f]{64})",\s*after: "([0-9a-f]{64})"', self.prepare)
+        self.assertIsNotNone(patch, "no patch of dist/index.js in prepare.mjs")
+        files = dict(reversed(line.split("  ", 1)) for line in
+                     (self.folder / "context7-files.sha256").read_text().splitlines())
+        self.assertEqual(files["dist/index.js"], patch.group(2))
+        self.assertIn('            prompts: { listChanged: false },\\n            resources: { listChanged: false, subscribe: '
+                      'false },\\n', self.prepare)
+        self.assertIn("sandbox-ai-mcp: tools only", self.prepare)
+
     def test_context7_only_and_the_key_optional(self):
         self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
         self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
@@ -1409,6 +1422,7 @@ class WhatsApp(unittest.TestCase):
         "0003-store-sender-checks.patch": {"crates/wa-mcp/src/store.rs"},
         "0004-durations-in-range.patch": {"crates/wa-mcp/src/dates.rs"},
         "0005-private-account-folder.patch": {"crates/wa-mcp/src/lock.rs"},
+        "0006-tools-only.patch": {"crates/wa-mcp/src/mcp/mod.rs"},
     }
 
     def setUp(self):
@@ -1431,6 +1445,16 @@ class WhatsApp(unittest.TestCase):
         for tool in ("session_pair", "session_logout"):
             self.assertIn(f'tools.remove_route("{tool}");', gate, f"{tool} is never offered")
             self.assertIn(tool, self.entry["description"] + self.provenance)
+
+    def test_tools_only(self):
+        """The server announces tools only (review of 2026-11-17): upstream announced prompts, resources (the read
+        tools' data again, by URI), resource subscriptions and completions, and agents offer a model tools for an
+        announced capability, which local models take for the way to the server's tools."""
+        patch = self.patch("0006-tools-only.patch")
+        for capability in ("enable_prompts", "enable_resources", "enable_resources_subscribe", "enable_completions"):
+            self.assertIn(f"-                .{capability}()", patch)
+        self.assertIn("+            ServerCapabilities::builder().enable_tools().build(),", patch)
+        self.assertIn("tools only", self.provenance)
 
     def test_the_patches_change_only_their_files_and_are_applied_in_order(self):
         found = sorted(path.name for path in (self.FOLDER / "patches").iterdir())

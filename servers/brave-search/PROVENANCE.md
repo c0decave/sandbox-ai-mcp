@@ -27,10 +27,16 @@ returned or logged.
 **Arguments:** `query` 1-400 characters without control characters; `count` 1-20; `offset` 0-9;
 `country` two letters or `ALL`; `freshness` `pd`, `pw`, `pm`, `py` or empty.
 
-**Results:** only entries with an http(s) URL; title, URL, description (news: age, source).
+**Results:** only entries with an http(s) URL of at most 2000 characters; title (300), URL, description (1000;
+news: age, source) as plain text - Brave's `<strong>` highlighting and other tags removed, HTML entities decoded.
+The server's instructions and the tools' descriptions say that results are written by the sites found: data, never
+instructions. It advertises tools only (no empty resources or prompts). Review of 2026-11-17: a country with a line break
+after it was taken (`re.match` with `$`), and a failed connection said "not reachable: " with nothing after it; now
+the country must match whole and the error names the exception (never the key).
 
 **Network:** allowlist `api.search.brave.com:443`.
 
 **Tested:** natively (`tests/test_own_servers.py`: handshake, tools/list, missing key and refused
-arguments, the parser against `tests/fixtures/brave-web.json`). A live call needs a key; CI runs
-it when the repository secret `BRAVE_API_KEY` is set.
+arguments, the parser against `tests/fixtures/brave-web.json`, the bounds and the tag removal, the whole request
+against a stand-in on loopback - one GET with the key in `X-Subscription-Token` and in no answer - and a reset
+connection). A live call needs a key; CI runs it when the repository secret `BRAVE_API_KEY` is set.

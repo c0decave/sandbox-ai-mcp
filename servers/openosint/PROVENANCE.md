@@ -96,7 +96,9 @@ the shipped modules.
    `tool_policy.env_allows_active` before any tool runs (tested: active mode stays off with the
    variable set).
 5. **Third-party text unbounded.** Results are plain text of unbounded length in places (WHOIS name
-   server lists, VirusTotal categories). The server cuts every answer at 64 KiB and strips the
+   server lists, VirusTotal categories). The server cuts every answer at 24,000 characters (64 KiB until the review of 2026-11-17: clients show a
+   model only a preview of a tool result much above 25,000 characters; with `json_output` the envelope is cut by
+   whole lines to fit) and strips the
    GeoJSON block `search_gdelt_geo` appends for OpenOSINT's web globe (headlines and article URLs);
    what remains is place names and counts.
 6. **Errors as results.** Upstream returns failures as ordinary text (`Scan error: ...`); the server
@@ -178,7 +180,7 @@ thing looked up: WHOIS and RDAP fields (registrar, organisation, e-mail), DNS TX
 of 100 characters, SPF and DMARC of 120), reverse-DNS hostnames and ISP names, GitHub names, bios,
 locations and repository descriptions, VirusTotal file names and categories, Google titles and
 snippets (200 characters each), GDELT place names. The server's instructions and the catalog notes
-say so; answers are bounded to 64 KiB.
+say so; answers are bounded to 24,000 characters. The server advertises tools only (no empty resources or prompts).
 
 **Limits and residual risks:**
 
@@ -217,10 +219,15 @@ compiled wheels built by their projects' CI, like in the other servers here.
 removed and the venv tooling purged; the build stage's `git` is not in the final image; the server
 runs as uid 10001 with `python -I`.
 
+**Live, review of 2026-11-17** (from a sandbox that reaches api.github.com and DNS, nothing else of the
+tools' hosts): all 14 tools called - `generate_dorks`, `search_dns` (example.com) and `search_github` (octocat,
+text and JSON) answered; the others failed with their timeouts or name errors as errors (`isError`), none of the
+five fake keys in an answer or the log.
+
 **Tested:** natively with the locked requirements and the 26 modules installed into a Python 3.13
 venv (`tests/test_own_servers.py` `test_openosint`: the 14 tools of `tools.json`, 13 refused
 arguments, a key-required answer, active mode staying off with `OPENOSINT_ALLOW_ACTIVE=1`, an
-active tool not offered, the GeoJSON block stripped, the 64 KiB bound, key redaction in an answer
+active tool not offered, the GeoJSON block stripped, the 24,000-character bound (text and JSON), key redaction in an answer
 and a log line). CI runs the same test inside the image without network, then `smoke.json`
 (the offline `generate_dorks`, a live `search_rdap` of example.com through IANA and Verisign, and
 four refused calls). Not built here (no container engine); the live RDAP call could not be tried
