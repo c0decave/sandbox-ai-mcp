@@ -197,6 +197,19 @@ class Servers(unittest.TestCase):
         self.assertEqual(module.web_results(data), [{"title": "Example Domain", "url": "https://example.com/",
                                                      "description": "Example description"}])
 
+    def test_agentql(self):
+        """agentql (more in tests/test_agentql.py): its tool, the key and the URL checks, no network."""
+        self.check_tools("agentql")
+        answers = rpc("agentql", session(("extract-web-data", {"url": "https://example.com/", "prompt": "x"}),
+                                         ("extract-web-data", {"url": "http://10.0.0.1/", "prompt": "x"}),
+                                         ("extract-web-data", {"url": "https://example.com/", "prompt": ""})),
+                      env={"AGENTQL_API_KEY": ""})
+        self.assertIn("AGENTQL_API_KEY", result(answers[2])["error"])
+        self.assertIn("a public address", result(answers[3])["error"])
+        self.assertIn("prompt", result(answers[4])["error"])
+        module = load("agentql")
+        self.assertEqual(module.bounded({"url": "u", "data": {"a": 1}}), {"url": "u", "data": {"a": 1}})
+
     def test_web_fetch_refuses_private_ipv4_behind_nat64(self):
         """An IPv6 address carrying an IPv4 one reaches that IPv4 address: it must be public too."""
         import ipaddress

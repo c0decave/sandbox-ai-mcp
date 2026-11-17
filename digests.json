@@ -1,5 +1,6 @@
 {
   "images": {
+    "agentql": null,
     "binwalk": "sha256:e6aecaf7ad29ce2fe1a55c772bd190b5be9a06fbb0317e047afd2bae32e2ad35",
     "bluesky": "sha256:4ab8f8d5eeb60cd26f88662ff606cb67eef0a6aac068118594ae4be4bc9dcf57",
     "brave-search": "sha256:38913f44c127cf69edadd7cfcf625914aeb1b3e6820dbc6169943c030fdafec7",
