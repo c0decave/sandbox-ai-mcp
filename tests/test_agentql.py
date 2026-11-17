@@ -150,5 +150,19 @@ class Packaging(unittest.TestCase):
         self.assertIn("agentql", re.search(r"server: \[(.*?)\]", (ROOT / ".github/workflows/build.yml").read_text(), re.S).group(1))
 
 
+class CandidateReview(unittest.TestCase):
+    """The review of 2026-11-17 has a verdict for every candidate, and every prepared folder points to it."""
+
+    def test_every_candidate_has_its_verdict(self):
+        text = (ROOT / "docs" / "CANDIDATES.md").read_text()
+        section = text.split("## The candidates' security review of 2026-11-17", 1)[1].split("\n## ", 1)[0]
+        verdicts = dict(re.findall(r"^\| ([a-z-]+) \| [^\n]*?\*\*((?:not )?added)", section, re.M))
+        self.assertEqual(verdicts, {"agentql": "added", "reddit": "not added", "browserbase": "not added",
+                                    "codebase-memory": "not added", "ghidra": "not added", "rea": "not added"})
+        for folder in (ROOT / "candidates").iterdir():
+            self.assertIn(folder.name, verdicts)
+            self.assertIn("**Review of 2026-11-17**", (folder / "PROVENANCE.md").read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # MCP servers for sandbox-ai: state and candidates
 
-State: 2026-11-17 (context7 re-pinned to 4.5.0, its diff reviewed; the research preview it adds fixed off). 2026-11-16 (jadx and cfr added: our own servers on jadx 1.5.6 and CFR 0.152 for Android and Java reverse
+State: 2026-11-17 (context7 re-pinned to 4.5.0, its diff reviewed; the research preview it adds fixed off; agentql added as an own server; the other candidates reviewed against the catalog's rule: none admitted, the reasons below). 2026-11-16 (jadx and cfr added: our own servers on jadx 1.5.6 and CFR 0.152 for Android and Java reverse
 engineering; zinja-coder's jadx-mcp-server looked at and left out). 2026-11-15 (filesystem 2.1.0 added, the official MCP server confined to the mounted folders). 2026-11-14
 (sequential-thinking 2.0.0 added; context7 4.4.4 and chrome-devtools 1.12.0 moved from `candidates/`, the last
 pending its complete review). 2026-11-13: exec and tasks added, our own servers for agents on small local models; mcp-server-git,
@@ -142,7 +142,23 @@ lock and unused by a stdio server. Re-lock all `servers/*/requirements.txt` toge
 The hub's remaining servers are **not** ported: they scan, probe or crack (network scanners,
 fuzzers, SQL injection, password cracking) or capture network traffic. They stay in the hub.
 
-## Prepared (`candidates/`): audited, pins missing
+## The candidates' security review of 2026-11-17
+
+The rule for the catalog: only servers whose shipped code we reviewed completely ourselves (all of it, the install
+scripts of its dependencies, every network destination, telemetry off or removable), from a release at least 14
+days old, sandboxed like the others with as little network as possible. Each candidate was checked against it on
+2026-11-17 (upstream, licence and release dates looked up that day):
+
+| Candidate | Upstream, licence, release | Verdict |
+|---|---|---|
+| agentql | tinyfish-io/agentql-mcp 1.0.1, MIT, npm 2026-02-21 (the newest; 269 days old) | **added** as [servers/agentql](../servers/agentql): the whole package (one 99-line server) read and compared with its source; no backdoor, telemetry or unexpected host; shipped as an own server on the shared reviewed Python lock with upstream's findings fixed (no URL check, no time limit, unbounded answers, `HTTPS_PROXY` ignored). The candidate folder is gone |
+| reddit | karanb192/reddit-mcp-buddy, MIT; 1.1.14 (2026-07-29) prepared, 1.2.0 (2026-11-02 02:44 UTC) old enough since 2026-11-16, 1.2.1 (11-10) and 1.3.0 (11-11) not | **not added yet - review not finished, nothing found against it.** The pinning rule asks for 1.2.0 now, and 1.2.0 is a different server: write tools (posting, commenting, voting, behind `REDDIT_BUDDY_WRITE`), an OAuth consent flow that writes a refresh token to a file (`core/oauth-consent.js`, `core/auth.js`), a write gate; 5,513 lines of JavaScript in 15 modules (1.1.14: about 4,300) on `@modelcontextprotocol/sdk` `^1.32.2` and zod 4 (the SDK 1.x closure, about 95 packages, is reviewed nowhere in this repository). A first scan of 1.2.0: hosts only `www.reddit.com`, `oauth.reddit.com` (and help links), `child_process` only in the CLI (`cli.js`, the `--auth` browser opener, not the server), file writes only for the token store. To finish: read 1.2.0 completely, review the SDK 1.32.2 stdio path (or port the read tools onto the shared Python lock as for agentql), keep the write tools off. `candidates/reddit` (1.1.14) stays as it was |
+| browserbase | browserbase/mcp-server-browserbase 3.0.0, Apache-2.0, 2026-03-31 (the newest release) | **not added.** Not reviewable completely, and the opposite of minimal network: every page lives in Browserbase's cloud browser (a CDP WebSocket to a host the session API hands out, not known in advance), and `act`/`observe`/`extract` send the page's content to an LLM provider (Gemini by default) - three secrets, three parties. Stagehand 3.0.8 (the core, 2.8 MB unpacked) brings 15 dependencies including the Anthropic, OpenAI, Google GenAI, LangChain and Vercel AI SDKs and 20 optional ones (12 AI SDK providers, Playwright, Puppeteer, patchright); its hosts could only be read at `main`, not at the locked release. playwright and chrome-devtools (reviewed, local browser) cover the use; Browserbase's hosted MCP endpoint (`https://mcp.browserbase.com/mcp`) needs no container |
+| codebase-memory | DeusData/codebase-memory-mcp 0.12.1, MIT, 2026-10-16 (the newest) | **not added.** What would ship is the release's prebuilt, fully static 330 MB binary (embedded web UI included); its repository has 236 MB of C (tree-sitter grammars of 162 languages vendored, SQLite) plus C++, TypeScript and JavaScript - neither reviewable completely nor rebuilt and compared here, and the release's SLSA/cosign attestations could not be verified (they need a GitHub login). It also starts a detached daemon and, without a config file, a web UI on `127.0.0.1:9749` (`--ui=false` in the entry point). code-search (ours, reviewed) covers definitions, references, outlines and a project map |
+| ghidra | clearbluejar/pyghidra-mcp 0.3.0 (2026-11-02, old enough since 2026-11-16), Apache-2.0; Ghidra 12.2 (2026-10-22), Apache-2.0 | **not added.** Not reviewable completely: Ghidra itself (about 103 MB of Java and 7 MB of C++ in its repository, the headless analyzer and decompiler run on every import), and the lock's 101 Python packages - chromadb 1.5.9 (with its Rust core), onnxruntime, huggingface-hub, tokenizers, grpcio, kubernetes and the OpenTelemetry OTLP exporters among them; chromadb's default embedding function downloads its ONNX model at first use. radare2, jadx, cfr and capa (reviewed) cover static analysis; a Ghidra server would need a much smaller build (Ghidra headless without chromadb's semantic search) with its own review |
+| rea | morluto/rea, MIT; 6.8.0 (2026-10-25, old enough since 2026-11-08), 6.9.0 (2026-11-12) not | **not added.** Not reviewable completely: about 68 MB of TypeScript in its repository, 42 direct dependencies (node-pty with a native build, playwright-core, isomorphic-git, openpgp, ws, ...), about 230 tools, of which some run the sample or arbitrary commands (`capture_process_scenario`, `capture_electron_scenario`, `gdb_console`, Frida tools); Node.js from nodejs.org would have to be pinned besides. Too many tools for the small local models this catalog serves, too |
+
+## Prepared (`candidates/`): audited, pins missing (see the review of 2026-11-17 above: none of these is admitted)
 
 | Server | Upstream | Why not built yet |
 |---|---|---|
@@ -153,8 +169,8 @@ fuzzers, SQL injection, password cracking) or capture network traffic. They stay
 | rea | morluto/rea 6.8.0 (MIT), without native engines | Re-pin before building: 2026-11-08 or an older release (6.8.0 of 2026-10-25); Node.js >= 22.23.4 from nodejs.org: version and SHA-256 to pin; compile step not run; which tools work without engines |
 
 Each has a `PROVENANCE.md` with the audit notes and a Dockerfile that refuses to build until the
-pins are set (codebase-memory, browserbase, agentql and reddit have all pins set but were
-not built yet).
+pins are set (codebase-memory, browserbase and reddit have all pins set but were not built yet; agentql moved to
+servers/ on 2026-11-17).
 The Debian versions of the new candidates were read from the trixie, trixie-updates and
 trixie-security indexes of 2026-11-05 (nodejs `20.19.2+dfsg-1+deb13u3`, npm `9.2.0~ds1-3`, git
 `1:2.47.3-0+deb13u1`, chromium `156.0.8078.79-1~deb13u1`). To finish one: fill the pins (its Dockerfile names the

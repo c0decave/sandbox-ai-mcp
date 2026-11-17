@@ -1,5 +1,7 @@
 # browserbase (prepared) - provenance and audit notes
 
+**Review of 2026-11-17** ([docs/CANDIDATES.md](../../docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17)): not admitted: it cannot be reviewed completely as the catalog requires (the reasons and numbers there). This folder stays as prepared, for reference.
+
 | | |
 |---|---|
 | MCP server | browserbase/mcp-server-browserbase 3.0.0 = npm `@browserbasehq/mcp` (Apache-2.0), tag `v3.0.0` (annotated tag object `afb36691890b26e57ddf5d8f00ec9df07a7b1583`), commit `f6bd321a3790fcacabc24a7beaa505d3037e19c6` (2026-03-31), dependencies from its `pnpm-lock.yaml` (`--frozen-lockfile`) |

@@ -52,12 +52,12 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
 | [filesystem](servers/filesystem) | the official MCP filesystem server (2.1.0) for agents on capable models that expect the reference tool set: read whole files (or head/tail), media as base64, several at once, write, `edit_file` with a git-style diff (`dryRun`), `create_directory`, list (with sizes), `directory_tree`, `move_file`, `search_files` (glob on names), `get_file_info`. Allowed are exactly the folders mounted at `/work` and `/ref1`-`/ref3`; MCP Roots are never used, so a client cannot widen them; links out of the folders refused. Which of files and filesystem: *files or filesystem?* under [Using them in sandbox-ai](#using-them-in-sandbox-ai) | none | - (the folders you mount) |
 
-Prepared, not yet built ([`candidates/`](candidates), see
-[docs/CANDIDATES.md](docs/CANDIDATES.md)): **ghidra** (pyghidra-mcp 0.3.0, Ghidra 12.2 headless),
-**codebase-memory** (codebase-memory-mcp 0.12.1, a code graph of a mounted repository), **browserbase** (Browserbase
-MCP 3.0.0, a cloud browser) and **rea** (REA 6.8.0, static reverse engineering without native engines). All are
-audited; their Dockerfiles refuse to build while a pin is open (ghidra: Debian versions; rea: Node.js from nodejs.org).
-codebase-memory and browserbase have every pin set but have not been built yet.
+Looked at on 2026-11-17 and not admitted (the reasons: [docs/CANDIDATES.md](docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17);
+their prepared folders stay in [`candidates/`](candidates)): **ghidra** (pyghidra-mcp 0.3.0 with Ghidra 12.2 and 101
+Python packages), **codebase-memory** (a prebuilt 330 MB static binary; 236 MB of C in its repository), **browserbase** (a cloud
+browser that sends pages to Browserbase and an LLM provider) and **rea** (about 230 tools; 68 MB of TypeScript in its repository) cannot
+be reviewed completely; **reddit** (reddit-mcp-buddy, to be re-pinned to 1.2.0, which adds write tools) is not
+finished. **agentql** joined the catalog as an own server.
 
 Images: `ghcr.io/c0decave/sandbox-ai-mcp-<name>`, referenced by digest in
 [`catalog.json`](catalog.json). Until the first CI run publishes them, the catalog says

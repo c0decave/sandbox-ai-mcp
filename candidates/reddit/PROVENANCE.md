@@ -1,5 +1,7 @@
 # reddit (prepared) - provenance and audit notes
 
+**Review of 2026-11-17** ([docs/CANDIDATES.md](../../docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17)): not finished: the pinning rule now asks for 1.2.0 (old enough since 2026-11-16), which adds write tools and an OAuth consent flow; its complete review (and that of the MCP SDK 1.32.2 it needs) is still to do. This folder pins 1.1.14 as prepared on 2026-11-06.
+
 | | |
 |---|---|
 | MCP server | karanb192/reddit-mcp-buddy = npm `reddit-mcp-buddy` 1.1.14 (MIT, `LICENSE` "Copyright (c) 2025 Karan Bansal"), published 2026-07-29 (100 days before this audit, see the pinning rule in `docs/CANDIDATES.md`) from commit `dfd3f0941a0ae18ef108a9f7788dd0f350d610b3` (2026-07-29; npm provenance, SLSA v1, `.github/workflows/publish-mcp.yml`, `refs/tags/v1.1.14` at that time). The tag `v1.1.14` was moved afterwards to `e2d3f3fa1ab281a1ef872eeaea86134bbad2c7ec` (tag message: "retagged on registry publish fixes (#67, #68)"); between the two commits only `.github/workflows/` and `server.json` differ, so this pins the commit the provenance names, not the tag |

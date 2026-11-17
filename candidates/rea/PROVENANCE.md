@@ -1,5 +1,7 @@
 # rea (prepared) - provenance and audit notes
 
+**Review of 2026-11-17** ([docs/CANDIDATES.md](../../docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17)): not admitted: it cannot be reviewed completely as the catalog requires (the reasons and numbers there). This folder stays as prepared, for reference.
+
 | | |
 |---|---|
 | MCP server | morluto/rea 6.8.0 = npm `rea-agents` (MIT), tag `rea-agents-6.8.0`, commit `160d821ac9a0310afcb8d1fc427862dd6508add5` (2026-10-25), built from the commit (`npm ci` from its `package-lock.json`, integrity hashes, then `npm run compile`) |
