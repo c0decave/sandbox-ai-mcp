@@ -1,6 +1,6 @@
-// Prepares the installed @upstash/context7-mcp 4.4.4 for the image (see PROVENANCE.md): keeps only the packages that
+// Prepares the installed @upstash/context7-mcp 4.5.0 for the image (see PROVENANCE.md): keeps only the packages that
 // run on the stdio path with OpenTelemetry off, removes the telemetry modules that would load the rest, and applies
-// three patches. Usage: node prepare.mjs NODE_MODULES_DIR (after npm ci --omit=dev --ignore-scripts).
+// four patches (two in dist/index.js). Usage: node prepare.mjs NODE_MODULES_DIR (after npm ci --omit=dev --ignore-scripts).
 // Every kept package must have its locked version, each patched file must be the reviewed one before and after
 // (SHA-256), each replaced text must occur exactly once; anything else stops the build.
 import { createHash } from "node:crypto";
@@ -13,7 +13,7 @@ import { join } from "node:path";
 // the @types packages and undici-types - none of them is loaded.
 const KEEP = {
   "@hono/node-server": "1.19.17", "@modelcontextprotocol/core": "2.3.1", "@modelcontextprotocol/node": "2.1.1",
-  "@modelcontextprotocol/server": "2.3.1", "@upstash/context7-mcp": "4.4.4", "accepts": "2.0.0",
+  "@modelcontextprotocol/server": "2.3.1", "@upstash/context7-mcp": "4.5.0", "accepts": "2.0.0",
   "body-parser": "2.4.0", "bytes": "3.1.2", "call-bind-apply-helpers": "1.0.2", "call-bound": "1.0.4",
   "commander": "13.1.0", "content-disposition": "2.0.1", "content-type": "2.1.0", "cookie": "0.7.2",
   "cookie-signature": "1.2.2", "debug": "4.4.3", "depd": "2.0.0", "dunder-proto": "1.0.1", "ee-first": "1.1.1",
@@ -56,8 +56,8 @@ const PATCHES = [
     //    version of the MCP client (X-Context7-Client-IDE, X-Context7-Client-Version). The query, the library,
     //    the language, the server's version, the transport and the key (when set) still go.
     file: "dist/lib/encryption.js",
-    before: "8e949eb881dbcecca19c1cf88fa18ca0d2d991823361f1471d5e9143ac4fcd10",
-    after: "b1a749c013d49de59fc1e6bad8304ce646679e4fe279de8a82e3ed978f92d78e",
+    before: "a55b3b4bce3c1d209d5e7c92d20fa6ae5ba7a50ff15c10c154a40d2c834182fc",
+    after: "0ee644ab37da5dd85e9805f9d2df2ae8ace6e0e0657d54a573e4c12f679ef24d",
     replace: [
       [
         '    if (context.sessionId) {\n        headers["mcp-session-id"] = context.sessionId;\n    }\n',
@@ -73,13 +73,20 @@ const PATCHES = [
     // 3. Tools only: the server declares the prompts and resources capabilities and has none of either (empty
     //    lists). Agents act on the capability: they offer a model tools for MCP resources (Hermes four more per
     //    server), which local models took for the way to the server's tools (sandbox-ai research round 1).
+    // 4. No research preview (4.5.0): --research-preview or CONTEXT7_RESEARCH_PREVIEW=1 would add the tool
+    //    submit-docs-feedback, which POSTs agent-written feedback to context7.com, and instructions to call it after
+    //    every answer ("No need to mention it to the user"). Fixed off: only the two lookups leave.
     file: "dist/index.js",
-    before: "05aa837e6586447e02fcd97a13f992e4f625efa8498371610a82cea6d235eccc",
-    after: "f7ba8b2c2eec330b75fff62ce9cfcd8e327ce624da0f64cbcec80959c5c7cb23",
+    before: "a58aa517ab6defd8780566373a9fde5d1d47845a1cf7b2fb72151ef595740a57",
+    after: "5d434be98e6a68ac94bf275608786a09cfd75286d0aab8df16958b7ef53939d7",
     replace: [
       [
         "            prompts: { listChanged: false },\n            resources: { listChanged: false, subscribe: false },\n",
         "            // sandbox-ai-mcp: tools only (no prompts or resources capability: it publishes none).\n",
+      ],
+      [
+        "        stdioResearchPreview =\n            cliOptions.researchPreview === true ||\n                isResearchPreviewValue(process.env.CONTEXT7_RESEARCH_PREVIEW);\n",
+        "        // sandbox-ai-mcp: no research preview (submit-docs-feedback would send agent-written feedback).\n        stdioResearchPreview = false;\n",
       ],
     ],
   },

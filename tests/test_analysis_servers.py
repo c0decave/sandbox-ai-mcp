@@ -338,8 +338,10 @@ class Radare2(unittest.TestCase):
         self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
                                                re.M | re.S).group(1))
 
+    TOOLS_ONLY = "0002-tools-only.patch"
+
     def test_the_patch_changes_only_r2api_and_is_applied_and_checked(self):
-        self.assertEqual(sorted(path.name for path in (self.FOLDER / "patches").iterdir()), [self.PATCH])
+        self.assertEqual(sorted(path.name for path in (self.FOLDER / "patches").iterdir()), [self.PATCH, self.TOOLS_ONLY])
         text = (self.FOLDER / "patches" / self.PATCH).read_text()
         self.assertEqual(set(re.findall(r"^\+\+\+ b/(\S+)$", text, re.M)), {"src/r2api.inc.c"})
         self.assertIn("+\tif (is_uri && R_STR_ISNOTEMPTY (ss->sandbox)) {", text)
@@ -351,6 +353,29 @@ class Radare2(unittest.TestCase):
         patched = re.search(r'echo "([0-9a-f]{64})  src/r2api.inc.c" \| sha256sum --check --strict', self.dockerfile)
         self.assertTrue(patched, "the patched file is checked by SHA-256")
         self.assertIn(patched.group(1), self.provenance)
+
+    def test_tools_only(self):
+        """r2mcp 1.9.0 announces the prompts and resources capabilities whatever it has: -N loads no prompt, and
+        resources/list is always empty. Agents then offer a model resource tools, which local models took for the way
+        to the server's tools. Patch 0002 announces prompts only when they are loaded and no resources; both patched
+        files are checked by SHA-256, and the image build refuses an initialize answer with either capability."""
+        text = (self.FOLDER / "patches" / self.TOOLS_ONLY).read_text()
+        self.assertEqual(set(re.findall(r"^\+\+\+ b/(\S+)$", text, re.M)), {"src/main.c", "src/r2mcp.c"})
+        self.assertIn("+\t\t.capabilities = { .tools = true, .prompts = load_prompts, .resources = false },", text)
+        self.assertIn("+\tif (ss->capabilities.prompts) {", text)
+        self.assertIn("+\tif (ss->capabilities.resources) {", text)
+        digest = hashlib.sha256((self.FOLDER / "patches" / self.TOOLS_ONLY).read_bytes()).hexdigest()
+        self.assertIn(digest, self.provenance, "PROVENANCE.md names another SHA-256")
+        for name in ("src/r2mcp.c", "src/main.c"):
+            patched = re.search(r'echo "([0-9a-f]{64})  %s" \| sha256sum --check --strict' % re.escape(name),
+                                self.dockerfile)
+            self.assertTrue(patched, f"the patched {name} is checked by SHA-256")
+            self.assertIn(patched.group(1), self.provenance)
+        check = re.search(r"(?ms)^# tools only: .*?\n(RUN .*?[^\\])\n", self.dockerfile)
+        self.assertTrue(check, "the image build checks the initialize answer")
+        for text in ('"method":"initialize"', "grep -q '\"tools\"'", "! grep -q '\"resources\"'",
+                     "! grep -q '\"prompts\"'", "-s /work -g none -N"):
+            self.assertIn(text, check.group(1))
 
     def test_the_entrypoint_offers_exactly_the_reviewed_tools(self):
         self.assertEqual(self.entrypoint[:6], ["/opt/radare2/bin/r2mcp", "-s", "/work", "-g", "none", "-N"])
@@ -1201,14 +1226,14 @@ class Context7(unittest.TestCase):
 
     def test_the_lock_pins_every_package_by_integrity_without_install_scripts(self):
         packages = {path: entry for path, entry in self.lock["packages"].items() if path}
-        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.4.4")
+        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.5.0")
         for path, entry in packages.items():
             self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), path)
             self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", path)
             self.assertFalse(entry.get("hasInstallScript"), f"{path} has an install script")
         self.assertIn(packages["node_modules/@upstash/context7-mcp"]["integrity"], self.provenance)
         self.assertEqual(read_json("servers", "context7", "package.json")["dependencies"],
-                         {"@upstash/context7-mcp": "4.4.4"})
+                         {"@upstash/context7-mcp": "4.5.0"})
 
     def test_prepare_keeps_only_locked_packages_and_no_telemetry(self):
         keep = json.loads("{" + re.search(r"const KEEP = \{(.*?)\};", self.prepare, re.S).group(1)
@@ -1230,7 +1255,7 @@ class Context7(unittest.TestCase):
         self.assertIn("node prepare.mjs node_modules", self.dockerfile)
         self.assertIn("sha256sum --check --strict --quiet /opt/context7/context7-files.sha256", self.dockerfile)
         files = (self.folder / "context7-files.sha256").read_text().splitlines()
-        self.assertEqual(len(files), 20)
+        self.assertEqual(len(files), 21)
         names = [line.split("  ", 1)[1] for line in files]
         self.assertIn("dist/index.js", names)
         self.assertNotIn("dist/lib/telemetry.js", names)
@@ -1261,6 +1286,15 @@ class Context7(unittest.TestCase):
                       'false },\\n', self.prepare)
         self.assertIn("sandbox-ai-mcp: tools only", self.prepare)
 
+    def test_the_research_preview_cannot_be_switched_on(self):
+        """4.5.0 adds a research-preview tool (submit-docs-feedback: agent-written feedback POSTed to context7.com,
+        with instructions to call it after every answer and not to mention it to the user), on with
+        --research-preview or CONTEXT7_RESEARCH_PREVIEW=1. The patch of dist/index.js fixes it off."""
+        self.assertIn("isResearchPreviewValue(process.env.CONTEXT7_RESEARCH_PREVIEW);\\n", self.prepare)
+        self.assertIn("sandbox-ai-mcp: no research preview", self.prepare)
+        self.assertNotRegex(self.dockerfile, r"(?m)^ENV .*CONTEXT7_RESEARCH_PREVIEW")
+        self.assertNotIn("submit-docs-feedback", read_json("servers", "context7", "tools.json")["tools"])
+
     def test_context7_only_and_the_key_optional(self):
         self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
         self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
@@ -1279,7 +1313,8 @@ class Context7(unittest.TestCase):
         self.assertTrue([c for c in refused if c.get("absent")])
 
     def test_the_release_and_the_newer_ones_are_in_the_provenance(self):
-        for text in ("c7f80ce5af1ff1403d167579b76784482cf7f3e2", "4.5.0", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84"):
+        for text in ("a138857cc23f0abaf214b72b15d974e61598369b", "4.4.4", "4.5.1", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84",
+                     "sha512-BTMM4j2ZuZdAHE1sERUCcty1eRcom4LCE04iv2XIi9b9RKhJKQsXMG7gZLgx7FX5uyyaW6xki7ReuhRM4bphZQ=="):
             self.assertIn(text, self.provenance)
         self.assertFalse((ROOT / "candidates" / "context7").exists(), "the candidate is replaced by servers/context7")
 

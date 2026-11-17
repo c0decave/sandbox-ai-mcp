@@ -1,0 +1,42 @@
+{
+  "name": "agentql",
+  "network": "allowlist",
+  "hosts": [
+    "api.agentql.com:443"
+  ],
+  "expect_tools": [
+    "extract-web-data"
+  ],
+  "env": {
+    "AGENTQL_API_KEY": "${AGENTQL_API_KEY}"
+  },
+  "calls": [
+    {
+      "tool": "extract-web-data",
+      "arguments": {
+        "url": "http://192.168.1.1/",
+        "prompt": "the page title"
+      },
+      "expect": "url: a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "extract-web-data",
+      "arguments": {
+        "url": "file:///etc/passwd",
+        "prompt": "the first line"
+      },
+      "expect": "url: an http(s) URL",
+      "expect_error": true
+    },
+    {
+      "tool": "extract-web-data",
+      "arguments": {
+        "url": "https://example.com/",
+        "prompt": ""
+      },
+      "expect": "prompt: 1-2000 characters",
+      "expect_error": true
+    }
+  ]
+}

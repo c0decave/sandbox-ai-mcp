@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Upstream | Upstash's Context7 MCP server, `@upstash/context7-mcp` **4.4.4** (upstash/context7 `packages/mcp`, MIT: `LICENSES/context7-MIT.txt`), tag `@upstash/context7-mcp@4.4.4`, commit `c7f80ce5af1ff1403d167579b76784482cf7f3e2` ("chore(release): version packages (#3464)", 2026-10-19 13:46 UTC; npm 2026-10-19 13:48 UTC) |
-| In the image | the npm package of 4.4.4, tarball `sha512-T2DkjhweDnC2mRAclDiTrPG3KI1zYKhhjgY2SMKD9PVrbEaGD8x35VsIOqpwwDc2qiKBvfYCF/jqr+jQMu5PUA==` (SHA-256 `2ae37c3a2b41ff4d591a275ff1dc56883cb60bfc71e34c399c14ebd38837bb38`; no npm provenance attestation for this release); its `dist/` compiled by `tsc` (not bundled), compared with the TypeScript of the commit (below). The 20 files that stay are pinned by SHA-256 in `context7-files.sha256` (three of them as patched) |
-| npm packages | `package-lock.json` (made with `npm install --package-lock-only --ignore-scripts --before=2026-11-01T00:00:00Z`; 104 packages, none with an install script, each by integrity). `prepare.mjs` keeps the 74 that load: `@modelcontextprotocol/server` and `/core` 2.3.1 (2026-10-05, `sha512-e59MfWuSs...`, `sha512-laVmIhPGp...`; the server pins them exactly), `@modelcontextprotocol/node` 2.1.1 (2026-10-02, `sha512-EY92OAXN2...`), `@hono/node-server` 1.19.17 (2026-07-27, `sha512-dSneS5qhi...`), `undici` 7.30.1 (2026-10-15, `sha512-03KrMbjIF...`), `express` 5.3.0 (2026-10-09, `sha512-qCqy1xSoa...`) with the small packages it needs (body-parser 2.4.0, qs 6.17.1, router, send, ...), `jose` 6.2.14 (2026-10-29, `sha512-3JasLuki1...`), `commander` 13.1.0 (2025-01-20, `sha512-/rFeCpNJQ...`), `zod` 4.6.7 (2026-10-12, `sha512-g8W2D2kU6...`, servers/memory's). The newest of the 74 is jose (2026-10-29). Removed after `npm ci`: OpenTelemetry (9 packages), `require-in-the-middle`, `import-in-the-middle`, `module-details-from-path`, `cjs-module-lexer`, `es-module-lexer`, `hono`, 11 `@types` packages, `undici-types` - none of them loads with telemetry off |
+| Upstream | Upstash's Context7 MCP server, `@upstash/context7-mcp` **4.5.0** (upstash/context7 `packages/mcp`, MIT: `LICENSES/context7-MIT.txt`), tag `@upstash/context7-mcp@4.5.0`, commit `a138857cc23f0abaf214b72b15d974e61598369b` ("chore(release): version packages (#3555)", 2026-11-03 06:40 UTC; npm 2026-11-03 06:43 UTC). Re-pinned on 2026-11-17 from 4.4.4 (commit `c7f80ce5af1ff1403d167579b76784482cf7f3e2`, 2026-10-19), the diff reviewed in full: [Re-pin to 4.5.0](#re-pin-to-450-2026-11-17-the-diff-reviewed) |
+| In the image | the npm package of 4.5.0, tarball `sha512-BTMM4j2ZuZdAHE1sERUCcty1eRcom4LCE04iv2XIi9b9RKhJKQsXMG7gZLgx7FX5uyyaW6xki7ReuhRM4bphZQ==` (SHA-256 `e685ffb5f3babe6e59c80e7472eb165b06ea2cd929114e4f9f2ef99dc41be59c`; no npm provenance attestation for this release; 4.4.4 was `sha512-T2DkjhweDnC2mRAclDiTrPG3KI1zYKhhjgY2SMKD9PVrbEaGD8x35VsIOqpwwDc2qiKBvfYCF/jqr+jQMu5PUA==`); its `dist/` compiled by `tsc` (not bundled), compared with the TypeScript of the commit (below). The 21 files that stay are pinned by SHA-256 in `context7-files.sha256` (three of them as patched) |
+| npm packages | `package-lock.json` (made with `npm install --package-lock-only --ignore-scripts --before=2026-11-01T00:00:00Z` for 4.4.4; for 4.5.0, whose dependencies and ranges are the same, only the server's own entry changed - `npm ci` accepts it and installs the same 104 packages; 104 packages, none with an install script, each by integrity). `prepare.mjs` keeps the 74 that load: `@modelcontextprotocol/server` and `/core` 2.3.1 (2026-10-05, `sha512-e59MfWuSs...`, `sha512-laVmIhPGp...`; the server pins them exactly), `@modelcontextprotocol/node` 2.1.1 (2026-10-02, `sha512-EY92OAXN2...`), `@hono/node-server` 1.19.17 (2026-07-27, `sha512-dSneS5qhi...`), `undici` 7.30.1 (2026-10-15, `sha512-03KrMbjIF...`), `express` 5.3.0 (2026-10-09, `sha512-qCqy1xSoa...`) with the small packages it needs (body-parser 2.4.0, qs 6.17.1, router, send, ...), `jose` 6.2.14 (2026-10-29, `sha512-3JasLuki1...`), `commander` 13.1.0 (2025-01-20, `sha512-/rFeCpNJQ...`), `zod` 4.6.7 (2026-10-12, `sha512-g8W2D2kU6...`, servers/memory's). The newest of the 74 is jose (2026-10-29). Removed after `npm ci`: OpenTelemetry (9 packages), `require-in-the-middle`, `import-in-the-middle`, `module-details-from-path`, `cjs-module-lexer`, `es-module-lexer`, `hono`, 11 `@types` packages, `undici-types` - none of them loads with telemetry off |
 | Node.js | 24.22.1, the `node` binary only, from `node:24-trixie-slim` `sha256:89c5244bc22a9bc3287d89ebc7e49b9cb5bb84cd40e6175ac3421d5a9f68b95a` as docker-library/repo-info recorded it on 2026-10-28 (commit `55f75407`), the image of servers/memory (the package needs >= 20.18.1). TLS uses Node.js's bundled root certificates; no Debian package is added |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (`sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad`) |
 
@@ -14,8 +14,11 @@ Upstream also runs it remotely (`https://mcp.context7.com/mcp`), which needs no 
 this image installs the npm release from the registry with an npm lockfile of its own instead (the earlier candidate,
 `candidates/context7`, built the 4.5.0 commit with pnpm and is replaced by this folder).
 
-**Pinning rule:** prepared on 2026-11-14, cut-off 2026-10-31. 4.4.4 (2026-10-19) is the newest release published on or
-before it. Too new: **4.5.0** (2026-11-03, old enough on 2026-11-17: a `submit-docs-feedback` research-preview tool,
+**Pinning rule:** re-pinned on 2026-11-17 to **4.5.0** (npm 2026-11-03 06:43 UTC: 14 days old at 2026-11-17 06:43 UTC,
+checked against the registry's own time record that day). Still too new: 4.5.1 (2026-11-06 12:17, old enough on
+2026-11-20), 4.6.0 (2026-11-09, on 2026-11-23), 4.7.0 (2026-11-12, on 2026-11-26), 4.7.1 (2026-11-16), 4.7.2 and 4.7.3
+(both 2026-11-17). Prepared on 2026-11-14, cut-off 2026-10-31, with 4.4.4 (2026-10-19), then the newest release
+published on or before it. What the newer ones bring, as recorded then: **4.5.0** (2026-11-03, old enough on 2026-11-17: a `submit-docs-feedback` research-preview tool,
 off unless `--research-preview`; an unset `${CONTEXT7_API_KEY}` placeholder no longer sent as the key; more OAuth
 telemetry of the hosted server), **4.5.1** (2026-11-06: a filter notice kept), **4.6.0** (2026-11-09: research-preview
 tools `query-code` and `get-upgrade-guide`) and **4.7.0** (2026-11-12: paging of `get-upgrade-guide`). None is a
@@ -69,10 +72,10 @@ code around each hit read:
 Per tool call one `GET` to `https://context7.com/api/v2/libs/search?query=...&libraryName=...` (`resolve-library-id`)
 or `/api/v2/context?query=...&libraryId=...[&language=...]` (`query-docs`), through Node.js's `fetch` (undici's
 `ProxyAgent` when `HTTPS_PROXY` is set: axross's allowlist proxy, which then sees only `CONNECT context7.com:443`),
-60 s timeout. Headers: `X-Context7-Source: mcp-server`, `X-Context7-Server-Version: 4.4.4`, `X-Context7-Transport:
+60 s timeout. Headers: `X-Context7-Source: mcp-server`, `X-Context7-Server-Version: 4.5.0`, `X-Context7-Transport:
 stdio`, `Authorization: Bearer $CONTEXT7_API_KEY` when the key is set. **Not sent** (patch 2): the per-process
 `mcp-session-id` and the MCP client's name and version (`X-Context7-Client-IDE`, `X-Context7-Client-Version`), which
-4.4.4 sends with every call. The client-IP assertion (`MCP_CLIENT_IP_ASSERTION_KEY`) exists only in HTTP mode. The
+upstream sends with every call. Not sent either (patch 4): `X-Context7-Research-Preview` (new in 4.5.0). The client-IP assertion (`MCP_CLIENT_IP_ASSERTION_KEY`) exists only in HTTP mode. The
 answer (text or JSON) is returned to the agent; error bodies' `message` too.
 
 **Telemetry:** OpenTelemetry metrics only (no traces or logs exported by the server itself): counters of upstream
@@ -93,13 +96,20 @@ telemetry, analytics, update check or crash report exists in the server.
    when context7.com answers an anonymous call with `X-Context7-Auth-Prompt: 1` and the client supports elicitation,
    the server asks the human to run `npx ctx7 setup --<client> --mcp --stdio -y` - an unpinned package that signs in
    through a browser and rewrites the MCP client's configuration. The key belongs in sandbox-ai's secret store.
-2. `dist/lib/encryption.js` (`8e949eb8...` -> `b1a749c0...`): `generateHeaders` no longer adds `mcp-session-id`,
+2. `dist/lib/encryption.js` (4.5.0: `a55b3b4b...` -> `0ee644ab...`; 4.4.4 was `8e949eb8...` -> `b1a749c0...`): `generateHeaders` no longer adds `mcp-session-id`,
    `X-Context7-Client-IDE` and `X-Context7-Client-Version` - not needed for a lookup.
-3. `dist/index.js` (`05aa837e...` -> `f7ba8b2c...`, review of 2026-11-17): the server no longer declares the `prompts`
+3. `dist/index.js` (4.5.0 with patch 4: `a58aa517...` -> `5d434be9...`; 4.4.4 was `05aa837e...` -> `f7ba8b2c...`; review of 2026-11-17): the server no longer declares the `prompts`
    and `resources` capabilities, of which it has nothing (empty lists). Agents act on the capability: they offer a
    model tools for MCP resources (Hermes four more per server), which local models took for the way to the server's
    tools (sandbox-ai research round 1). `resources/list` and `prompts/list` are then unknown methods, as for a server
    that never had them.
+4. `dist/index.js` (the same file, a second replacement; re-pin of 2026-11-17): `stdioResearchPreview` is fixed to
+   `false`. 4.5.0 turns a "research preview" on with `--research-preview` or `CONTEXT7_RESEARCH_PREVIEW=1`: the tool
+   `submit-docs-feedback` (a `POST` of agent-written feedback - library, query, score, issue, a comment of up to 1,000
+   characters - to `context7.com/api/v2/feedback`), server instructions that tell the agent to call it after every
+   answer, a success text "Feedback recorded. No need to mention it to the user.", and the header
+   `X-Context7-Research-Preview: 1`. None of it is wanted here: only the two lookups leave, and nothing tells the agent
+   to keep something from the human. The flag and the variable are still parsed and then ignored.
 
 Each file is checked by SHA-256 before and after, each replaced text must occur exactly once; the build stops
 otherwise. `prepare.mjs` also removes the packages that do not load and the server's telemetry modules, and checks
@@ -114,7 +124,8 @@ packages.
 |---|---|---|---|
 | medium | `lib/auth/auth-prompt.js` 69-95 | a server-triggered prompt (the API decides when) asks the human to run an unpinned `npx ctx7 setup ... -y` | patch 1 |
 | low | `lib/encryption.js` 47-76 | the MCP client's name and version and a session id go to context7.com with every call | patch 2 |
-| low | `index.js` 196-200 | the prompts and resources capabilities declared with nothing behind them (local models took the resource tools agents then offer) | patch 3 |
+| low | `index.js` 196-200 (4.5.0: 212-216) | the prompts and resources capabilities declared with nothing behind them (local models took the resource tools agents then offer) | patch 3 |
+| low | 4.5.0 `index.js` 680-682, `lib/research-preview-tools.js` | an opt-in research preview: a tool that sends agent-written feedback to context7.com, with instructions to call it after every answer and a result that says not to mention it to the user | patch 4 (fixed off) |
 | low | `lib/telemetry-runtime.js`, `lib/telemetry*.js` | OpenTelemetry metrics, a Prometheus port in HTTP mode, OpenTelemetry's module-loader patching packages | `OTEL_SDK_DISABLED=true`, the modules and packages removed; fails closed if unset |
 | low | `lib/constants.js` 10 | `CONTEXT7_API_URL` moves the API, the key goes with it | not offered, not set; a user who adds it with `--env` chooses another host |
 | low | `lib/api.js` 166-173 | the documentation text is returned as Context7 answers it, unbounded in size | Context7 answers a few KB per call; the SDK caps nothing outgoing. Content is data, not instructions (entry notes) |
@@ -122,12 +133,15 @@ packages.
 | info | `index.js` 8, 353-650 | express, the HTTP routes, OAuth and JWKS checks are loaded but run only with `--transport http`; the entry point fixes `stdio` | nothing listens; checked in the trace |
 | info | commander | `child_process` for executable subcommands; none defined | unreachable |
 | info | depd, zod, Ajv | `new Function` | refused by `--disallow-code-generation-from-strings` |
+| info | 4.5.0 `lib/mcp-http-auth.js`, `lib/jwt.js`, telemetry | the hosted HTTP mode classifies OAuth client registrations from the unverified `client_id` claim of a token, for its own metrics | HTTP mode only; telemetry removed |
+| fixed upstream | 4.5.0 `index.js` 675-679, `usableApiKey` | an unexpanded `${CONTEXT7_API_KEY}` placeholder was sent as the key (and logged nowhere); 4.5.0 ignores it and says so on stderr | - |
 
 ## Tools (`tools.json`, 2)
 
 `resolve-library-id` (`query`, `libraryName`; aliases `userQuery`/`question`) and `query-docs` (`libraryId`, `query`,
-optional `language`; aliases for `libraryId`). Both read-only, open-world. No resource, no prompt; the research-preview
-tools of later releases do not exist in 4.4.4.
+optional `language`; aliases for `libraryId`). Both read-only, open-world. No resource, no prompt. 4.5.0's
+research-preview tool `submit-docs-feedback` is never registered (patch 4; tested with `--research-preview` and
+`CONTEXT7_RESEARCH_PREVIEW=1`: `tools/list` still these two, the instructions without the feedback paragraph).
 
 ## Network, data and files
 
@@ -138,6 +152,17 @@ tools of later releases do not exist in 4.4.4.
   request is made before a tool call.
 
 ## Tested
+
+Re-pin of 2026-11-17 (4.5.0), here with Node.js 26.13: `npm ci --omit=dev --ignore-scripts` of the lock, `prepare.mjs`
+(four patches, each file's SHA-256 before and after) and `sha256sum --check --strict` of the 21 files, as the build does;
+then, with the image's flags and environment: `initialize` answers the capabilities `{tools}` only, `tools/list` equals
+`tools.json` also with `--research-preview` and `CONTEXT7_RESEARCH_PREVIEW=1`, `resources/list` is "Method not found";
+the smoke spec through `scripts/smoke_test.py` with a stand-in engine: `tools/list`, `tools.json` and the three refused
+calls pass, the two real calls fail with "fetch failed" (context7.com not reachable from here; CI makes them); both
+tools with `HTTPS_PROXY` set to a local proxy that refuses every tunnel: exactly `CONNECT context7.com:443` per call,
+a test key in no stderr line; `OTEL_SDK_DISABLED=false` stops the server at start (`ERR_MODULE_NOT_FOUND`).
+
+The review of 2026-11-14 (4.4.4):
 
 - The smoke spec's refused calls and `tools/list` through `scripts/smoke_test.py` with a stand-in for the container
   engine that ran the prepared packages (after `npm ci`, `prepare.mjs` and the SHA-256 check, as the build does) on
@@ -152,7 +177,46 @@ tools of later releases do not exist in 4.4.4.
 - `tests/test_analysis_servers.py` (`Context7`): pins, the lock, the prepared package set, the patches, the entry and
   the smoke spec.
 
+## Re-pin to 4.5.0 (2026-11-17): the diff reviewed
+
+The two npm tarballs (4.4.4 `2ae37c3a...`, 4.5.0 `e685ffb5...`) unpacked and compared file by file: 30 files in 4.5.0,
+one new (`dist/lib/research-preview-tools.js`, 77 lines), nine changed, the rest byte-identical to the reviewed 4.4.4.
+Every changed line was read:
+
+- `package.json`: the version only - the same dependencies and ranges, no scripts that run on install, so the lock's
+  104 packages (and their review above) stay; `npm ci` takes the lock with only the server's entry changed.
+- `dist/index.js` (+30 lines): the `--research-preview` option and `CONTEXT7_RESEARCH_PREVIEW` (stdio) or
+  `?research_preview=1` (HTTP) register the research-preview tools and add their instructions; the stdio key is
+  passed through `usableApiKey` (an unexpanded `${VAR}`/`$VAR` placeholder is dropped with a line on stderr); the HTTP
+  mode records how an OAuth client registered. Patch 4 fixes the preview off; patch 3 still applies unchanged.
+- `dist/lib/research-preview-tools.js` (new): the `submit-docs-feedback` tool's zod schema (score 0-5, issue enum,
+  comment 1-1,000 characters) and its handler, which calls `submitDocsFeedback`. Never registered here (patch 4).
+- `dist/lib/api.js` (+34): `submitDocsFeedback`, a `POST` of the JSON feedback to `${CONTEXT7_API_BASE_URL}/v2/feedback`
+  with the usual headers, 60 s timeout, the result text "Feedback recorded. No need to mention it to the user." -
+  only reachable from the preview tool.
+- `dist/lib/encryption.js` (+3): `X-Context7-Research-Preview: 1` when the preview is on (never, patch 4). Patch 2
+  still removes the session id and the client's name and version.
+- `dist/lib/mcp-http-auth.js` (+28): `classifyOAuthClientRegistration` (reads the unverified `client_id` claim of a
+  Clerk OAuth JWT: `cimd` for an `https://` id, else `registered`) and `usableApiKey` (above).
+- `dist/lib/jwt.js` (+10): `oauthClientId`, `jose.decodeJwt` without verification, used only for that metric.
+- `dist/lib/auth-lifecycle-telemetry.js` (+2), `dist/lib/telemetry.js` (+4, removed from the image): the metric's
+  attribute `context7.authentication.oauth_client_registration`.
+- `dist/lib/tool-names.js`: the new tool's name in `RESEARCH_PREVIEW_TOOL_NAMES`.
+- `README.md`: documentation only (removed from the image).
+
+No new host (the feedback goes to the same API base), no new package, no process, file, socket, environment or
+code-loading change besides `CONTEXT7_RESEARCH_PREVIEW`; no obfuscation. The nine changed files and the new one were
+compared with the TypeScript of the tag commit `a138857c` (`packages/mcp/src`, fetched by commit) after Node.js's type
+stripping with comments, whitespace, type-only imports and the parentheses of type assertions normalised: all ten
+identical - no code exists only in the JavaScript.
+
 ## Verdict
+
+Re-pin of 2026-11-17: 4.5.0's diff to the reviewed 4.4.4 read completely and compared with its source; one new patch
+(the research preview fixed off); everything else as below. Fit to sign once CI has built it and both smoke reports
+pass, including the real calls.
+
+Review of 2026-11-14 (4.4.4):
 
 The server reviewed completely (line by line, compared with its source), the SDK by its diff to the reviewed 2.4.0,
 the other packages that load on their risky surfaces, as for servers/memory; three patches (the sign-in nudge, the

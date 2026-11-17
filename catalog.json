@@ -5,10 +5,47 @@
   "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
   "state": "pending-digests",
   "pending": [
+    "agentql",
     "cfr",
     "jadx"
   ],
   "entries": [
+    {
+      "id": "mcp:agentql",
+      "name": "agentql",
+      "title": "AgentQL (structured data from web pages)",
+      "description": "Structured data from a public web page through AgentQL's hosted data extraction API (TinyFish): extract-web-data sends the URL and a natural-language description of the data to api.agentql.com, whose cloud browser loads the page and whose model returns the data as JSON. The tool of tinyfish-io/agentql-mcp 1.0.1, reviewed in full, as an own server: public http(s) URLs only (no local or private addresses, no credentials in the URL), answers at most 24,000 characters, nothing read or written locally. Needs an API key from https://dev.agentql.com in AGENTQL_API_KEY and network: Allowlist with api.agentql.com:443.",
+      "category": "Web",
+      "tags": [
+        "web",
+        "scraping",
+        "extraction",
+        "agentql"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/agentql",
+      "page": "https://github.com/tinyfish-io/agentql-mcp",
+      "license": "MIT (MCP server, sandbox-ai-mcp; the tool of agentql-mcp, MIT)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-agentql",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "AGENTQL_API_KEY",
+          "description": "AgentQL API key: https://dev.agentql.com",
+          "secret": true,
+          "required": true
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "api.agentql.com:443"
+      ],
+      "notes": "Every URL and prompt the agent passes goes to AgentQL (TinyFish), which loads the page in its cloud browser and reads it with its model: do not put secrets, personal data or internal addresses into them. The key is sent only to api.agentql.com as the X-API-Key header and never returned or logged. What comes back was written by the page's authors and read by a model: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to api.agentql.com over TCP through Tor; AgentQL may refuse or rate-limit Tor exit addresses (not tested). The page itself is fetched by AgentQL, never through Tor."
+      }
+    },
     {
       "id": "mcp:binwalk",
       "name": "binwalk",
@@ -292,7 +329,7 @@
       "id": "mcp:context7",
       "name": "context7",
       "title": "Context7 (current library documentation)",
-      "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.4.4): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
+      "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.5.0): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
       "category": "Developer tools",
       "tags": [
         "documentation",

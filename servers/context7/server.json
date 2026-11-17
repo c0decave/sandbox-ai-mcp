@@ -2,7 +2,7 @@
   "id": "mcp:context7",
   "name": "context7",
   "title": "Context7 (current library documentation)",
-  "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.4.4): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
+  "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.5.0): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
   "category": "Developer tools",
   "tags": [
     "documentation",

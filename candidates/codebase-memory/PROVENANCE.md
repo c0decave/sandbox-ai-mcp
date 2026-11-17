@@ -1,5 +1,7 @@
 # codebase-memory (prepared) - provenance and audit notes
 
+**Review of 2026-11-17** ([docs/CANDIDATES.md](../../docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17)): not admitted: it cannot be reviewed completely as the catalog requires (the reasons and numbers there). This folder stays as prepared, for reference.
+
 | | |
 |---|---|
 | MCP server | DeusData/codebase-memory-mcp 0.12.1 (MIT), tag `v0.12.1`, commit `a7158ac2f48ca646b4527341b76f930f2aeff87e` (release of 2026-10-16) |

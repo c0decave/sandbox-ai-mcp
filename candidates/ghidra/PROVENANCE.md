@@ -1,5 +1,7 @@
 # ghidra (prepared) - provenance and audit notes
 
+**Review of 2026-11-17** ([docs/CANDIDATES.md](../../docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17)): not admitted: it cannot be reviewed completely as the catalog requires (the reasons and numbers there). This folder stays as prepared, for reference.
+
 | | |
 |---|---|
 | MCP server | clearbluejar/pyghidra-mcp 0.3.0 (Apache-2.0), PyPI, commit `aeaf4d16b0ce09b6dc5e16bb56d204025d2f6f8e` |
