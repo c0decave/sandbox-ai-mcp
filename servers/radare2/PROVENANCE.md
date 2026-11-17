@@ -9,7 +9,7 @@
 | Tool | radare2 6.2.4, https://github.com/radareorg/radare2 at `485e5e205b190fc297a2a95a6f982ff5d9f54039` (tag 6.2.4); its meson subprojects (sdb 2.5.8, capstone, quickjs, otezip 0.4.8, zydis 4.1.0) at the revisions pinned in its `subprojects/*.wrap` |
 | Tool licence | LGPL-3.0-only for most of radare2; some plugins and dependencies are GPL-3.0, Apache-2.0, BSD, MIT, Zlib (`LICENSES/radare2/`, from radare2's `COPYING.md`, `doc/licenses.md` and `doc/licenses/`) |
 | Base image | `docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad` |
-| Local patches | `patches/0001-open-file-refuses-uris-commands-stay-one-line.patch` (r2mcp; see Review) |
+| Local patches | `patches/0001-open-file-refuses-uris-commands-stay-one-line.patch`, `patches/0002-tools-only.patch` (r2mcp; see Review) |
 
 Both are built from source; the Dockerfile fetches exactly these commits (`git fetch` of the
 commit ID, and the build stops unless `git rev-parse HEAD` equals it), applies the patch to r2mcp
@@ -194,14 +194,30 @@ copies with bounds; JSON output is built with radare2's `pj_*` (escaped).
 | Patch | SHA-256 | What |
 |---|---|---|
 | `0001-open-file-refuses-uris-commands-stay-one-line.patch` | `1e5304824804205b6d321e8ae83ab515a1408fdbb1f350ec01a850295cd35e85` | `src/r2api.inc.c`: `r2_open_file` refuses a path containing `://` when `-s` is set (finding 1); `r2_cmd_filter` also cuts at `\n` and `\r` (finding 3) |
+| `0002-tools-only.patch` (2026-11-17) | `bc95dd3d59a7ec630ffbd3f390b258fb6a3f9fe7ed37bdac32650844258d92e9` | `src/r2mcp.c`: the `initialize` answer names `prompts` only when prompts are loaded (never with `-N`) and `resources` only when enabled; `src/main.c`: resources not enabled (finding 9) |
 
 The patched `src/r2api.inc.c` must have SHA-256
-`a96fcc518cfddd4f612587bd9fc45d1b58b2519ca9be3f6477dbca1102f0b120` or the build stops. The patch was
+`a96fcc518cfddd4f612587bd9fc45d1b58b2519ca9be3f6477dbca1102f0b120`, the patched `src/r2mcp.c`
+`daca549e58ab09dbcc5d0048ec40846d75bda5355cf38c4567280195a84ec488` and `src/main.c`
+`bcdcb06bc903fba620093c2e59198be410c64206947664fe0cd9af4f994bfae3`, or the build stops; after the build the
+image's `r2mcp` with the entrypoint's flags is asked `initialize`, and the build stops unless the answer names
+`tools` and neither `prompts` nor `resources`. The patch was
 applied to the pinned commit here (`git apply --check`, then the hash above); it is compiled and run
 only in CI, which builds the image and runs the smoke spec (the reviewed code is never executed on
 the review machine). The entrypoint flags `-N` and `-e` (findings 2 and 4) need no patch.
 
-**Verdict:** reviewed completely; with patch 0001 and the flags above nothing found remains open.
+9. **Capabilities announced without anything behind them (low; review of 2026-11-17).** `handle_initialize`
+   (`r2mcp.c:461-470`) always announces `prompts` and `resources`, whatever `-N` says (`main.c:362` keeps
+   `.prompts = load_prompts` only for the method check), and `resources/list` is always empty (`r2mcp.c:587-590`).
+   Agents act on an announced capability - Claude Code, OpenCode and Pi offer the model resource tools, Hermes four
+   more tools per server - and local models took them for the way to the server's tools (sandbox-ai research
+   round 1). **Patch 0002:** `prompts` only when prompts are loaded, `resources` not enabled (so `resources/*` are
+   refused with -32601 by r2mcp's own capability check, `r2mcp.c:363`, like `prompts/*` under `-N`). The patch
+   applies cleanly after 0001 to the reviewed `main.c` (`bbb4baa9...`) and `r2mcp.c` (`5334297a...`) with
+   `git apply`; it is compiled only in CI (no C toolchain here), where the build's `initialize` check runs it.
+   `src/plugin.c` (the r2 core plugin, not built into the image) is left as it is.
+
+**Verdict:** reviewed completely; with patches 0001 and 0002 and the flags above nothing found remains open.
 Signed once a CI run has built this Dockerfile and its smoke runs passed for that digest.
 
 ## In this repository

@@ -1,0 +1,43 @@
+--- a/src/main.c
++++ b/src/main.c
+@@ -359,7 +359,7 @@
+ 		.info = {
+ 			.name = "Radare2 MCP Connector",
+ 			.version = R2MCP_VERSION },
+-		.capabilities = { .tools = true, .prompts = load_prompts, .resources = true },
++		.capabilities = { .tools = true, .prompts = load_prompts, .resources = false }, /* sandbox-ai-mcp: no resources (it has none) */
+ 		.instructions = "Use this server to analyze binaries with radare2",
+ 		.initialized = false,
+ 		.minimode = minimode,
+--- a/src/r2mcp.c
++++ b/src/r2mcp.c
+@@ -459,16 +459,20 @@
+ 	pj_kb (pj, "listChanged", false);
+ 	pj_end (pj);
+ 
+-	// Prompts capability - object with listChanged
+-	pj_k (pj, "prompts");
+-	pj_o (pj);
+-	pj_kb (pj, "listChanged", false);
+-	pj_end (pj);
++	// Prompts capability - object with listChanged (sandbox-ai-mcp: only when prompts are loaded)
++	if (ss->capabilities.prompts) {
++		pj_k (pj, "prompts");
++		pj_o (pj);
++		pj_kb (pj, "listChanged", false);
++		pj_end (pj);
++	}
+ 
+-	// Resources capability - empty object since we only support list
+-	pj_k (pj, "resources");
+-	pj_o (pj);
+-	pj_end (pj);
++	// Resources capability - empty object since we only support list (sandbox-ai-mcp: only when enabled)
++	if (ss->capabilities.resources) {
++		pj_k (pj, "resources");
++		pj_o (pj);
++		pj_end (pj);
++	}
+ 
+ 	// For any capability we don't support, don't include it at all
+ 	// Don't add: roots, notifications, sampling

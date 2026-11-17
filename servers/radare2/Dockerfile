@@ -26,13 +26,16 @@ RUN cd /src/radare2 \
 ENV PATH=/opt/radare2/bin:$PATH \
     PKG_CONFIG_PATH=/opt/radare2/lib/pkgconfig \
     LD_LIBRARY_PATH=/opt/radare2/lib
-# r2mcp with this repository's patch (patches/, see PROVENANCE.md): open_file takes no URI under -s,
-# and no command r2mcp builds can carry a second line. The patched file must be exactly the reviewed one.
+# r2mcp with this repository's patches (patches/, see PROVENANCE.md): open_file takes no URI under -s,
+# and no command r2mcp builds can carry a second line (0001); tools only - no prompts capability unless prompts
+# are loaded, no resources capability (0002). The patched files must be exactly the reviewed ones.
 COPY patches/ /patches/
 RUN fetch-commit https://github.com/radareorg/radare2-mcp.git /src/r2mcp "$R2MCP_COMMIT" \
  && cd /src/r2mcp \
  && for p in /patches/*.patch; do patch -p1 --forward --fuzz=0 --no-backup-if-mismatch < "$p" || exit 1; done \
  && echo "a96fcc518cfddd4f612587bd9fc45d1b58b2519ca9be3f6477dbca1102f0b120  src/r2api.inc.c" | sha256sum --check --strict \
+ && echo "daca549e58ab09dbcc5d0048ec40846d75bda5355cf38c4567280195a84ec488  src/r2mcp.c" | sha256sum --check --strict \
+ && echo "bcdcb06bc903fba620093c2e59198be410c64206947664fe0cd9af4f994bfae3  src/main.c" | sha256sum --check --strict \
  && ./configure --prefix=/opt/radare2 \
  && make -j"$(nproc)" \
  && install -m 0755 src/r2mcp /opt/radare2/bin/r2mcp \
@@ -49,6 +52,12 @@ RUN echo /opt/radare2/lib > /etc/ld.so.conf.d/radare2.conf && ldconfig \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work \
  && /opt/radare2/bin/r2mcp -v
+# tools only: the initialize answer of the entrypoint's flags announces tools and neither prompts nor resources
+RUN printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"build","version":"1"}}}' \
+      | timeout 30 /opt/radare2/bin/r2mcp -s /work -g none -N 2>/dev/null > /tmp/initialize.json; \
+    cat /tmp/initialize.json && grep -q '"protocolVersion"' /tmp/initialize.json && grep -q '"tools"' /tmp/initialize.json \
+ && ! grep -q '"resources"' /tmp/initialize.json && ! grep -q '"prompts"' /tmp/initialize.json \
+ && rm /tmp/initialize.json
 ENV HOME=/tmp \
     PATH=/opt/radare2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 USER 10001:10001

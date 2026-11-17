@@ -338,8 +338,10 @@ class Radare2(unittest.TestCase):
         self.entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile.replace("\\\n", ""),
                                                re.M | re.S).group(1))
 
+    TOOLS_ONLY = "0002-tools-only.patch"
+
     def test_the_patch_changes_only_r2api_and_is_applied_and_checked(self):
-        self.assertEqual(sorted(path.name for path in (self.FOLDER / "patches").iterdir()), [self.PATCH])
+        self.assertEqual(sorted(path.name for path in (self.FOLDER / "patches").iterdir()), [self.PATCH, self.TOOLS_ONLY])
         text = (self.FOLDER / "patches" / self.PATCH).read_text()
         self.assertEqual(set(re.findall(r"^\+\+\+ b/(\S+)$", text, re.M)), {"src/r2api.inc.c"})
         self.assertIn("+\tif (is_uri && R_STR_ISNOTEMPTY (ss->sandbox)) {", text)
@@ -351,6 +353,29 @@ class Radare2(unittest.TestCase):
         patched = re.search(r'echo "([0-9a-f]{64})  src/r2api.inc.c" \| sha256sum --check --strict', self.dockerfile)
         self.assertTrue(patched, "the patched file is checked by SHA-256")
         self.assertIn(patched.group(1), self.provenance)
+
+    def test_tools_only(self):
+        """r2mcp 1.9.0 announces the prompts and resources capabilities whatever it has: -N loads no prompt, and
+        resources/list is always empty. Agents then offer a model resource tools, which local models took for the way
+        to the server's tools. Patch 0002 announces prompts only when they are loaded and no resources; both patched
+        files are checked by SHA-256, and the image build refuses an initialize answer with either capability."""
+        text = (self.FOLDER / "patches" / self.TOOLS_ONLY).read_text()
+        self.assertEqual(set(re.findall(r"^\+\+\+ b/(\S+)$", text, re.M)), {"src/main.c", "src/r2mcp.c"})
+        self.assertIn("+\t\t.capabilities = { .tools = true, .prompts = load_prompts, .resources = false },", text)
+        self.assertIn("+\tif (ss->capabilities.prompts) {", text)
+        self.assertIn("+\tif (ss->capabilities.resources) {", text)
+        digest = hashlib.sha256((self.FOLDER / "patches" / self.TOOLS_ONLY).read_bytes()).hexdigest()
+        self.assertIn(digest, self.provenance, "PROVENANCE.md names another SHA-256")
+        for name in ("src/r2mcp.c", "src/main.c"):
+            patched = re.search(r'echo "([0-9a-f]{64})  %s" \| sha256sum --check --strict' % re.escape(name),
+                                self.dockerfile)
+            self.assertTrue(patched, f"the patched {name} is checked by SHA-256")
+            self.assertIn(patched.group(1), self.provenance)
+        check = re.search(r"(?ms)^# tools only: .*?\n(RUN .*?[^\\])\n", self.dockerfile)
+        self.assertTrue(check, "the image build checks the initialize answer")
+        for text in ('"method":"initialize"', "grep -q '\"tools\"'", "! grep -q '\"resources\"'",
+                     "! grep -q '\"prompts\"'", "-s /work -g none -N"):
+            self.assertIn(text, check.group(1))
 
     def test_the_entrypoint_offers_exactly_the_reviewed_tools(self):
         self.assertEqual(self.entrypoint[:6], ["/opt/radare2/bin/r2mcp", "-s", "/work", "-g", "none", "-N"])
