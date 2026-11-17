@@ -1201,14 +1201,14 @@ class Context7(unittest.TestCase):
 
     def test_the_lock_pins_every_package_by_integrity_without_install_scripts(self):
         packages = {path: entry for path, entry in self.lock["packages"].items() if path}
-        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.4.4")
+        self.assertEqual(packages["node_modules/@upstash/context7-mcp"]["version"], "4.5.0")
         for path, entry in packages.items():
             self.assertTrue(entry["resolved"].startswith("https://registry.npmjs.org/"), path)
             self.assertRegex(entry["integrity"], r"^sha512-[A-Za-z0-9+/]{86}==$", path)
             self.assertFalse(entry.get("hasInstallScript"), f"{path} has an install script")
         self.assertIn(packages["node_modules/@upstash/context7-mcp"]["integrity"], self.provenance)
         self.assertEqual(read_json("servers", "context7", "package.json")["dependencies"],
-                         {"@upstash/context7-mcp": "4.4.4"})
+                         {"@upstash/context7-mcp": "4.5.0"})
 
     def test_prepare_keeps_only_locked_packages_and_no_telemetry(self):
         keep = json.loads("{" + re.search(r"const KEEP = \{(.*?)\};", self.prepare, re.S).group(1)
@@ -1230,7 +1230,7 @@ class Context7(unittest.TestCase):
         self.assertIn("node prepare.mjs node_modules", self.dockerfile)
         self.assertIn("sha256sum --check --strict --quiet /opt/context7/context7-files.sha256", self.dockerfile)
         files = (self.folder / "context7-files.sha256").read_text().splitlines()
-        self.assertEqual(len(files), 20)
+        self.assertEqual(len(files), 21)
         names = [line.split("  ", 1)[1] for line in files]
         self.assertIn("dist/index.js", names)
         self.assertNotIn("dist/lib/telemetry.js", names)
@@ -1261,6 +1261,15 @@ class Context7(unittest.TestCase):
                       'false },\\n', self.prepare)
         self.assertIn("sandbox-ai-mcp: tools only", self.prepare)
 
+    def test_the_research_preview_cannot_be_switched_on(self):
+        """4.5.0 adds a research-preview tool (submit-docs-feedback: agent-written feedback POSTed to context7.com,
+        with instructions to call it after every answer and not to mention it to the user), on with
+        --research-preview or CONTEXT7_RESEARCH_PREVIEW=1. The patch of dist/index.js fixes it off."""
+        self.assertIn("isResearchPreviewValue(process.env.CONTEXT7_RESEARCH_PREVIEW);\\n", self.prepare)
+        self.assertIn("sandbox-ai-mcp: no research preview", self.prepare)
+        self.assertNotRegex(self.dockerfile, r"(?m)^ENV .*CONTEXT7_RESEARCH_PREVIEW")
+        self.assertNotIn("submit-docs-feedback", read_json("servers", "context7", "tools.json")["tools"])
+
     def test_context7_only_and_the_key_optional(self):
         self.assertEqual((self.entry["network"], self.entry["hosts"]), ("allowlist", ["context7.com:443"]))
         self.assertEqual((self.spec["network"], self.spec["hosts"]), ("allowlist", ["context7.com:443"]))
@@ -1279,7 +1288,8 @@ class Context7(unittest.TestCase):
         self.assertTrue([c for c in refused if c.get("absent")])
 
     def test_the_release_and_the_newer_ones_are_in_the_provenance(self):
-        for text in ("c7f80ce5af1ff1403d167579b76784482cf7f3e2", "4.5.0", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84"):
+        for text in ("a138857cc23f0abaf214b72b15d974e61598369b", "4.4.4", "4.5.1", "2026-11-17", "89c5244bc22a9bc3287d89ebc7e49b9cb5bb84",
+                     "sha512-BTMM4j2ZuZdAHE1sERUCcty1eRcom4LCE04iv2XIi9b9RKhJKQsXMG7gZLgx7FX5uyyaW6xki7ReuhRM4bphZQ=="):
             self.assertIn(text, self.provenance)
         self.assertFalse((ROOT / "candidates" / "context7").exists(), "the candidate is replaced by servers/context7")
 

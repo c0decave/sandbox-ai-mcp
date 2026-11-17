@@ -62,7 +62,8 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   `servers/filesystem/PROVENANCE.md` until the re-pin to 2.3.0;
 - context7: a request to any host but `context7.com`, `CONTEXT7_API_KEY` reaching a tool answer, a log line or another
   host, anything sent beyond the library, the question, the language, the server's version and the transport (the
-  client's name, a session id), telemetry loaded, the sign-in prompt shown; the documentation Context7 returns is
+  client's name, a session id), telemetry loaded, the sign-in prompt shown, the research-preview feedback tool offered
+  or sent; the documentation Context7 returns is
   upstream's;
 - chrome-devtools: usage statistics, an update check or a CrUX lookup sent; a `file:` URL opened; a tool reading or
   writing outside `/tmp` (or the client's roots); tools a web page defines offered to the agent; the server's own
