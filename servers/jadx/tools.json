@@ -1,0 +1,34 @@
+{
+  "tools": [
+    "class_outline",
+    "find_usages",
+    "get_class_source",
+    "get_manifest",
+    "get_method_source",
+    "get_resource",
+    "get_smali",
+    "list_classes",
+    "list_files",
+    "list_packages",
+    "list_resources",
+    "open_file",
+    "search_code",
+    "search_names"
+  ],
+  "read_only_tools": [
+    "class_outline",
+    "find_usages",
+    "get_class_source",
+    "get_manifest",
+    "get_method_source",
+    "get_resource",
+    "get_smali",
+    "list_classes",
+    "list_files",
+    "list_packages",
+    "list_resources",
+    "open_file",
+    "search_code",
+    "search_names"
+  ]
+}

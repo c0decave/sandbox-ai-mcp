@@ -1,0 +1,18 @@
+{
+  "tools": [
+    "class_outline",
+    "decompile_class",
+    "decompile_method",
+    "list_classes",
+    "list_files",
+    "search_strings"
+  ],
+  "read_only_tools": [
+    "class_outline",
+    "decompile_class",
+    "decompile_method",
+    "list_classes",
+    "list_files",
+    "search_strings"
+  ]
+}

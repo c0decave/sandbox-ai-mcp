@@ -46,7 +46,7 @@ def read_json(*parts: str):
 class Fixtures(unittest.TestCase):
     def test_the_binary_fixtures_match_their_pinned_sha256(self):
         found = fixtures.load()
-        self.assertEqual(sorted(f["path"] for f in found), ["caps", "firmware.bin", "hello"])
+        self.assertEqual(sorted(f["path"] for f in found), ["caps", "demo.apk", "demo.jar", "firmware.bin", "hello"])
         for fixture in found:
             self.assertLess(fixture["size"], 1 << 20, f"{fixture['path']} should stay a small fixture")
 
@@ -212,6 +212,117 @@ class FileAnalysisServers(unittest.TestCase):
                 dockerfile = (ROOT / "servers" / name / "Dockerfile").read_text()
                 for commit in re.findall(r"^ARG \w*COMMIT=([0-9a-f]{40})$", dockerfile, re.M):
                     self.assertIn(commit, text, f"{name}: {commit} is built but not in PROVENANCE.md")
+
+
+class JavaDecompilers(unittest.TestCase):
+    """jadx and cfr: our own server code (the MCP SDK and the standard library) driving a pinned upstream release in a
+    JVM - jadx 1.5.6's jar and CFR 0.152's jar by SHA-256, Debian's OpenJDK 21 by version; the input read-only at
+    /work, no network, no variable, the limits the JVM needs recorded where sandbox-ai reads them."""
+
+    JADX_ZIP = "545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974"
+    JADX_JAR = "fe3e12c45acf75f92369685fd02d1d7a7323385dc725680a9b98a0dac0ea554b"
+    CFR_JAR = "f686e8f3ded377d7bc87d216a90e9e9512df4156e75b06c655a16648ae8765b2"
+    JDK = "21.0.13+9-1~deb13u2"
+
+    def read(self, name, *parts):
+        return (ROOT / "servers" / name).joinpath(*parts).read_text()
+
+    def test_no_network_no_secret_and_the_input_read_only(self):
+        for name in ("jadx", "cfr"):
+            with self.subTest(server=name):
+                entry = read_json("servers", name, "server.json")
+                spec = read_json("servers", name, "smoke.json")
+                self.assertEqual((entry["network"], spec["network"]), ("none", "none"))
+                self.assertNotIn("hosts", entry)
+                self.assertNotIn("env", entry)
+                self.assertEqual(entry["category"], "Analysis: Files")
+                self.assertEqual([m["target"] for m in entry["mounts"]], ["/work"])
+                self.assertTrue(entry["mounts"][0]["required"])
+                self.assertIn(":ro", entry["mounts"][0]["description"])
+                self.assertEqual(spec["mounts"], [{"host": "${FIXTURES}", "target": "/work"}])
+                tools = read_json("servers", name, "tools.json")
+                self.assertEqual(tools["tools"], tools["read_only_tools"])
+                called = {call["tool"] for call in spec["calls"] if not call.get("expect_error")}
+                self.assertEqual(called, set(tools["tools"]), "every tool is called for real")
+                self.assertTrue([call for call in spec["calls"] if call.get("expect_error")])
+                provenance = self.read(name, "PROVENANCE.md")
+                for tool in tools["tools"]:
+                    self.assertIn(f"`{tool}`", provenance)
+
+    def test_the_limits_the_jvm_needs_are_where_sandbox_ai_reads_them(self):
+        jadx, cfr = read_json("servers", "jadx", "smoke.json"), read_json("servers", "cfr", "smoke.json")
+        self.assertEqual((jadx["memory"], jadx["pids"], jadx["tmp"]), ("2g", 256, "256m"))
+        self.assertEqual(cfr["memory"], "1g")
+        self.assertIn("2g memory, 256 processes and a 256m /tmp", read_json("servers", "jadx", "server.json")["notes"])
+        self.assertIn("Needs 1g memory", read_json("servers", "cfr", "server.json")["notes"])
+
+    def test_the_releases_are_pinned_by_sha256_and_in_the_provenance(self):
+        jadx, cfr = self.read("jadx", "Dockerfile"), self.read("cfr", "Dockerfile")
+        self.assertIn("ARG JADX_URL=https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip", jadx)
+        self.assertIn(f"ARG JADX_SHA256={self.JADX_ZIP}", jadx)
+        self.assertIn("ADD --checksum=sha256:${JADX_SHA256} ${JADX_URL}", jadx)
+        self.assertIn(f"ARG JADX_JAR_SHA256={self.JADX_JAR}", jadx)
+        self.assertEqual(jadx.count(self.JADX_JAR), 2, "the jar is checked where it is unpacked and in the image")
+        self.assertIn("ARG CFR_URL=https://github.com/leibnitz27/cfr/releases/download/0.152/cfr-0.152.jar", cfr)
+        self.assertIn(f"ARG CFR_SHA256={self.CFR_JAR}", cfr)
+        self.assertIn("ADD --checksum=sha256:${CFR_SHA256} ${CFR_URL}", cfr)
+        for name, text, pins in (("jadx", jadx, (self.JADX_ZIP, self.JADX_JAR)), ("cfr", cfr, (self.CFR_JAR,))):
+            with self.subTest(server=name):
+                self.assertIn(f"openjdk-21-jre-headless={self.JDK}", text)
+                provenance = self.read(name, "PROVENANCE.md")
+                for pin in pins + (self.JDK,):
+                    self.assertIn(pin, provenance)
+        self.assertIn(f"openjdk-21-jdk-headless={self.JDK}", jadx, "the bridge is compiled with the same JDK")
+        self.assertIn("javac --release 21 -Xlint:all -Werror", jadx)
+
+    def test_our_code_only_and_the_shared_lock(self):
+        for name in ("jadx", "cfr"):
+            with self.subTest(server=name):
+                folder = ROOT / "servers" / name
+                self.assertEqual((folder / "requirements.txt").read_bytes().replace(f"servers/{name}/".encode(), b""),
+                                 (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                                     b"servers/web-fetch/", b""))
+                self.assertEqual((folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+                source = (folder / "src" / "server.py").read_text()
+                imports = set(re.findall(r"^(?:import|from) ([A-Za-z_.]+)", source, re.M))
+                self.assertEqual({i for i in imports if i.split(".")[0] == "mcp"},
+                                 {"mcp", "mcp.server.fastmcp", "mcp.server.fastmcp.exceptions", "mcp.types"})
+                self.assertFalse({i.split(".")[0] for i in imports} & {"socket", "urllib", "http", "ssl", "requests",
+                                                                        "httpx", "ctypes", "pickle", "importlib"})
+                self.assertNotRegex(source, r"https?://", "no request anywhere")
+                for word in ("eval(", "exec(", "os.system", "shell=True", "os.environ", "getenv", "follow_symlinks=True",
+                             "os.chmod", "os.chown", "os.rename", "os.replace"):
+                    self.assertNotIn(word, source)
+                # the one place a process starts: the JVM, with an empty environment and only the input's descriptor
+                self.assertEqual(source.count("subprocess.Popen("), 1)
+                self.assertEqual(len(re.findall(r'env=\{"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "HOME": ', source)), 1)
+                self.assertIn('os.symlink(f"/proc/self/fd/{', source)
+                self.assertIn("start_new_session=True", source)
+                self.assertIn("DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW", source)
+                self.assertIn("READ_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK", source)
+                self.assertIn("MAX_LINES = 400", source)
+                self.assertIn("MAX_CHARS = 24_000", source)
+                self.assertIn("mcp._mcp_server.request_handlers.pop(_request, None)", source, "tools only")
+
+    def test_the_bridge_loads_only_the_named_plugins_and_writes_nothing(self):
+        bridge = self.read("jadx", "src", "JadxBridge.java")
+        self.assertIn("args.setPluginLoader(new JadxPluginLoader() {", bridge)
+        self.assertIn("System.setOut(System.err);", bridge)
+        self.assertIn(".setLevel(ch.qos.logback.classic.Level.OFF);", bridge)
+        for word in ("java.net.", "ProcessBuilder", "Runtime.getRuntime", "FileWriter", "Files.write", ".save(",
+                     "saveSources", "saveResources", "JadxExternalPluginsLoader", "JadxBasePluginLoader",
+                     "RenameMappingsPlugin", "JavaConvertPlugin", "System.getenv", "ScriptEngine"):
+            self.assertNotIn(word, bridge)
+        plugins = re.findall(r"new (\w+Plugin)\(\)", bridge)
+        self.assertEqual(plugins, ["DexInputPlugin", "JavaInputPlugin", "SmaliInputPlugin", "XApkInputPlugin",
+                                   "ApkmInputPlugin", "ApksInputPlugin", "AabInputPlugin", "KotlinMetadataPlugin",
+                                   "KotlinSmapPlugin"])
+
+    def test_cfr_gets_only_its_three_options_from_a_call(self):
+        source = self.read("cfr", "src", "server.py")
+        flags = set(re.findall(r'"(--[a-z]+)"', source))
+        self.assertEqual(flags, {"--renamedupmembers", "--renameillegalidents", "--antiobf", "--jarfilter",
+                                 "--methodname", "--extraclasspath", "--analyseas", "--silent"})
 
 
 class Radare2(unittest.TestCase):

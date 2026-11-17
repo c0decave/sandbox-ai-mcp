@@ -1208,6 +1208,44 @@ class Servers(unittest.TestCase):
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
         self.offline_suite("test_code_search", 50)
 
+    def test_jadx(self):
+        """The jadx server over stdio as the image starts it (its fourteen tools, no resources or prompts; refusals
+        before any file is opened, so the real /work is never read), then the offline suite of tests/test_jadx.py -
+        inside the image with jadx itself (the fixtures decompiled for real), no network."""
+        answers = self.check_tools("jadx")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        self.assertNotIn("prompts", answers[0]["result"]["capabilities"])
+        answers = rpc("jadx", session(("open_file", {"path": "../etc/passwd"}), ("open_file", {"path": "/etc/passwd"}),
+                                      ("get_class_source", {"path": "a.apk", "class_name": "a b"}),
+                                      ("search_code", {"path": "a.apk", "text": "x", "max_results": 0}),
+                                      ("get_method_source", {"path": "a.apk", "class_name": "a.B",
+                                                             "method_name": "--outputdir"})))
+        expected = ("'..' is not allowed", "only files in /work can be read", "class_name: a class name",
+                    "max_results: a whole number from 1 to 200", "method_name: only the name")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_jadx", 20)
+
+    def test_cfr(self):
+        """The cfr server over stdio as the image starts it (its six tools, no resources or prompts; refusals before
+        any file is opened), then the offline suite of tests/test_cfr.py - inside the image with CFR itself, no
+        network."""
+        answers = self.check_tools("cfr")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("cfr", session(("list_classes", {"path": "../etc/passwd"}),
+                                     ("decompile_class", {"path": "/etc/passwd"}),
+                                     ("decompile_method", {"path": "a.jar", "class_name": "a.B",
+                                                           "method_name": "--outputdir"}),
+                                     ("decompile_class", {"path": "a.jar", "class_name": "a.B",
+                                                          "anti_obfuscation": "--outputdir"})))
+        expected = ("'..' is not allowed", "only files in /work can be read", "method_name: only the name",
+                    "Input should be a valid boolean")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_cfr", 12)
+
 
 def osint_mcp_installed():
     try:

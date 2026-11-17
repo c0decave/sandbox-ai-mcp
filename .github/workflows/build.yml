@@ -97,8 +97,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        server: [binwalk, bluesky, brave-search, capa, chrome-devtools, code-search, context7, duckduckgo, engram, exec,
-                 files, filesystem, gowitness, memory, openosint, osint-mcp, playwright, radare2, searxng,
+        server: [binwalk, bluesky, brave-search, capa, cfr, chrome-devtools, code-search, context7, duckduckgo, engram,
+                 exec, files, filesystem, gowitness, jadx, memory, openosint, osint-mcp, playwright, radare2, searxng,
                  sequential-thinking, signal, tasks, telegram, telegram-user, web-fetch, whatsapp, whatweb, youtube]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -117,7 +117,7 @@ jobs:
           tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
           labels: ${{ env.SOURCE_LABEL }}
 
-      # radare2, capa and binwalk read a file: the fixtures their smoke specs mount at /work.
+      # radare2, capa, binwalk, jadx and cfr read a file: the fixtures their smoke specs mount at /work.
       - name: Smoke fixtures (checked against their SHA-256)
         run: python3 scripts/fixtures.py --out "${GITHUB_WORKSPACE}/tests/fixtures"
 

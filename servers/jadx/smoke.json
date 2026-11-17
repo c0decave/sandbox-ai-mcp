@@ -1,0 +1,164 @@
+{
+  "name": "jadx",
+  "network": "none",
+  "memory": "2g",
+  "pids": 256,
+  "tmp": "256m",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "expect_tools": [
+    "open_file",
+    "get_class_source",
+    "get_method_source",
+    "get_manifest"
+  ],
+  "calls": [
+    {
+      "tool": "list_files",
+      "arguments": {},
+      "expect": "/work/demo.apk"
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "/work/demo.apk"
+      },
+      "expect": "loaded with jadx 1.5.6: 2 classes",
+      "timeout": 180
+    },
+    {
+      "tool": "list_packages",
+      "arguments": {
+        "path": "demo.apk"
+      },
+      "expect": "org.example.demo  2 classes"
+    },
+    {
+      "tool": "list_classes",
+      "arguments": {
+        "path": "demo.apk",
+        "package": "org.example.demo"
+      },
+      "expect": "org.example.demo.Checker"
+    },
+    {
+      "tool": "class_outline",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org/example/demo/Checker"
+      },
+      "expect": "signature: checkPassword(Ljava/lang/String;)Z"
+    },
+    {
+      "tool": "get_class_source",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "\"MCPHUB-TEST-MARKER\""
+    },
+    {
+      "tool": "get_method_source",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Checker",
+        "method_name": "checkPassword"
+      },
+      "expect": "return \"hunter2\".equals("
+    },
+    {
+      "tool": "get_smali",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Main"
+      },
+      "expect": "invoke-virtual {v0, p0}, Lorg/example/demo/Checker;->checkPassword(Ljava/lang/String;)Z"
+    },
+    {
+      "tool": "find_usages",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Checker",
+        "method_name": "checkPassword"
+      },
+      "expect": "method org.example.demo.Main.main([Ljava/lang/String;)V"
+    },
+    {
+      "tool": "search_code",
+      "arguments": {
+        "path": "demo.apk",
+        "text": "HUNTER2",
+        "ignore_case": true
+      },
+      "expect": "org.example.demo.Checker:10:"
+    },
+    {
+      "tool": "search_names",
+      "arguments": {
+        "path": "demo.apk",
+        "text": "attempt"
+      },
+      "expect": "field org.example.demo.Checker.attempts : int"
+    },
+    {
+      "tool": "get_manifest",
+      "arguments": {
+        "path": "demo.apk"
+      },
+      "expect": "android.intent.category.LAUNCHER"
+    },
+    {
+      "tool": "list_resources",
+      "arguments": {
+        "path": "demo.apk"
+      },
+      "expect": "assets/config.json  json"
+    },
+    {
+      "tool": "get_resource",
+      "arguments": {
+        "path": "demo.apk",
+        "name": "assets/config.json"
+      },
+      "expect": "MCPHUB-TEST-MARKER"
+    },
+    {
+      "tool": "get_class_source",
+      "arguments": {
+        "path": "demo.jar",
+        "class_name": "org.example.demo.Main"
+      },
+      "expect": "checker.checkPassword(",
+      "timeout": 180
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "only files in /work can be read",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "../etc/passwd"
+      },
+      "expect": "'..' is not allowed",
+      "expect_error": true
+    },
+    {
+      "tool": "get_class_source",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Chekcer"
+      },
+      "expect": "similar: org.example.demo.Checker",
+      "expect_error": true
+    }
+  ]
+}
