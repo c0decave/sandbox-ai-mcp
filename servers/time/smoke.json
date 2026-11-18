@@ -1,0 +1,55 @@
+{
+  "name": "time",
+  "network": "none",
+  "expect_tools": [
+    "convert_time",
+    "get_current_time"
+  ],
+  "env": {
+    "LOCAL_TIMEZONE": "Europe/Berlin"
+  },
+  "calls": [
+    {
+      "tool": "get_current_time",
+      "arguments": {
+        "timezone": "Asia/Kathmandu"
+      },
+      "expect": "+05:45"
+    },
+    {
+      "tool": "convert_time",
+      "arguments": {
+        "source_timezone": "UTC",
+        "time": "12:00",
+        "target_timezone": "Asia/Kolkata"
+      },
+      "expect": "\"time_difference\": \"+5.5h\""
+    },
+    {
+      "tool": "get_current_time",
+      "arguments": {
+        "timezone": "../../../etc/passwd"
+      },
+      "expect": "Invalid timezone: timezone must be an IANA timezone name",
+      "expect_error": true
+    },
+    {
+      "tool": "get_current_time",
+      "arguments": {
+        "timezone": "Mars/Olympus_Mons"
+      },
+      "expect": "No time zone found with key Mars/Olympus_Mons",
+      "expect_error": true
+    },
+    {
+      "tool": "convert_time",
+      "arguments": {
+        "source_timezone": "UTC",
+        "time": "25:61",
+        "target_timezone": "UTC"
+      },
+      "expect": "Invalid time format",
+      "expect_error": true
+    }
+  ]
+}

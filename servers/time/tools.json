@@ -1,0 +1,6 @@
+{
+  "tools": [
+    "convert_time",
+    "get_current_time"
+  ]
+}

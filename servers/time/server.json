@@ -1,0 +1,33 @@
+{
+  "id": "mcp:time",
+  "name": "time",
+  "title": "Time (official MCP time server)",
+  "description": "The official MCP time server (mcp-server-time 2026.10.28, modelcontextprotocol/servers): get_current_time gives the current date, time, weekday and daylight-saving state of an IANA time zone, convert_time converts a wall-clock time (HH:MM, today) from one zone to another with the offset between them. Models do not know the current date or time and get time zone arithmetic wrong; this answers both exactly. The local zone the tools name is LOCAL_TIMEZONE (else UTC). Zone names checked, answers small, no network, nothing read or written.",
+  "category": "Utilities",
+  "tags": [
+    "time",
+    "timezone",
+    "date",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/time",
+  "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+  "license": "MIT AND Apache-2.0 (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP Python SDK: MIT; tzdata: Apache-2.0; tzlocal: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-time",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "LOCAL_TIMEZONE",
+      "description": "the user's IANA time zone, e.g. Europe/Berlin (default UTC); named to the model as its local zone",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "none",
+  "notes": "Two tools with small schemas: suited to small local models. The current time is the container's clock, which is the host's. A model is told to use the local zone when the user names none, so set LOCAL_TIMEZONE to yours.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
+}

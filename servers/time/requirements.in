@@ -1,0 +1,10 @@
+mcp-server-time==2026.10.28
+mcp==2.3.0
+# the versions of the reviewed lock of servers/osint-mcp (mcp 2.3.0 and its dependencies)
+anyio==4.15.1
+opentelemetry-api==1.45.1
+pydantic==2.14.1
+python-multipart==0.0.32
+# new here (reviewed for this server)
+tzdata==2026.6
+tzlocal==5.4.5
