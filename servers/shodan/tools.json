@@ -1,0 +1,15 @@
+{
+  "tools": [
+    "api_info",
+    "cpe_lookup",
+    "cve_lookup",
+    "cves_by_product",
+    "dns_lookup",
+    "domain_info",
+    "ip_lookup",
+    "reverse_dns_lookup",
+    "search_filters",
+    "shodan_count",
+    "shodan_search"
+  ]
+}

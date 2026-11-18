@@ -99,3 +99,17 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Why | markitdown imports magika (ONNX model on onnxruntime) at import; markitdown-mcp needs `markitdown[all]`: 74 packages, ~1.66 million lines of Python, 112 native libraries, 312 MB (onnxruntime, numpy, pandas, lxml, Pillow, PDFium, Azure SDKs, speech recognition) |
 | Effort | 1 h to this verdict |
 | Next | an own `documents` server on the shared lock (DOCX/XLSX/PPTX/ODF/EPUB as ZIP+XML, HTML, CSV with the standard library; PDF later through one reviewed pure-Python parser): 6-8 h |
+
+## shodan - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added** as an own server on the shared lock, pending signature |
+| Upstream reviewed | npm `@burtthecoder/mcp-shodan` **1.0.36** (w0h1v/mcp-shodan, 2026-11-03, commit `8b202b05`, tarball SHA-256 `13ba4fa3d3adbf76dd11e9b485fb0fcb35f9d986528ceca7573e297c9ab4b05a`), 1,184 lines read in full |
+| Why own | its closure (TypeScript fastmcp, axios, ...) is not reviewed here; the fixes touch most tools |
+| Network | allowlist `api.shodan.io:443`, `cvedb.shodan.io:443` |
+| Tools | upstream's 11: `ip_lookup`, `shodan_search`, `shodan_count`, `search_filters`, `dns_lookup`, `reverse_dns_lookup`, `domain_info`, `api_info`, `cve_lookup`, `cves_by_product`, `cpe_lookup` |
+| Upstream findings fixed | CVE/CPE limits of 1,000 (megabytes), whole banners, unchecked lists and dates, unbounded error texts, no start without a key although CVEDB needs none, `.env` read; the key (a URL parameter by Shodan's design) kept out of logs and errors |
+| Tests | `tests/test_shodan.py` (8 tests), `test_own_servers.py` `test_shodan`; smoke 2 real (CVEDB, no key) + 3 refused |
+| Effort | 3 h |
+| Risks left | 11 tools is many for a small local model (a router helps, see docs/local-helpers.md); the key travels as a URL parameter (Shodan's API); credits are spent by `shodan_search` with filters and `domain_info`; the keyed tools untested against the real API here |

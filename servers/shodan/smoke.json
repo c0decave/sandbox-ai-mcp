@@ -1,0 +1,74 @@
+{
+  "name": "shodan",
+  "network": "allowlist",
+  "hosts": [
+    "api.shodan.io:443",
+    "cvedb.shodan.io:443"
+  ],
+  "expect_tools": [
+    "api_info",
+    "cpe_lookup",
+    "cve_lookup",
+    "cves_by_product",
+    "dns_lookup",
+    "domain_info",
+    "ip_lookup",
+    "reverse_dns_lookup",
+    "search_filters",
+    "shodan_count",
+    "shodan_search"
+  ],
+  "env": {
+    "SHODAN_API_KEY": "${SHODAN_API_KEY}"
+  },
+  "calls": [
+    {
+      "tool": "cve_lookup",
+      "arguments": {
+        "cve": "CVE-2021-44228"
+      },
+      "expect": "\"known_exploited\": true",
+      "upstream_limited": [
+        "rate limit",
+        "Shodan answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "cves_by_product",
+      "arguments": {
+        "product": "log4j",
+        "count": true
+      },
+      "expect": "\"total\"",
+      "upstream_limited": [
+        "rate limit",
+        "Shodan answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "ip_lookup",
+      "arguments": {
+        "ip": "999.1.1.1"
+      },
+      "expect": "ip: an IPv4",
+      "expect_error": true
+    },
+    {
+      "tool": "cve_lookup",
+      "arguments": {
+        "cve": "CVE-2021-44228/../../x"
+      },
+      "expect": "cve: a CVE id",
+      "expect_error": true
+    },
+    {
+      "tool": "shodan_count",
+      "arguments": {
+        "query": "port:22",
+        "facets": "country&key=x"
+      },
+      "expect": "facets:",
+      "expect_error": true
+    }
+  ]
+}

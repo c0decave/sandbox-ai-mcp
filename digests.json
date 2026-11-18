@@ -25,6 +25,7 @@
     "radare2": "sha256:e65b076e6c17c9cd7ec91fe9f13bd4f8ef47a7122117ed4694b8be385e084b6f",
     "searxng": "sha256:15d6ec0ae29490f5d5f5bae2e2f6458fe11bf213dfc68bbfb2d3d562ff9afe44",
     "sequential-thinking": "sha256:6a2cb5c3f4157e369785b8b3240ce912007df0a2243f4f72d153869c8b72db8b",
+    "shodan": null,
     "signal": "sha256:3cfda4b288cd7984ee548ecb7c87d8429c6cda815a7e9f949a794e810d7d9d56",
     "tasks": "sha256:f9498f09968df1bdb43f70f750e707ee41cacb1abea18a065f96d7aaff330fd1",
     "telegram": "sha256:e43da150a824f0f5cac9d274193abdfe876102740b8849b0afc3656b5f9c53dd",

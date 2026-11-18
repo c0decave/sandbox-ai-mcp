@@ -242,6 +242,17 @@ class Servers(unittest.TestCase):
                                        '<mi>x</mi></math> b</p>')
         self.assertEqual((title, text), ("T", "## 1 Intro\n\na $x^2$ b"))
 
+    def test_shodan(self):
+        """shodan (more in tests/test_shodan.py): its tools, the missing key, refused arguments, the CVE form."""
+        self.check_tools("shodan")
+        answers = rpc("shodan", session(("ip_lookup", {"ip": "8.8.8.8"}), ("cve_lookup", {"cve": "../x"})),
+                      env={"SHODAN_API_KEY": ""})
+        self.assertIn("no Shodan API key", result(answers[2])["error"])
+        self.assertIn("cve: a CVE id", result(answers[3])["error"])
+        module = load("shodan")
+        entry = module._cve_entry({"cve_id": "CVE-2021-44228", "cvss_v3": 10.0, "kev": True}, full=False)
+        self.assertEqual((entry["cvss_v3"]["severity"], entry["known_exploited"]), ("critical", True))
+
     def test_youtube_transcript(self):
         """youtube-transcript (more in tests/test_youtube_transcript.py): its tools, refused arguments and the whole
         flow against a stand-in for www.youtube.com on loopback, with the image's own library; no network."""

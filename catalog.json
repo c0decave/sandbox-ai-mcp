@@ -10,6 +10,7 @@
     "cfr",
     "jadx",
     "osv",
+    "shodan",
     "time",
     "wikipedia",
     "youtube-transcript"
@@ -1015,6 +1016,44 @@
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:shodan",
+      "name": "shodan",
+      "title": "Shodan (host search and CVE database)",
+      "description": "Shodan's database of what its scanners saw on internet hosts, and its CVE database (the eleven tools of w0h1v/mcp-shodan 1.0.36, reviewed in full, as an own server): ip_lookup (ports, services, products, CVEs, TLS, location), shodan_search and shodan_count (Shodan queries with facets), search_filters, domain_info (subdomains, DNS records), dns_lookup, reverse_dns_lookup, api_info; cve_lookup, cves_by_product and cpe_lookup on cvedb.shodan.io (CVSS, EPSS, KEV). Only Shodan's database is asked, no host is contacted; answers within 24,000 characters. Complements osint-mcp's free InternetDB with the keyed API.",
+      "category": "OSINT",
+      "tags": [
+        "osint",
+        "security",
+        "shodan",
+        "cve",
+        "recon"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/shodan",
+      "page": "https://github.com/w0h1v/mcp-shodan",
+      "license": "MIT (MCP server, sandbox-ai-mcp; the tools of mcp-shodan, MIT)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-shodan",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "SHODAN_API_KEY",
+          "description": "Shodan API key: https://account.shodan.io (the CVEDB tools work without it)",
+          "secret": true,
+          "required": false
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "api.shodan.io:443",
+        "cvedb.shodan.io:443"
+      ],
+      "notes": "The addresses, domains and queries the agent asks about go to Shodan. shodan_search with a filter and domain_info cost query credits of your plan; the others are free (api_info shows what is left). Shodan's API takes the key as a URL parameter: it is sent only to api.shodan.io, never to cvedb.shodan.io, never returned or logged. Banners and titles are written by the hosts' owners: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to api.shodan.io and cvedb.shodan.io over TCP through Tor; Shodan may block Tor exits for keyed requests (not tested)."
       }
     },
     {
