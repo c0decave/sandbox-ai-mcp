@@ -24,3 +24,17 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Tests | `tests/test_time.py` (5 tests, 11 hostile calls), smoke spec 2 real + 3 refused calls |
 | Effort | 2 h |
 | Risks left | the container's clock is the host's (a wrong host clock is a wrong answer); `convert_time` converts a time of *today* only (upstream's design); the zone database ages with the pin (IANA 2026f) |
+
+## osv - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added** as an own server (stdio, the shared lock), pending signature |
+| Upstream reviewed | StacklokLabs/osv-mcp **v0.1.4** (2026-10-14, commit `498b22e4`, tarball SHA-256 `613208fe80580e792b9821ea3b959f8c6b8fd5ea6e8a174ca7286dfc8cd20baa`), 723 lines of Go read in full |
+| Why own | upstream serves SSE/HTTP only (no stdio), its fixes touch most of its code, its Go module closure is not reviewed here |
+| Network | allowlist `api.osv.dev:443` |
+| Tools | `query_vulnerability` (+ `page_token`), `query_vulnerabilities_batch` (1-100), `get_vulnerability` |
+| Upstream findings fixed | id unescaped in the URL path (other paths of the API reachable), unbounded answers (megabytes for a kernel package), page token not accepted, batch unlimited, no argument checks, redirects followed, unlimited body |
+| Tests | `tests/test_osv.py` (8 tests: 19 refused argument sets, stand-in requests, errors, bounds), `test_own_servers.py` `test_osv`; smoke spec 3 real + 2 refused calls |
+| Effort | 3 h |
+| Risks left | the package names asked about reach Google (osv.dev); the short form shows the fixed versions of the queried ecosystem only, which a model may take for the whole picture (get_vulnerability has all); real calls not run here (api.osv.dev unreachable from this machine) |

@@ -1,0 +1,29 @@
+{
+  "id": "mcp:osv",
+  "name": "osv",
+  "title": "OSV (known vulnerabilities of open-source packages)",
+  "description": "Known vulnerabilities of open-source packages from the OSV database (osv.dev, Google; no key): query_vulnerability gives the vulnerabilities of a package version (name and ecosystem such as PyPI, npm, Go, crates.io, Maven, NuGet, RubyGems, Packagist, Debian:12, or a purl) or of a git commit in short form - id, CVE aliases, summary, severity and the versions that fix it; query_vulnerabilities_batch checks up to 100 packages at once (a lock file's pins); get_vulnerability reads one advisory in full. The three tools of StacklokLabs/osv-mcp 0.1.4, reviewed in full, as an own server over stdio: arguments checked, answers at most 24,000 characters.",
+  "category": "Development",
+  "tags": [
+    "security",
+    "vulnerabilities",
+    "dependencies",
+    "osv",
+    "cve"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/osv",
+  "page": "https://osv.dev",
+  "license": "MIT (MCP server, sandbox-ai-mcp; the tools of StacklokLabs/osv-mcp, Apache-2.0); OSV data: CC-BY-4.0 and the advisory sources' terms",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-osv",
+  "tag": "latest",
+  "network": "allowlist",
+  "hosts": [
+    "api.osv.dev:443"
+  ],
+  "notes": "The package names, versions and commit hashes the agent asks about go to api.osv.dev (Google): they say which software you use. Nothing else is sent, nothing read or written locally. Advisory texts were written by third parties: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to api.osv.dev over TCP through Tor; Google may slow down or refuse Tor exit addresses (not tested)."
+  }
+}

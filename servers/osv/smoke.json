@@ -1,0 +1,59 @@
+{
+  "name": "osv",
+  "network": "allowlist",
+  "hosts": [
+    "api.osv.dev:443"
+  ],
+  "expect_tools": [
+    "get_vulnerability",
+    "query_vulnerabilities_batch",
+    "query_vulnerability"
+  ],
+  "calls": [
+    {
+      "tool": "query_vulnerability",
+      "arguments": {
+        "package_name": "jinja2",
+        "ecosystem": "PyPI",
+        "version": "2.4.1"
+      },
+      "expect": "CVE-2019-10906",
+      "upstream_limited": ["OSV rate limit", "OSV answered HTTP 503"]
+    },
+    {
+      "tool": "query_vulnerabilities_batch",
+      "arguments": {
+        "queries": [
+          {"purl": "pkg:pypi/jinja2@2.4.1"},
+          {"package_name": "left-pad", "ecosystem": "npm", "version": "1.3.0"}
+        ]
+      },
+      "expect": "\"vulnerable\": 1",
+      "upstream_limited": ["OSV rate limit", "OSV answered HTTP 503"]
+    },
+    {
+      "tool": "get_vulnerability",
+      "arguments": {
+        "id": "GHSA-462w-v97r-4m45"
+      },
+      "expect": "\"fixed\": \"2.10.1\"",
+      "upstream_limited": ["OSV rate limit", "OSV answered HTTP 503"]
+    },
+    {
+      "tool": "get_vulnerability",
+      "arguments": {
+        "id": "../query"
+      },
+      "expect": "id: an OSV id",
+      "expect_error": true
+    },
+    {
+      "tool": "query_vulnerability",
+      "arguments": {
+        "package_name": "jinja2"
+      },
+      "expect": "package_name and ecosystem go together",
+      "expect_error": true
+    }
+  ]
+}

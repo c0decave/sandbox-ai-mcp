@@ -210,6 +210,18 @@ class Servers(unittest.TestCase):
         module = load("agentql")
         self.assertEqual(module.bounded({"url": "u", "data": {"a": 1}}), {"url": "u", "data": {"a": 1}})
 
+    def test_osv(self):
+        """osv (more in tests/test_osv.py): its tools, refused arguments and the short form, no network."""
+        self.check_tools("osv")
+        answers = rpc("osv", session(("get_vulnerability", {"id": "../query"}),
+                                     ("query_vulnerability", {"package_name": "jinja2"})))
+        self.assertIn("id: an OSV id", result(answers[2])["error"])
+        self.assertIn("go together", result(answers[3])["error"])
+        module = load("osv")
+        vuln = json.loads((ROOT / "tests/fixtures/osv.json").read_text())["vuln"]
+        short = module.summary_of(vuln, {"package": {"name": "Jinja2", "ecosystem": "PyPI"}})
+        self.assertEqual((short["id"], short["fixed_in"]), ("GHSA-462w-v97r-4m45", ["2.10.1"]))
+
     def test_web_fetch_refuses_private_ipv4_behind_nat64(self):
         """An IPv6 address carrying an IPv4 one reaches that IPv4 address: it must be public too."""
         import ipaddress

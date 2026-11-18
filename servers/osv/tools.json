@@ -1,0 +1,7 @@
+{
+  "tools": [
+    "get_vulnerability",
+    "query_vulnerabilities_batch",
+    "query_vulnerability"
+  ]
+}
