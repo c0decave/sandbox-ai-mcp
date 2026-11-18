@@ -113,3 +113,13 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Tests | `tests/test_shodan.py` (8 tests), `test_own_servers.py` `test_shodan`; smoke 2 real (CVEDB, no key) + 3 refused |
 | Effort | 3 h |
 | Risks left | 11 tools is many for a small local model (a router helps, see docs/local-helpers.md); the key travels as a URL parameter (Shodan's API); credits are spent by `shodan_search` with filters and `domain_info`; the keyed tools untested against the real API here |
+
+## maigret - not added (candidates/maigret)
+
+| | |
+|---|---|
+| Verdict | **not added** |
+| Releases looked at | npm `mcp-maigret` **1.0.18** (2026-11-03, commit `4324d5d8`, tarball `d0cafc86...42e9`, 324 lines read in full); PyPI `maigret` **0.6.6** (2026-09-18, wheel `f382e717...81c7`) |
+| Why | the wrapper runs maigret only as `docker run soxoj/maigret:latest` (Docker socket in the container; an unpinned image pulled automatically = auto-update of code); maigret 0.6.6's closure is 67 packages / ~889,000 lines / 50 native libraries (curl-cffi's libcurl-impersonate, aiohttp, lxml, reportlab, Flask); its site-database auto-update (off with `--no-autoupdate`), third-party "dynamic rules", Cloudflare bypass and an OpenAI summary are in the code |
+| Effort | 1.5 h to this verdict |
+| Next | an own checker on maigret's pinned `data.json` as data (httpx, a bounded subset of sites, no auto-update, no activation code): 8-10 h |
