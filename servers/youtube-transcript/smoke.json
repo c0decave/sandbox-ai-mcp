@@ -1,0 +1,49 @@
+{
+  "name": "youtube-transcript",
+  "network": "allowlist",
+  "hosts": [
+    "www.youtube.com:443"
+  ],
+  "expect_tools": [
+    "get_available_languages",
+    "get_timed_transcript",
+    "get_transcript",
+    "get_video_info"
+  ],
+  "calls": [
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+      },
+      "expect": "\"title\": \"Me at the zoo\"",
+      "upstream_limited": ["blocks requests from this address", "consent page", "YouTube answered an error"]
+    },
+    {
+      "tool": "get_available_languages",
+      "arguments": {
+        "url": "https://youtu.be/jNQXAC9IVRw"
+      },
+      "expect": "\"code\": \"en\"",
+      "upstream_limited": ["blocks requests from this address", "consent page", "YouTube answered an error",
+                           "proof-of-origin token"]
+    },
+    {
+      "tool": "get_transcript",
+      "arguments": {
+        "url": "https://evil.example/watch?v=jNQXAC9IVRw"
+      },
+      "expect": "url: a youtube.com or youtu.be video URL",
+      "expect_error": true
+    },
+    {
+      "tool": "get_timed_transcript",
+      "arguments": {
+        "url": "jNQXAC9IVRw",
+        "lang": "en&x=1"
+      },
+      "expect": "lang: a language code",
+      "expect_error": true
+    }
+  ]
+}

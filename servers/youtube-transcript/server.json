@@ -1,0 +1,29 @@
+{
+  "id": "mcp:youtube-transcript",
+  "name": "youtube-transcript",
+  "title": "YouTube transcripts",
+  "description": "The transcript (subtitles) of a public YouTube video for research: get_transcript as plain text and get_timed_transcript with timestamps, both in pages of at most 20,000 characters; get_available_languages (manual and generated); get_video_info (title, channel, length, views, description). The four tools of jkawamoto/mcp-youtube-transcript 0.8.3, reviewed in full, as an own server on youtube-transcript-api 1.2.4 (reviewed in full) without yt-dlp: no account, no download of the video, answers within 24,000 characters. YouTube often blocks cloud and Tor addresses.",
+  "category": "Web",
+  "tags": [
+    "youtube",
+    "transcript",
+    "subtitles",
+    "research",
+    "osint"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/youtube-transcript",
+  "page": "https://github.com/jkawamoto/mcp-youtube-transcript",
+  "license": "MIT (MCP server, sandbox-ai-mcp; the tools of mcp-youtube-transcript, MIT); youtube-transcript-api: MIT; defusedxml: PSF-2.0",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-youtube-transcript",
+  "tag": "latest",
+  "network": "allowlist",
+  "hosts": [
+    "www.youtube.com:443"
+  ],
+  "notes": "The video ids the agent asks about go to YouTube (Google), from your address unless a VPN profile is used; YouTube often answers cloud, VPN and Tor addresses with a bot check, and then every call says so. Not related to the youtube server, which publishes to your channel. A transcript is what the speakers said or YouTube's speech recognition heard: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to www.youtube.com over TCP through Tor works, but YouTube usually answers Tor exits with a bot check: then the calls fail with 'YouTube blocks requests from this address'."
+  }
+}

@@ -32,7 +32,8 @@
     "web-fetch": "sha256:0c0abe47b6be8c946e851636cbbb9cd7083340faa70ce912d201a9a7449c1ce1",
     "whatsapp": "sha256:3d4db554179650e9d13f7da203797e856fb8e3f12d7956f5a8ca0c11e346811a",
     "whatweb": "sha256:03c0f1b1bed6b59614ceb5c29609551bf145e8cdde20aeb525209009911182f4",
-    "youtube": "sha256:52c63e256b842eef73afed95adb738aa2a52a6573cde4064da96a11a33fd8846"
+    "youtube": "sha256:52c63e256b842eef73afed95adb738aa2a52a6573cde4064da96a11a33fd8846",
+    "youtube-transcript": null
   },
   "rootfs": {
     "binwalk": {

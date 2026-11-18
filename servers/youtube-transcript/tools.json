@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "get_available_languages",
+    "get_timed_transcript",
+    "get_transcript",
+    "get_video_info"
+  ]
+}

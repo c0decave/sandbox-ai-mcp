@@ -222,6 +222,22 @@ class Servers(unittest.TestCase):
         short = module.summary_of(vuln, {"package": {"name": "Jinja2", "ecosystem": "PyPI"}})
         self.assertEqual((short["id"], short["fixed_in"]), ("GHSA-462w-v97r-4m45", ["2.10.1"]))
 
+    def test_youtube_transcript(self):
+        """youtube-transcript (more in tests/test_youtube_transcript.py): its tools, refused arguments and the whole
+        flow against a stand-in for www.youtube.com on loopback, with the image's own library; no network."""
+        try:
+            import youtube_transcript_api  # noqa: F401 - in the image, or from servers/youtube-transcript's lock
+        except ImportError:
+            self.skipTest("youtube-transcript-api is not installed (servers/youtube-transcript/requirements.txt)")
+        from test_youtube_transcript import VID, StandIn
+        self.check_tools("youtube-transcript")
+        answers = rpc("youtube-transcript", session(("get_transcript", {"url": "https://evil.example/?v=" + VID})))
+        self.assertIn("youtube.com or youtu.be", result(answers[2])["error"])
+        module = load("youtube-transcript")
+        StandIn(self)
+        self.assertEqual(module.get_transcript(VID)["transcript"].split("\n")[0], "Hello & welcome")
+        self.assertEqual(module.get_video_info(VID)["title"], "A song")
+
     def test_web_fetch_refuses_private_ipv4_behind_nat64(self):
         """An IPv6 address carrying an IPv4 one reaches that IPv4 address: it must be public too."""
         import ipaddress

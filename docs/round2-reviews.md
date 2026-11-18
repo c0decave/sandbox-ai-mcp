@@ -38,3 +38,18 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Tests | `tests/test_osv.py` (8 tests: 19 refused argument sets, stand-in requests, errors, bounds), `test_own_servers.py` `test_osv`; smoke spec 3 real + 2 refused calls |
 | Effort | 3 h |
 | Risks left | the package names asked about reach Google (osv.dev); the short form shows the fixed versions of the queried ecosystem only, which a model may take for the whole picture (get_vulnerability has all); real calls not run here (api.osv.dev unreachable from this machine) |
+
+## youtube-transcript - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added** as an own server on youtube-transcript-api (without yt-dlp), pending signature |
+| Upstream reviewed | jkawamoto/mcp-youtube-transcript **v0.8.3** (2026-10-28, commit `fc6e33cf`, tarball SHA-256 `a23dd2d79c4a06b73cf278ea2908cd88000fc484aaa16b79d3406ef7f9b9d0fd`), 386 lines read in full |
+| Library pinned | youtube-transcript-api **1.2.4** (2026-01-29, wheel `03878759...43ff`), read in full; defusedxml 0.7.1 (read); requests/urllib3/charset-normalizer from osint-mcp's reviewed lock |
+| Why own | upstream 0.8.3 depends on **yt-dlp** (not reviewable completely; needs a JS runtime, can fetch remote components) for the title and video facts; it also has a ScrapingAnt proxy mode with TLS verification off and a 50,000-character default page |
+| Network | allowlist `www.youtube.com:443` |
+| Tools | `get_transcript`, `get_timed_transcript`, `get_available_languages`, `get_video_info` (upstream's names; no upload date - that was yt-dlp's) |
+| Fixed | no timeout and no size limit in the library (10/30 s, 8 MiB), redirects not followed, video ids checked, pages within 24,000 characters, bounded caches, one-sentence errors (upstream's carry a referral link) |
+| Tests | `tests/test_youtube_transcript.py` (7 tests against a stand-in for YouTube), `test_own_servers.py` `test_youtube_transcript`; smoke spec 2 real (upstream-limited for YouTube's bot check) + 2 refused |
+| Effort | 4 h |
+| Risks left | YouTube's bot check on cloud, VPN and Tor addresses (then every call fails, by design); it uses private steps of the pinned library (re-check on re-pin); YouTube's page format can change and break it; the video ids reach Google |

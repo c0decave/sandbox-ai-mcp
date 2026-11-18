@@ -1,0 +1,16 @@
+mcp==1.30.0
+youtube-transcript-api==1.2.4
+# the versions of the shared lock (servers/duckduckgo) and of the reviewed lock of servers/osint-mcp
+anyio==4.15.1
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-multipart==0.0.32
+sse-starlette==3.5.0
+starlette==1.9.0
+requests==2.34.2
+urllib3==2.8.0
+charset-normalizer==3.5.2
+idna==3.20
+certifi==2026.10.23
+# new here (reviewed for this server)
+defusedxml==0.7.1
