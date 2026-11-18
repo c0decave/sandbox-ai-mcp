@@ -159,9 +159,15 @@ class CandidateReview(unittest.TestCase):
         verdicts = dict(re.findall(r"^\| ([a-z-]+) \| [^\n]*?\*\*((?:not )?added)", section, re.M))
         self.assertEqual(verdicts, {"agentql": "added", "reddit": "not added", "browserbase": "not added",
                                     "codebase-memory": "not added", "ghidra": "not added", "rea": "not added"})
+        round2 = (ROOT / "docs" / "round2-reviews.md").read_text()
+        refused = set(re.findall(r"^## ([a-z0-9-]+) - (?:not added|refused)", round2, re.M))
         for folder in (ROOT / "candidates").iterdir():
+            text = (folder / "PROVENANCE.md").read_text()
+            if folder.name in refused:  # a candidate of round 2 (docs/round2-reviews.md)
+                self.assertIn("**Review of 2026-11-18 (round 2): not added.**", text)
+                continue
             self.assertIn(folder.name, verdicts)
-            self.assertIn("**Review of 2026-11-17**", (folder / "PROVENANCE.md").read_text())
+            self.assertIn("**Review of 2026-11-17**", text)
 
 
 if __name__ == "__main__":

@@ -53,3 +53,14 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Tests | `tests/test_youtube_transcript.py` (7 tests against a stand-in for YouTube), `test_own_servers.py` `test_youtube_transcript`; smoke spec 2 real (upstream-limited for YouTube's bot check) + 2 refused |
 | Effort | 4 h |
 | Risks left | YouTube's bot check on cloud, VPN and Tor addresses (then every call fails, by design); it uses private steps of the pinned library (re-check on re-pin); YouTube's page format can change and break it; the video ids reach Google |
+
+## dbhub - not added (candidates/dbhub)
+
+| | |
+|---|---|
+| Verdict | **not added**: cannot be reviewed completely in this round |
+| Release looked at | `@bytebase/dbhub` **1.5.1** (2026-11-03, tarball SHA-256 `9c83be5157c53a0ae38439cb3fed75a297fa6afb6341d973adb7ab44714b0d58`); 1.6.0-2.0.0 too new |
+| Why | its own code is 10,712 lines, but stdio with PostgreSQL and SQLite needs 95 npm packages / ~222,000 lines: the MCP TypeScript SDK **v2** split packages (new here), hono, zod 4.6, ssh2 (with an install script for an optional native binding), express 4 with ~60 packages imported at start though only HTTP uses it; more drivers for MySQL, SQL Server (Azure SDK), Oracle |
+| First look | good design for local models (2 tools); read-only is layered (keyword allowlist, mutating-keyword scan, escape-hatch functions, the database's own read-only transaction) but upstream calls it a guardrail, not a boundary |
+| Effort | 1 h to this verdict; a complete review: days |
+| Next | an own read-only SQL server on the shared Python lock (SQLite via the standard library, read-only; PostgreSQL via a small pure-Python driver in a READ ONLY transaction) with dbhub's two-tool design |
