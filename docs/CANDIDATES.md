@@ -358,3 +358,7 @@ next to this one, so they are not duplicated here.
 - **git** (mcp-server-git, MIT): reviewed, not packaged - exec runs git with pagers, editors and prompts off.
 - **SearXNG** client: search through your own SearXNG instance (allowlist of that host).
 - **arXiv / Wikipedia** search: own small servers, allowlist.
+- **Round 2 (2026-11-18)**: added as pending entries - time, osv, youtube-transcript, wikipedia, arxiv, shodan,
+  calculator; not added - dbhub, markitdown, maigret (not reviewable completely; `candidates/`), gitea-mcp (pin
+  v1.12.0 verified, review open; `candidates/gitea-mcp`). Verdicts and reasons: [round2-reviews.md](round2-reviews.md);
+  the helpers for local models: [local-helpers.md](local-helpers.md).

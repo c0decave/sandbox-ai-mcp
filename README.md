@@ -66,6 +66,11 @@ browser that sends pages to Browserbase and an LLM provider) and **rea** (about 
 be reviewed completely; **reddit** (reddit-mcp-buddy, to be re-pinned to 1.2.0, which adds write tools) is not
 finished. **agentql** joined the catalog as an own server.
 
+Round 2 (2026-11-18, [docs/round2-reviews.md](docs/round2-reviews.md)): **time**, **osv**, **youtube-transcript**,
+**wikipedia**, **arxiv**, **shodan** and **calculator** joined as pending entries (built and signed with the next
+release); **dbhub**, **markitdown** and **maigret** were not admitted (their dependency closures cannot be reviewed
+completely), **gitea-mcp**'s review is open (pin v1.12.0 verified); their notes are in [`candidates/`](candidates).
+
 Images: `ghcr.io/c0decave/sandbox-ai-mcp-<name>`, referenced by digest in
 [`catalog.json`](catalog.json). Until the first CI run publishes them, the catalog says
 `"state": "pending-digests"` and sandbox-ai refuses its entries.

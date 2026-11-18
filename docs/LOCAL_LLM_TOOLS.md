@@ -173,3 +173,6 @@ it would be packaged on a review of its risky surfaces, as the binary analysis t
    tasks for local-model agents.
 3. sequential-thinking: packaged at 2.0.0 on 2026-11-14 (users asked for it; review in its PROVENANCE.md, thought
    logging off); re-pin to 2.1.1 from 2026-11-18. The advice above stands: for small models, tasks first.
+4. Round 2 (2026-11-18, [local-helpers.md](local-helpers.md)): **time** (official, 2026.10.28), **calculator** (own,
+   bounded), **wikipedia** and **arxiv** (own) and **osv** (own) added as pending entries; the **tool router** is
+   designed for sandbox-ai's MCP relay (not a catalog server); no compaction helper beyond tasks + engram.

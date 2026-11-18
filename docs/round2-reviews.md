@@ -134,3 +134,20 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Why not now | a complete review (gitea-mcp + the official MCP Go SDK v1.8.0, 22,326 lines + Gitea's SDK) is 12-20 h; it did not fit after the other servers |
 | Effort | 0.5 h to this point; 12-20 h to finish |
 | Next | review v1.12.0 (or v1.13.0 from 11-20) completely; image built from the commit with `go mod verify`, `-t stdio -r` by default, `GITEA_HOST` required, `--insecure` refused, answers bounded |
+
+## calculator - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added**, our own server on the shared lock, pending signature (a helper for local models: `docs/local-helpers.md`) |
+| Third-party compared | githejie/mcp-server-calculator 0.2.1 (67 lines): every `math` function and `**` without limits - `9**9**9`, `factorial(10**8)` hang it: refused |
+| Network | none |
+| Tools | `calculate` (exact fractions while it can), `convert_units`, `date_diff`, `date_add` |
+| Tests | `tests/test_calculator.py` (8 tests, 17 hostile expressions under 2.5 s and 600 characters each), `test_own_servers.py` `test_calculator`; smoke 4 real + 2 refused |
+| Effort | 3 h |
+| Risks left | floating-point results are rounded to 15 digits (marked `exact: false`); unit tables are ours (checked against their definitions, not against a library) |
+
+## Helpers for local models
+
+Tool router (belongs in sandbox-ai's relay; designed, not built here), compaction helper (not needed: tasks +
+engram), and the A/B plan: [local-helpers.md](local-helpers.md).
