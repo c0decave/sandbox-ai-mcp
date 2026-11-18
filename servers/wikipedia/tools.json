@@ -1,0 +1,7 @@
+{
+  "tools": [
+    "get_article",
+    "get_summary",
+    "search_wikipedia"
+  ]
+}

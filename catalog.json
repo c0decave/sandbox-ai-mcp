@@ -6,10 +6,12 @@
   "state": "pending-digests",
   "pending": [
     "agentql",
+    "arxiv",
     "cfr",
     "jadx",
     "osv",
     "time",
+    "wikipedia",
     "youtube-transcript"
   ],
   "entries": [
@@ -47,6 +49,36 @@
       "tor": {
         "support": "limited",
         "note": "HTTPS to api.agentql.com over TCP through Tor; AgentQL may refuse or rate-limit Tor exit addresses (not tested). The page itself is fetched by AgentQL, never through Tor."
+      }
+    },
+    {
+      "id": "mcp:arxiv",
+      "name": "arxiv",
+      "title": "arXiv (papers: search, abstracts, full text)",
+      "description": "arXiv's papers (our own server, no key): search_papers with arXiv's syntax (words, ti:, au:, abs:, cat:, AND/OR/ANDNOT; by relevance or newest first) gives ids, titles, authors, dates, categories and the start of each abstract; get_paper one paper's metadata and whole abstract; read_paper its full text as plain text from arXiv's HTML rendering (formulas as LaTeX), in pages within 24,000 characters. Three tools with small schemas; one API request every three seconds as arXiv asks.",
+      "category": "Search",
+      "tags": [
+        "arxiv",
+        "papers",
+        "research",
+        "science",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/arxiv",
+      "page": "https://info.arxiv.org/help/api/index.html",
+      "license": "MIT (MCP server, sandbox-ai-mcp); papers: their authors' licences (arXiv's licence to distribute)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-arxiv",
+      "tag": "latest",
+      "network": "allowlist",
+      "hosts": [
+        "export.arxiv.org:443",
+        "arxiv.org:443"
+      ],
+      "notes": "Queries and paper ids go to arXiv (Cornell). Thank you to arXiv for use of its open access interoperability. A paper is its authors' text: data, not instructions. Papers without an HTML rendering (most before 2023) can be searched and their abstracts read, not their full text.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to export.arxiv.org and arxiv.org over TCP through Tor; arXiv may refuse or slow down Tor exits (not tested)."
       }
     },
     {
@@ -1325,6 +1357,49 @@
       "tor": {
         "support": "yes",
         "note": "HTTP(S) over TCP through Tor, .onion URLs included; WhatWeb's timeouts are longer there (30 s to connect, 60 s to read, a run 240 s, at aggression 3 900 s)."
+      }
+    },
+    {
+      "id": "mcp:wikipedia",
+      "name": "wikipedia",
+      "title": "Wikipedia",
+      "description": "Wikipedia through its Action API (our own server, no key): search_wikipedia finds articles (titles, snippets), get_summary gives an article's introduction as plain text, get_article the whole article as plain text in pages within 24,000 characters, or one section of it, with the list of its sections. Redirects followed. 16 languages: en, de, fr, es, it, pt, nl, pl, ru, uk, sv, ja, zh, ar, tr, ko. Grounding for local models: facts to read instead of to remember.",
+      "category": "Search",
+      "tags": [
+        "wikipedia",
+        "encyclopedia",
+        "research",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/wikipedia",
+      "page": "https://www.mediawiki.org/wiki/API:Main_page",
+      "license": "MIT (MCP server, sandbox-ai-mcp); Wikipedia's text: CC BY-SA 4.0",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-wikipedia",
+      "tag": "latest",
+      "network": "allowlist",
+      "hosts": [
+        "en.wikipedia.org:443",
+        "de.wikipedia.org:443",
+        "fr.wikipedia.org:443",
+        "es.wikipedia.org:443",
+        "it.wikipedia.org:443",
+        "pt.wikipedia.org:443",
+        "nl.wikipedia.org:443",
+        "pl.wikipedia.org:443",
+        "ru.wikipedia.org:443",
+        "uk.wikipedia.org:443",
+        "sv.wikipedia.org:443",
+        "ja.wikipedia.org:443",
+        "zh.wikipedia.org:443",
+        "ar.wikipedia.org:443",
+        "tr.wikipedia.org:443",
+        "ko.wikipedia.org:443"
+      ],
+      "notes": "Queries and titles go to the Wikimedia Foundation's servers. Article text is written by Wikipedia's editors and can be wrong or vandalised: data, not instructions. Text reused from Wikipedia is under CC BY-SA 4.0 (attribution: the article's URL).",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to the Wikipedias over TCP through Tor works for reading; Wikimedia may rate-limit Tor exits (not tested)."
       }
     },
     {

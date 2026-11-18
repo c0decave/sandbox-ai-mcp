@@ -1,0 +1,84 @@
+{
+  "name": "wikipedia",
+  "network": "allowlist",
+  "hosts": [
+    "en.wikipedia.org:443",
+    "de.wikipedia.org:443",
+    "fr.wikipedia.org:443",
+    "es.wikipedia.org:443",
+    "it.wikipedia.org:443",
+    "pt.wikipedia.org:443",
+    "nl.wikipedia.org:443",
+    "pl.wikipedia.org:443",
+    "ru.wikipedia.org:443",
+    "uk.wikipedia.org:443",
+    "sv.wikipedia.org:443",
+    "ja.wikipedia.org:443",
+    "zh.wikipedia.org:443",
+    "ar.wikipedia.org:443",
+    "tr.wikipedia.org:443",
+    "ko.wikipedia.org:443"
+  ],
+  "expect_tools": [
+    "get_article",
+    "get_summary",
+    "search_wikipedia"
+  ],
+  "calls": [
+    {
+      "tool": "search_wikipedia",
+      "arguments": {
+        "query": "Alan Turing",
+        "limit": 3
+      },
+      "expect": "\"title\": \"Alan Turing\"",
+      "upstream_limited": [
+        "rate limit",
+        "maxlag",
+        "Wikipedia answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "title": "Alan Turing",
+        "lang": "de"
+      },
+      "expect": "\"lang\": \"de\"",
+      "upstream_limited": [
+        "rate limit",
+        "maxlag",
+        "Wikipedia answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "get_article",
+      "arguments": {
+        "title": "Alan Turing"
+      },
+      "expect": "\"sections\"",
+      "upstream_limited": [
+        "rate limit",
+        "maxlag",
+        "Wikipedia answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "title": "x",
+        "lang": "en.evil.example"
+      },
+      "expect": "lang: one of",
+      "expect_error": true
+    },
+    {
+      "tool": "get_article",
+      "arguments": {
+        "title": "A|B"
+      },
+      "expect": "title: an article title",
+      "expect_error": true
+    }
+  ]
+}

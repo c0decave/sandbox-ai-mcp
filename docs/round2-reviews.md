@@ -64,3 +64,27 @@ Effort is the time this review and packaging took (or would take), not counting 
 | First look | good design for local models (2 tools); read-only is layered (keyword allowlist, mutating-keyword scan, escape-hatch functions, the database's own read-only transaction) but upstream calls it a guardrail, not a boundary |
 | Effort | 1 h to this verdict; a complete review: days |
 | Next | an own read-only SQL server on the shared Python lock (SQLite via the standard library, read-only; PostgreSQL via a small pure-Python driver in a READ ONLY transaction) with dbhub's two-tool design |
+
+## wikipedia - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added**, our own server on the shared lock, pending signature |
+| Third-party compared | Rudra-ravi/wikipedia-mcp 2.0.1 (~12 tools, fastmcp 2.x and wikipedia-api: an unreviewed tree) - not clearly better |
+| Network | allowlist of 16 hosts `{en,de,fr,es,it,pt,nl,pl,ru,uk,sv,ja,zh,ar,tr,ko}.wikipedia.org:443` |
+| Tools | `search_wikipedia`, `get_summary`, `get_article` (pages, sections) |
+| Tests | `tests/test_wikipedia.py` (7 tests), `test_own_servers.py` `test_wikipedia`; smoke 3 real + 2 refused |
+| Effort | 2.5 h |
+| Risks left | article text can be wrong or vandalised (said in the notes); 16 languages only (the catalog's host limit); real calls not run here |
+
+## arxiv - added (pending), our own server
+
+| | |
+|---|---|
+| Verdict | **added**, our own server on the shared lock, pending signature |
+| Third-party compared | blazickjp/arxiv-mcp-server 0.8.2 (19 tools + 3 prompts, writes a paper store, asks Semantic Scholar, `mcp<2` with PDF libraries) - not clearly better |
+| Network | allowlist `export.arxiv.org:443`, `arxiv.org:443` |
+| Tools | `search_papers`, `get_paper`, `read_paper` (HTML full text, formulas as LaTeX, pages) |
+| Tests | `tests/test_arxiv.py` (9 tests), `test_own_servers.py` `test_arxiv`; smoke 3 real + 2 refused |
+| Effort | 3 h |
+| Risks left | papers without an HTML rendering (most before late 2023) have no full text here (no PDF parser in the lock); the 3 s pace makes many searches slow by design; real calls not run here |

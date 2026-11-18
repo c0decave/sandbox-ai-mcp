@@ -1,0 +1,66 @@
+{
+  "name": "arxiv",
+  "network": "allowlist",
+  "hosts": [
+    "export.arxiv.org:443",
+    "arxiv.org:443"
+  ],
+  "expect_tools": [
+    "get_paper",
+    "read_paper",
+    "search_papers"
+  ],
+  "calls": [
+    {
+      "tool": "search_papers",
+      "arguments": {
+        "query": "ti:\"attention is all you need\"",
+        "max_results": 3
+      },
+      "expect": "1706.03762",
+      "upstream_limited": [
+        "slow down",
+        "arXiv answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "get_paper",
+      "arguments": {
+        "id": "arXiv:1706.03762"
+      },
+      "expect": "\"title\": \"Attention Is All You Need\"",
+      "upstream_limited": [
+        "slow down",
+        "arXiv answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "read_paper",
+      "arguments": {
+        "id": "https://arxiv.org/abs/2401.04088"
+      },
+      "expect": "\"next_offset\"",
+      "upstream_limited": [
+        "slow down",
+        "arXiv answered HTTP 5"
+      ]
+    },
+    {
+      "tool": "get_paper",
+      "arguments": {
+        "id": "../../etc/passwd"
+      },
+      "expect": "id: an arXiv id",
+      "expect_error": true
+    },
+    {
+      "tool": "search_papers",
+      "arguments": {
+        "query": "x",
+        "max_results": 1000
+      },
+      "expect": "max_results: a whole number from 1 to 30",
+      "expect_error": true
+    }
+  ]
+}

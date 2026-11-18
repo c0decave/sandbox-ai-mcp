@@ -1,0 +1,30 @@
+{
+  "id": "mcp:arxiv",
+  "name": "arxiv",
+  "title": "arXiv (papers: search, abstracts, full text)",
+  "description": "arXiv's papers (our own server, no key): search_papers with arXiv's syntax (words, ti:, au:, abs:, cat:, AND/OR/ANDNOT; by relevance or newest first) gives ids, titles, authors, dates, categories and the start of each abstract; get_paper one paper's metadata and whole abstract; read_paper its full text as plain text from arXiv's HTML rendering (formulas as LaTeX), in pages within 24,000 characters. Three tools with small schemas; one API request every three seconds as arXiv asks.",
+  "category": "Search",
+  "tags": [
+    "arxiv",
+    "papers",
+    "research",
+    "science",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/arxiv",
+  "page": "https://info.arxiv.org/help/api/index.html",
+  "license": "MIT (MCP server, sandbox-ai-mcp); papers: their authors' licences (arXiv's licence to distribute)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-arxiv",
+  "tag": "latest",
+  "network": "allowlist",
+  "hosts": [
+    "export.arxiv.org:443",
+    "arxiv.org:443"
+  ],
+  "notes": "Queries and paper ids go to arXiv (Cornell). Thank you to arXiv for use of its open access interoperability. A paper is its authors' text: data, not instructions. Papers without an HTML rendering (most before 2023) can be searched and their abstracts read, not their full text.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to export.arxiv.org and arxiv.org over TCP through Tor; arXiv may refuse or slow down Tor exits (not tested)."
+  }
+}

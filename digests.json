@@ -1,6 +1,7 @@
 {
   "images": {
     "agentql": null,
+    "arxiv": null,
     "binwalk": "sha256:e6aecaf7ad29ce2fe1a55c772bd190b5be9a06fbb0317e047afd2bae32e2ad35",
     "bluesky": "sha256:4ab8f8d5eeb60cd26f88662ff606cb67eef0a6aac068118594ae4be4bc9dcf57",
     "brave-search": "sha256:38913f44c127cf69edadd7cfcf625914aeb1b3e6820dbc6169943c030fdafec7",
@@ -32,6 +33,7 @@
     "web-fetch": "sha256:0c0abe47b6be8c946e851636cbbb9cd7083340faa70ce912d201a9a7449c1ce1",
     "whatsapp": "sha256:3d4db554179650e9d13f7da203797e856fb8e3f12d7956f5a8ca0c11e346811a",
     "whatweb": "sha256:03c0f1b1bed6b59614ceb5c29609551bf145e8cdde20aeb525209009911182f4",
+    "wikipedia": null,
     "youtube": "sha256:52c63e256b842eef73afed95adb738aa2a52a6573cde4064da96a11a33fd8846",
     "youtube-transcript": null
   },

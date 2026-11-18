@@ -97,10 +97,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        server: [agentql, binwalk, bluesky, brave-search, capa, cfr, chrome-devtools, code-search, context7,
+        server: [agentql, arxiv, binwalk, bluesky, brave-search, capa, cfr, chrome-devtools, code-search, context7,
                  duckduckgo, engram, exec, files, filesystem, gowitness, jadx, memory, openosint, osint-mcp, osv,
                  playwright, radare2, searxng, sequential-thinking, signal, tasks, telegram, telegram-user, time,
-                 web-fetch, whatsapp, whatweb, youtube, youtube-transcript]   # candidates/ join once their pins are set
+                 web-fetch, whatsapp, whatweb, wikipedia, youtube, youtube-transcript]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

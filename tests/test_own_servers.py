@@ -222,6 +222,26 @@ class Servers(unittest.TestCase):
         short = module.summary_of(vuln, {"package": {"name": "Jinja2", "ecosystem": "PyPI"}})
         self.assertEqual((short["id"], short["fixed_in"]), ("GHSA-462w-v97r-4m45", ["2.10.1"]))
 
+    def test_wikipedia(self):
+        """wikipedia (more in tests/test_wikipedia.py): its tools, refused arguments, the section parser."""
+        self.check_tools("wikipedia")
+        answers = rpc("wikipedia", session(("get_summary", {"title": "x", "lang": "en.evil.example"})))
+        self.assertIn("lang: one of", result(answers[2])["error"])
+        module = load("wikipedia")
+        names = [name for _level, name, _s, _e in module._sections("Intro\n== A ==\nx\n=== B ===\ny\n== C ==\n")]
+        self.assertEqual(names, ["(introduction)", "A", "B", "C"])
+
+    def test_arxiv(self):
+        """arxiv (more in tests/test_arxiv.py): its tools, refused arguments, ids and the HTML text."""
+        self.check_tools("arxiv")
+        answers = rpc("arxiv", session(("get_paper", {"id": "../../etc/passwd"})))
+        self.assertIn("id: an arXiv id", result(answers[2])["error"])
+        module = load("arxiv")
+        self.assertEqual(module.paper_id("https://arxiv.org/abs/1706.03762v7"), "1706.03762v7")
+        title, text = module.html_text('<title>T</title><nav>x</nav><h2>1 Intro</h2><p>a <math alttext="x^2">'
+                                       '<mi>x</mi></math> b</p>')
+        self.assertEqual((title, text), ("T", "## 1 Intro\n\na $x^2$ b"))
+
     def test_youtube_transcript(self):
         """youtube-transcript (more in tests/test_youtube_transcript.py): its tools, refused arguments and the whole
         flow against a stand-in for www.youtube.com on loopback, with the image's own library; no network."""
