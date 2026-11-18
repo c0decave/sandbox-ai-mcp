@@ -88,3 +88,14 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Tests | `tests/test_arxiv.py` (9 tests), `test_own_servers.py` `test_arxiv`; smoke 3 real + 2 refused |
 | Effort | 3 h |
 | Risks left | papers without an HTML rendering (most before late 2023) have no full text here (no PDF parser in the lock); the 3 s pace makes many searches slow by design; real calls not run here |
+
+## markitdown - not added (candidates/markitdown)
+
+| | |
+|---|---|
+| Verdict | **not added**: cannot be reviewed completely |
+| Releases looked at | markitdown-mcp **0.0.1a8** (wheel `f525ad3d...51b5b`), markitdown **0.1.9** (wheel `52f59c48...20ea`), both 2026-10-21 |
+| The server | 152 lines, read: fetches http(s)/file/data URIs (SSRF), unbounded answers, plugins by entry point - fixable by a wrapper (file: only, bounded, plugins off) |
+| Why | markitdown imports magika (ONNX model on onnxruntime) at import; markitdown-mcp needs `markitdown[all]`: 74 packages, ~1.66 million lines of Python, 112 native libraries, 312 MB (onnxruntime, numpy, pandas, lxml, Pillow, PDFium, Azure SDKs, speech recognition) |
+| Effort | 1 h to this verdict |
+| Next | an own `documents` server on the shared lock (DOCX/XLSX/PPTX/ODF/EPUB as ZIP+XML, HTML, CSV with the standard library; PDF later through one reviewed pure-Python parser): 6-8 h |
