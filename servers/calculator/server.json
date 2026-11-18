@@ -1,0 +1,26 @@
+{
+  "id": "mcp:calculator",
+  "name": "calculator",
+  "title": "Calculator (exact arithmetic, units, dates)",
+  "description": "Exact arithmetic, unit conversion and date arithmetic for agents on small local models, which get all three wrong (our own server): calculate evaluates an expression exactly with fractions while it can (0.1 + 0.2 = 0.3; sqrt, log, sin, factorial, comb, gcd, ... in floating point when needed), convert_units converts length, area, volume, mass, time, speed, temperature, data, energy, power, pressure and angles, date_diff and date_add count days, months and years with weekdays. Never eval: a small interpreter of Python's syntax tree, every intermediate result size-checked (no 9**9**9), a time limit per call. No network.",
+  "category": "Utilities",
+  "tags": [
+    "calculator",
+    "math",
+    "units",
+    "dates",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/calculator",
+  "page": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/calculator",
+  "license": "MIT (sandbox-ai-mcp)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-calculator",
+  "tag": "latest",
+  "network": "none",
+  "notes": "Four tools with small schemas, made for local models: tell the model to use calculate for every calculation. 'exact' in an answer says whether the result is exact (fractions) or rounded (floating point). Years in convert_units are Julian years (365.25 days); date_diff's business days skip weekends only, no holidays.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
+}

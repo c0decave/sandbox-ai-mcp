@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "calculate",
+    "convert_units",
+    "date_add",
+    "date_diff"
+  ]
+}

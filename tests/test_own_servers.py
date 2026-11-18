@@ -253,6 +253,16 @@ class Servers(unittest.TestCase):
         entry = module._cve_entry({"cve_id": "CVE-2021-44228", "cvss_v3": 10.0, "kev": True}, full=False)
         self.assertEqual((entry["cvss_v3"]["severity"], entry["known_exploited"]), ("critical", True))
 
+    def test_calculator(self):
+        """calculator (more in tests/test_calculator.py): its tools, exact results, a hostile expression."""
+        self.check_tools("calculator")
+        answers = rpc("calculator", session(("calculate", {"expression": "0.1 + 0.2"}),
+                                            ("calculate", {"expression": "9**9**9"})))
+        self.assertEqual(json.loads(answers[2]["result"]["content"][0]["text"])["result"], "0.3")
+        self.assertIn("too large", result(answers[3])["error"])
+        module = load("calculator")
+        self.assertEqual(module.date_add("2024-01-31", months=1)["result"], "2024-02-29")
+
     def test_youtube_transcript(self):
         """youtube-transcript (more in tests/test_youtube_transcript.py): its tools, refused arguments and the whole
         flow against a stand-in for www.youtube.com on loopback, with the image's own library; no network."""
