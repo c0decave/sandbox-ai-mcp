@@ -10,6 +10,26 @@ hostile inputs tested. Nothing here is signed or published: each added server is
 
 Effort is the time this review and packaging took (or would take), not counting CI.
 
+## Overview
+
+| # | Server | Verdict | Pin / source | Network | Effort |
+|---|---|---|---|---|---|
+| 1 | [time](../servers/time) | added, pending | mcp-server-time 2026.10.28 (official) | none | 2 h |
+| 2 | [osv](../servers/osv) | added, pending (own) | osv-mcp v0.1.4 reviewed | api.osv.dev | 3 h |
+| 3 | [youtube-transcript](../servers/youtube-transcript) | added, pending (own) | mcp-youtube-transcript v0.8.3 + youtube-transcript-api 1.2.4 reviewed | www.youtube.com | 4 h |
+| 4 | dbhub | **not added** (`candidates/dbhub`) | 1.5.1 looked at | - | 1 h |
+| 5 | [wikipedia](../servers/wikipedia), [arxiv](../servers/arxiv) | added, pending (own) | our code | 16 Wikipedias; export.arxiv.org, arxiv.org | 2.5 h, 3 h |
+| 6 | markitdown | **not added** (`candidates/markitdown`) | 0.0.1a8 / 0.1.9 looked at | - | 1 h |
+| 7 | [shodan](../servers/shodan) | added, pending (own) | mcp-shodan 1.0.36 reviewed | api.shodan.io, cvedb.shodan.io | 3 h |
+| 8 | maigret | **not added** (`candidates/maigret`) | mcp-maigret 1.0.18 / maigret 0.6.6 looked at | - | 1.5 h |
+| 9 | gitea-mcp | **not added yet** (`candidates/gitea-mcp`): pin verified, review open | v1.12.0 (commit `9c3166fc`) | - | 0.5 h (12-20 h to finish) |
+| - | [calculator](../servers/calculator) | added, pending (own; local-model helper) | our code | none | 3 h |
+| - | tool router | belongs in sandbox-ai's MCP relay: designed in [local-helpers.md](local-helpers.md), not a catalog server | - | - | 16-24 h in sandbox-ai |
+| - | compaction helper | not needed: tasks + engram | - | - | - |
+
+What needs the human (signature, CI and GHCR, the Shodan key, the router decision, gitea-mcp's review time): the
+research report's section 6.5.
+
 ## time - added (pending)
 
 | | |
