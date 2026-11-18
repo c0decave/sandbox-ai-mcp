@@ -123,3 +123,14 @@ Effort is the time this review and packaging took (or would take), not counting 
 | Why | the wrapper runs maigret only as `docker run soxoj/maigret:latest` (Docker socket in the container; an unpinned image pulled automatically = auto-update of code); maigret 0.6.6's closure is 67 packages / ~889,000 lines / 50 native libraries (curl-cffi's libcurl-impersonate, aiohttp, lxml, reportlab, Flask); its site-database auto-update (off with `--no-autoupdate`), third-party "dynamic rules", Cloudflare bypass and an OpenAI summary are in the code |
 | Effort | 1.5 h to this verdict |
 | Next | an own checker on maigret's pinned `data.json` as data (httpx, a bounded subset of sites, no auto-update, no activation code): 8-10 h |
+
+## gitea-mcp - not added yet (candidates/gitea-mcp): pin verified, review open
+
+| | |
+|---|---|
+| Verdict | **not added** in this round: the pin is verified, the complete review is not done |
+| Pin | **v1.12.0** (published 2026-10-30 18:58 UTC, commit `9c3166fcd78c2eea03cb697d88ac243cda9aff97`, source archive SHA-256 `4474a6879175e0d39bae98cb0b3feb4b0cac6e86724b30bf977b0a14d7e70dbf`); v1.13.0 (2026-11-06) is old enough from 2026-11-20. gitea.com **was reachable** on 2026-11-18 (contrary to the brief); gitea.dev and proxy.golang.org were not |
+| First look | 10,693 lines of Go; ~40 tools (many write), `--read-only`, `-O` tools and `-S` scopes; default host gitea.com (an entry must set its own), `--insecure` exists, images inlined up to 5 MiB; no exec, no telemetry found |
+| Why not now | a complete review (gitea-mcp + the official MCP Go SDK v1.8.0, 22,326 lines + Gitea's SDK) is 12-20 h; it did not fit after the other servers |
+| Effort | 0.5 h to this point; 12-20 h to finish |
+| Next | review v1.12.0 (or v1.13.0 from 11-20) completely; image built from the commit with `go mod verify`, `-t stdio -r` by default, `GITEA_HOST` required, `--insecure` refused, answers bounded |
