@@ -1,0 +1,162 @@
+{
+  "name": "smali",
+  "network": "none",
+  "memory": "2g",
+  "pids": 256,
+  "tmp": "512m",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    },
+    {
+      "target": "/out",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "get_smali",
+    "disassemble",
+    "assemble",
+    "apktool_decode",
+    "apktool_build",
+    "sign_apk"
+  ],
+  "calls": [
+    {
+      "tool": "list_files",
+      "arguments": {},
+      "expect": "/work/demo-res.apk"
+    },
+    {
+      "tool": "list_dex",
+      "arguments": {
+        "path": "demo-res.apk"
+      },
+      "expect": "classes.dex"
+    },
+    {
+      "tool": "list_classes",
+      "arguments": {
+        "path": "demo-res.apk",
+        "package": "org.example"
+      },
+      "expect": "org.example.demo.Checker",
+      "timeout": 120
+    },
+    {
+      "tool": "get_smali",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "const-string",
+      "timeout": 120
+    },
+    {
+      "tool": "search_smali",
+      "arguments": {
+        "path": "demo.apk",
+        "text": "hunter2"
+      },
+      "expect": "org.example.demo.Checker:",
+      "timeout": 120
+    },
+    {
+      "tool": "disassemble",
+      "arguments": {
+        "path": "demo-res.apk",
+        "out_name": "smali"
+      },
+      "expect": "3 smali files",
+      "timeout": 120
+    },
+    {
+      "tool": "list_output",
+      "arguments": {},
+      "expect": "/out/smali/org/example/demo/Checker.smali"
+    },
+    {
+      "tool": "assemble",
+      "arguments": {
+        "folder": "/out/smali",
+        "out_name": "again.dex"
+      },
+      "expect": "/out/again.dex",
+      "timeout": 180
+    },
+    {
+      "tool": "apktool_decode",
+      "arguments": {
+        "path": "demo-res.apk",
+        "out_name": "decoded"
+      },
+      "expect": "/out/decoded",
+      "timeout": 300
+    },
+    {
+      "tool": "apktool_build",
+      "arguments": {
+        "folder": "/out/decoded",
+        "out_name": "rebuilt.apk"
+      },
+      "expect": "unsigned",
+      "timeout": 300
+    },
+    {
+      "tool": "sign_apk",
+      "arguments": {
+        "path": "/out/rebuilt.apk",
+        "out_name": "signed.apk"
+      },
+      "expect": "throwaway",
+      "timeout": 180
+    },
+    {
+      "tool": "get_smali",
+      "arguments": {
+        "path": "/etc/passwd",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "only files in",
+      "expect_error": true
+    },
+    {
+      "tool": "get_smali",
+      "arguments": {
+        "path": "../etc/passwd",
+        "class_name": "org.example.demo.Checker"
+      },
+      "expect": "'..' is not allowed",
+      "expect_error": true
+    },
+    {
+      "tool": "disassemble",
+      "arguments": {
+        "path": "demo.apk",
+        "out_name": "../escape"
+      },
+      "expect": "out_name:",
+      "expect_error": true
+    },
+    {
+      "tool": "get_smali",
+      "arguments": {
+        "path": "demo.apk",
+        "class_name": "org.example.demo.Chekcer"
+      },
+      "expect": "similar: org.example.demo.Checker",
+      "expect_error": true
+    },
+    {
+      "tool": "apktool_build",
+      "arguments": {
+        "folder": "/work",
+        "out_name": "from-work.apk"
+      },
+      "expect": "only files in /out",
+      "expect_error": true
+    }
+  ]
+}

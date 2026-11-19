@@ -1328,6 +1328,26 @@ class Servers(unittest.TestCase):
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
         self.offline_suite("test_cfr", 12)
 
+    def test_smali(self):
+        """The smali server over stdio as the image starts it (its eleven tools, no resources or prompts; refusals
+        before any file is opened or anything is written), then the offline suite of tests/test_smali.py - inside the
+        image with baksmali, smali, apktool, zipalign and apksigner themselves, no network."""
+        answers = self.check_tools("smali")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("smali", session(("list_classes", {"path": "../etc/passwd"}),
+                                       ("get_smali", {"path": "/etc/passwd", "class_name": "a.B"}),
+                                       ("disassemble", {"path": "a.apk", "out_name": "../escape"}),
+                                       ("get_smali", {"path": "a.apk", "class_name": "--classes"}),
+                                       ("apktool_build", {"folder": "/work", "out_name": "x.apk"}),
+                                       ("get_smali", {"path": "a.apk", "class_name": "a.B",
+                                                      "api_level": "twenty-one"})))
+        expected = ("'..' is not allowed", "only files in", "out_name:", "class_name:", "only files in /out",
+                    "Input should be a valid integer")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_smali", 20)
+
 
 def osint_mcp_installed():
     try:

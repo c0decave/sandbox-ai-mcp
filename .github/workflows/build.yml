@@ -100,7 +100,7 @@ jobs:
         server: [agentql, arxiv, binwalk, bluesky, brave-search, calculator, capa, cfr, chrome-devtools,
                  code-search, context7, duckduckgo, engram, exec, files, filesystem, gowitness, jadx, memory,
                  openosint, osint-mcp, osv, playwright, radare2, searxng, sequential-thinking, shodan, signal,
-                 tasks, telegram, telegram-user, time, web-fetch, whatsapp, whatweb, wikipedia, youtube,
+                 smali, tasks, telegram, telegram-user, time, web-fetch, whatsapp, whatweb, wikipedia, youtube,
                  youtube-transcript]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -119,7 +119,7 @@ jobs:
           tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
           labels: ${{ env.SOURCE_LABEL }}
 
-      # radare2, capa, binwalk, jadx and cfr read a file: the fixtures their smoke specs mount at /work.
+      # radare2, capa, binwalk, jadx, cfr and smali read a file: the fixtures their smoke specs mount at /work.
       - name: Smoke fixtures (checked against their SHA-256)
         run: python3 scripts/fixtures.py --out "${GITHUB_WORKSPACE}/tests/fixtures"
 

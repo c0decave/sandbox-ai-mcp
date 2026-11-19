@@ -46,7 +46,8 @@ def read_json(*parts: str):
 class Fixtures(unittest.TestCase):
     def test_the_binary_fixtures_match_their_pinned_sha256(self):
         found = fixtures.load()
-        self.assertEqual(sorted(f["path"] for f in found), ["caps", "demo.apk", "demo.jar", "firmware.bin", "hello"])
+        self.assertEqual(sorted(f["path"] for f in found),
+                         ["caps", "demo-res.apk", "demo.apk", "demo.jar", "firmware.bin", "hello"])
         for fixture in found:
             self.assertLess(fixture["size"], 1 << 20, f"{fixture['path']} should stay a small fixture")
 
@@ -323,6 +324,134 @@ class JavaDecompilers(unittest.TestCase):
         flags = set(re.findall(r'"(--[a-z]+)"', source))
         self.assertEqual(flags, {"--renamedupmembers", "--renameillegalidents", "--antiobf", "--jarfilter",
                                  "--methodname", "--extraclasspath", "--analyseas", "--silent"})
+
+
+class AndroidTools(unittest.TestCase):
+    """smali (servers/smali): our own server code driving pinned upstream releases in a JVM - baksmali/smali 3.0.10
+    and apktool 3.0.3 by the SHA-256 GitHub publishes, apktool's own aapt2 and framework taken out of its jar by
+    SHA-256, Debian's zipalign and apksigner by version; the apps read-only at /work, everything written in /out,
+    no network, no variable, a throwaway signing key per call, the limits the JVM needs where sandbox-ai reads
+    them."""
+
+    BAKSMALI_JAR = "37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f"
+    SMALI_JAR = "32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a"
+    APKTOOL_JAR = "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423"
+    APKTOOL_AAPT2 = "df312db814c018019b2b79a993b041b738d7b76f4a8f28da25bc874a026368cc"
+    APKTOOL_FRAMEWORK = "5dd984016ed5a5eb0eef866e2c6e8cd352e1427828ec23adb18005cf5648f3d7"
+    JDK = "21.0.13+9-1~deb13u2"
+    #: The upstream commit the jars are built from (google/smali's main head, "Version 3.0.10").
+    SMALI_COMMIT = "7a325fc45dc02d0e428da5b54685e5887903efca"
+
+    def read(self, *parts):
+        return (ROOT / "servers" / "smali").joinpath(*parts).read_text()
+
+    def test_no_network_no_secret_the_apps_read_only_and_out_writable(self):
+        entry = read_json("servers", "smali", "server.json")
+        spec = read_json("servers", "smali", "smoke.json")
+        self.assertEqual((entry["network"], spec["network"]), ("none", "none"))
+        self.assertNotIn("hosts", entry)
+        self.assertNotIn("env", entry)
+        self.assertEqual(entry["category"], "Analysis: Files")
+        self.assertEqual([m["target"] for m in entry["mounts"]], ["/work", "/out"])
+        work, out = entry["mounts"]
+        self.assertTrue(work["required"])
+        self.assertIn(":ro", work["description"])
+        self.assertIn(":rw", out["description"])
+        self.assertEqual(spec["mounts"][0], {"host": "${FIXTURES}", "target": "/work"})
+        self.assertEqual(spec["mounts"][1], {"target": "/out", "fresh": True, "writable": True})
+
+    def test_every_tool_is_called_for_real_and_refusals_are_tested(self):
+        spec = read_json("servers", "smali", "smoke.json")
+        tools = read_json("servers", "smali", "tools.json")
+        called = {call["tool"] for call in spec["calls"] if not call.get("expect_error")}
+        self.assertEqual(called, set(tools["tools"]), "every tool is called for real")
+        self.assertGreaterEqual(len([c for c in spec["calls"] if c.get("expect_error")]), 5)
+        self.assertEqual(sorted(tools["read_only_tools"]),
+                         ["get_smali", "list_classes", "list_dex", "list_files", "list_output", "search_smali"])
+        self.assertTrue(set(tools["read_only_tools"]) < set(tools["tools"]), "the write tools are not read-only")
+        provenance = self.read("PROVENANCE.md")
+        for tool in tools["tools"]:
+            self.assertIn(f"`{tool}`", provenance)
+
+    def test_the_limits_the_jvm_needs_are_where_sandbox_ai_reads_them(self):
+        spec = read_json("servers", "smali", "smoke.json")
+        self.assertEqual((spec["memory"], spec["pids"], spec["tmp"]), ("2g", 256, "512m"))
+        self.assertIn("2g memory, 256 processes and a 512m /tmp", read_json("servers", "smali", "server.json")["notes"])
+
+    def test_the_releases_are_pinned_by_sha256_and_in_the_provenance(self):
+        dockerfile, provenance = self.read("Dockerfile"), self.read("PROVENANCE.md")
+        for url in ("https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar",
+                    "https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar",
+                    "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"):
+            self.assertIn(url, dockerfile)
+        for pin in (self.BAKSMALI_JAR, self.SMALI_JAR, self.APKTOOL_JAR):
+            self.assertIn(f"ARG {'BAKSMALI' if pin == self.BAKSMALI_JAR else 'SMALI' if pin == self.SMALI_JAR else 'APKTOOL'}_SHA256={pin}",
+                          dockerfile)
+            self.assertIn("ADD --checksum=sha256:", dockerfile)
+            self.assertIn(pin, provenance)
+        # the two files taken out of apktool's jar are checked where they are unpacked
+        for pin in (self.APKTOOL_AAPT2, self.APKTOOL_FRAMEWORK):
+            self.assertIn(pin, dockerfile)
+            self.assertIn(pin, provenance)
+        self.assertIn("sha256sum --check --strict", dockerfile)
+        self.assertIn(self.SMALI_COMMIT, provenance, "the upstream commit the jars are built from")
+        for version in (f"openjdk-21-jre-headless={self.JDK}", "zipalign=1:10.0.0+r36-1.1",
+                        "libapksig-java=35.0.2-1", "apksigner=35.0.2-1"):
+            self.assertIn(version, dockerfile)
+            self.assertIn(version.split("=")[0], provenance)
+        self.assertIn(self.JDK, provenance)
+        # nothing is unpacked or downloaded while the server runs
+        self.assertIn("--aapt", self.read("src", "server.py"))
+        self.assertIn("/opt/apktool/framework", self.read("src", "server.py"))
+
+    def test_our_code_only_and_the_shared_lock(self):
+        folder = ROOT / "servers" / "smali"
+        self.assertEqual((folder / "requirements.txt").read_bytes().replace(b"servers/smali/", b""),
+                         (ROOT / "servers" / "web-fetch" / "requirements.txt").read_bytes().replace(
+                             b"servers/web-fetch/", b""))
+        self.assertEqual((folder / "requirements.in").read_text(), "mcp==1.30.0\n")
+        source = (folder / "src" / "server.py").read_text()
+        imports = set(re.findall(r"^(?:import|from) ([A-Za-z_.]+)", source, re.M))
+        self.assertEqual({i for i in imports if i.split(".")[0] == "mcp"},
+                         {"mcp", "mcp.server.fastmcp", "mcp.server.fastmcp.exceptions", "mcp.types"})
+        self.assertFalse({i.split(".")[0] for i in imports} & {"socket", "urllib", "http", "ssl", "requests",
+                                                               "httpx", "ctypes", "pickle", "importlib"})
+        self.assertNotRegex(source, r"https?://", "no request anywhere")
+        for word in ("eval(", "exec(", "os.system", "shell=True", "os.environ", "getenv", "follow_symlinks=True",
+                     "os.chmod", "os.chown"):
+            self.assertNotIn(word, source)
+        # the one place a process starts: with an empty environment and only the checked descriptor
+        self.assertEqual(source.count("subprocess.Popen("), 1)
+        self.assertEqual(len(re.findall(r'env=\{"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",', source)), 1)
+        self.assertIn('os.symlink(f"/proc/self/fd/{', source)
+        self.assertIn("start_new_session=True", source)
+        self.assertIn("DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW", source)
+        self.assertIn("READ_FLAGS = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK", source)
+        self.assertIn("MAX_LINES = 400", source)
+        self.assertIn("MAX_CHARS = 24_000", source)
+        self.assertIn("mcp._mcp_server.request_handlers.pop(_request, None)", source, "tools only")
+
+    def test_apktool_gets_only_the_flags_a_call_may_set(self):
+        source = self.read("src", "server.py")
+        flags = set(re.findall(r'"(--[a-z0-9-]+)"', source))
+        self.assertEqual(flags, {"--no-res", "--no-src", "--only-manifest", "--no-debug-info", "--keep-broken-res",
+                                 "--debuggable", "--net-sec-conf", "--copy-original", "--aapt", "--frame-path",
+                                 "--jobs", "--force", "--output", "--classes", "--debug-info", "--use-locals",
+                                 "--verbose", "--out", "--ks", "--ks-pass", "--ks-key-alias", "--key-pass",
+                                 "--v1-signing-enabled", "--v2-signing-enabled", "--v3-signing-enabled",
+                                 "--print-certs"})
+        for never in ("--lib", "--frame-tag", "--outputdir", "--no-apk", "--ks-key-alias-pass"):
+            self.assertNotIn(f'"{never}"', source)
+
+    def test_the_signing_key_is_a_throwaway_one_and_never_leaves_the_scratch_folder(self):
+        source = self.read("src", "server.py")
+        self.assertIn("-genkeypair", source)
+        self.assertIn("secrets.token_urlsafe(24)", source)
+        self.assertIn('"-validity", "1"', source)
+        self.assertIn("throwaway", source)
+        self.assertIn("scratch.close()   # the keystore and the password go with it", source)
+        for never in ("KEYSTORE", "SANDBOX_AI_KEY", "release-key", "--ks-pass env:", "--ks-pass file:"):
+            self.assertNotIn(never, source)
 
 
 class Radare2(unittest.TestCase):

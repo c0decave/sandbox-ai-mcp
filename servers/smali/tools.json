@@ -1,0 +1,23 @@
+{
+  "tools": [
+    "apktool_build",
+    "apktool_decode",
+    "assemble",
+    "disassemble",
+    "get_smali",
+    "list_classes",
+    "list_dex",
+    "list_files",
+    "list_output",
+    "search_smali",
+    "sign_apk"
+  ],
+  "read_only_tools": [
+    "get_smali",
+    "list_classes",
+    "list_dex",
+    "list_files",
+    "list_output",
+    "search_smali"
+  ]
+}
