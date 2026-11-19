@@ -98,7 +98,7 @@ jobs:
       fail-fast: false
       matrix:
         server: [agentql, arxiv, binwalk, bluesky, brave-search, calculator, capa, cfr, chrome-devtools,
-                 code-search, context7, duckduckgo, engram, exec, files, filesystem, gowitness, jadx, memory,
+                 code-search, context7, duckduckgo, engram, exec, files, filesystem, frida, gowitness, jadx, memory,
                  openosint, osint-mcp, osv, playwright, radare2, searxng, sequential-thinking, shodan, signal,
                  smali, tasks, telegram, telegram-user, time, web-fetch, whatsapp, whatweb, wikipedia, youtube,
                  youtube-transcript]   # candidates/ join once their pins are set

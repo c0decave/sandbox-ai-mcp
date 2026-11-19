@@ -1,0 +1,106 @@
+{
+  "name": "frida",
+  "network": "none",
+  "memory": "2g",
+  "pids": 512,
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    },
+    {
+      "target": "/out",
+      "fresh": true,
+      "writable": true
+    }
+  ],
+  "expect_tools": [
+    "device_status",
+    "list_devices",
+    "list_abis",
+    "export_server",
+    "run_script",
+    "spawn"
+  ],
+  "calls": [
+    {
+      "tool": "device_status",
+      "arguments": {},
+      "expect": "FRIDA_DEVICE: not set"
+    },
+    {
+      "tool": "list_abis",
+      "arguments": {},
+      "expect": "android/arm64  frida-server"
+    },
+    {
+      "tool": "export_server",
+      "arguments": {
+        "abi": "arm64",
+        "out_name": "frida-server-arm64"
+      },
+      "expect": "/out/frida-server-arm64",
+      "timeout": 180
+    },
+    {
+      "tool": "list_sessions",
+      "arguments": {},
+      "expect": "sessions: 0"
+    },
+    {
+      "tool": "list_devices",
+      "arguments": {},
+      "expect": "no device is configured",
+      "expect_error": true
+    },
+    {
+      "tool": "list_processes",
+      "arguments": {
+        "device": "local"
+      },
+      "expect": "frida's own device of this container",
+      "expect_error": true
+    },
+    {
+      "tool": "run_script",
+      "arguments": {
+        "session": 1,
+        "script": "send(1)"
+      },
+      "expect": "there is no such session",
+      "expect_error": true
+    },
+    {
+      "tool": "spawn",
+      "arguments": {
+        "program": "com.example.app"
+      },
+      "expect": "FRIDA_WRITE=1",
+      "expect_error": true
+    },
+    {
+      "tool": "push_server",
+      "arguments": {},
+      "expect": "FRIDA_WRITE=1",
+      "expect_error": true
+    },
+    {
+      "tool": "export_server",
+      "arguments": {
+        "abi": "../etc",
+        "out_name": "x"
+      },
+      "expect": "abi:",
+      "expect_error": true
+    },
+    {
+      "tool": "export_server",
+      "arguments": {
+        "abi": "arm64",
+        "out_name": "../escape"
+      },
+      "expect": "out_name:",
+      "expect_error": true
+    }
+  ]
+}

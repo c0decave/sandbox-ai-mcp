@@ -1348,6 +1348,29 @@ class Servers(unittest.TestCase):
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
         self.offline_suite("test_smali", 20)
 
+    def test_frida(self):
+        """The frida server over stdio as the image starts it (its sixteen tools, no resources or prompts; without a
+        configured device every device tool says what to configure, the write tools refuse, frida's local device is
+        refused by name), then the offline suite of tests/test_frida.py - inside the image with frida's own bindings,
+        and no device anywhere."""
+        answers = self.check_tools("frida")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("frida", session(("device_status", {}), ("list_devices", {}),
+                                       ("list_processes", {"device": "local"}),
+                                       ("spawn", {"program": "com.example.app"}),
+                                       ("push_server", {}),
+                                       ("run_script", {"session": 1, "script": "send(1)"}),
+                                       ("export_server", {"abi": "arm64", "out_name": "../escape"}),
+                                       ("run_script", {"session": 1, "path": "../etc/passwd"})))
+        self.assertFalse(answers[2]["result"].get("isError"), "device_status answers without a device")
+        self.assertIn("FRIDA_DEVICE", answers[2]["result"]["content"][0]["text"])
+        expected = ("no device is configured", "frida's own device of this container", "FRIDA_WRITE=1",
+                    "FRIDA_WRITE=1", "there is no such session", "out_name:", "'..' is not allowed")
+        for index, text in enumerate(expected, start=3):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_frida", 25)
+
 
 def osint_mcp_installed():
     try:

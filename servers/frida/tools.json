@@ -1,0 +1,30 @@
+{
+  "tools": [
+    "attach",
+    "detach",
+    "device_status",
+    "enumerate_exports",
+    "enumerate_modules",
+    "export_server",
+    "kill",
+    "list_abis",
+    "list_applications",
+    "list_devices",
+    "list_processes",
+    "list_sessions",
+    "push_server",
+    "resume",
+    "run_script",
+    "spawn"
+  ],
+  "read_only_tools": [
+    "device_status",
+    "enumerate_exports",
+    "enumerate_modules",
+    "list_abis",
+    "list_applications",
+    "list_devices",
+    "list_processes",
+    "list_sessions"
+  ]
+}

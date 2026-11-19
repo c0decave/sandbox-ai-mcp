@@ -454,6 +454,112 @@ class AndroidTools(unittest.TestCase):
             self.assertNotIn(never, source)
 
 
+class FridaServer(unittest.TestCase):
+    """frida (servers/frida): our own server code on frida's own bindings, one pinned version for the client and for
+    every frida-server/frida-gadget in the image (each the release file, by the SHA-256 GitHub publishes); it reaches
+    only the endpoints the human configures, writes only /out, and nothing on a device without FRIDA_WRITE=1."""
+
+    VERSION = "17.25.2"
+    #: Frida publishes a server and a gadget per ABI; the image carries every Android one and Linux x86_64/arm64.
+    BINARIES = {("android", "arm"), ("android", "arm64"), ("android", "x86"), ("android", "x86_64"),
+                ("linux", "x86_64"), ("linux", "arm64")}
+
+    def read(self, *parts):
+        return (ROOT / "servers" / "frida").joinpath(*parts).read_text()
+
+    def test_the_client_and_every_binary_are_the_same_pinned_version(self):
+        dockerfile = self.read("Dockerfile")
+        self.assertIn(f"frida=={self.VERSION}", self.read("requirements.in"))
+        self.assertIn(f"frida=={self.VERSION} \\", self.read("requirements.txt"))
+        locked = self.read("requirements.txt").split(f"frida=={self.VERSION}")[1].split("# via")[0]
+        self.assertEqual(len(re.findall(r"--hash=sha256:[0-9a-f]{64}", locked)), 2, "the two linux x86_64 wheels")
+        self.assertIn(f"assert frida.__version__ == '{self.VERSION}'", dockerfile)
+        for platform, abi in sorted(self.BINARIES):
+            for kind, suffix in (("server", ".xz"), ("gadget", ".so.xz")):
+                name = f"frida-{kind}-{self.VERSION}-{platform}-{abi}{suffix}"
+                with self.subTest(binary=name):
+                    self.assertIn(f"/releases/download/{self.VERSION}/{name}", dockerfile)
+                    self.assertIn(f"/opt/frida/{platform}/{abi}/{name}", dockerfile)
+        self.assertEqual(len(re.findall(r"^ADD --checksum=sha256:\$\{[A-Z0-9_]+\} ", dockerfile, re.M)),
+                         2 * len(self.BINARIES), "every binary by the digest GitHub publishes")
+        self.assertEqual(len(set(re.findall(r"^ARG ([A-Z0-9_]+_SHA256)=[0-9a-f]{64}$", dockerfile, re.M))),
+                         2 * len(self.BINARIES), "one ARG per binary, no name used twice")
+        self.assertIn(self.VERSION, self.read("PROVENANCE.md"))
+        for digest in re.findall(r"^ARG [A-Z0-9_]+_SHA256=([0-9a-f]{64})$", dockerfile, re.M):
+            self.assertIn(digest, self.read("PROVENANCE.md"), "every digest is in PROVENANCE.md")
+        self.assertIn(f'FRIDA_VERSION = "{self.VERSION}"', self.read("src", "server.py"))
+
+    def test_the_binaries_stay_packed_and_nothing_in_the_image_is_executable(self):
+        dockerfile = self.read("Dockerfile")
+        self.assertIn("chmod -R a-x,a+r /opt/frida", dockerfile)
+        self.assertNotIn("unxz", dockerfile)
+        self.assertIn("lzma.open", self.read("src", "server.py"))
+
+    def test_it_reaches_only_what_the_human_configured(self):
+        entry = read_json("servers", "frida", "server.json")
+        self.assertEqual(entry["network"], "full")
+        self.assertNotIn("hosts", entry)
+        self.assertEqual([var["name"] for var in entry["env"]],
+                         ["FRIDA_DEVICE", "FRIDA_ADB_SERVER", "FRIDA_WRITE"])
+        for var in entry["env"]:
+            self.assertFalse(var["secret"], var["name"])
+            self.assertFalse(var["required"], var["name"])
+        self.assertIn("--allow-tcp", entry["notes"])
+        self.assertIn("NOT reachable from an MCP server's container", entry["notes"])
+        self.assertEqual(entry["tor"]["support"], "limited")
+        source = self.read("src", "server.py")
+        # the only places a connection is made: the configured frida-server, and adb against the configured server
+        self.assertEqual(source.count("add_remote_device("), 1)
+        self.assertEqual(source.count("subprocess.run("), 1)
+        self.assertIn('[ADB, "-H", host, "-P", str(port)]', source)
+        self.assertNotIn("get_usb_device(", source)
+        self.assertNotIn("get_local_device(", source)
+        for word in ("urllib", "requests", "httpx", "socket.", "eval(", "exec(", "shell=True"):
+            self.assertNotIn(word, source)
+
+    def test_fridas_local_device_is_never_offered(self):
+        source = self.read("src", "server.py")
+        self.assertIn('if wanted in ("local", "barebone", "socket"):', source)
+        self.assertIn('device.type == "usb"', source)
+        self.assertIn("never offered", source)
+        # list_devices only ever shows the configured remote device and the adb server's USB devices
+        self.assertIn("def all_devices(self)", source)
+        self.assertRegex(source, r'def usb_devices\(self\)(?:.|\n)*?device\.type == "usb"')
+
+    def test_nothing_on_a_device_changes_without_the_write_gate(self):
+        source = self.read("src", "server.py")
+        tools = read_json("servers", "frida", "tools.json")
+        self.assertEqual(sorted(set(tools["tools"]) - set(tools["read_only_tools"])),
+                         ["attach", "detach", "export_server", "kill", "push_server", "resume", "run_script",
+                          "spawn"])
+        for tool in ("spawn", "resume", "kill", "push_server"):
+            self.assertIn(f'write_allowed("{tool}")', source)
+        self.assertIn('os.environ.get("FRIDA_WRITE", "")', source)
+
+    def test_the_limits_and_folders_are_where_sandbox_ai_reads_them(self):
+        entry = read_json("servers", "frida", "server.json")
+        spec = read_json("servers", "frida", "smoke.json")
+        self.assertEqual([m["target"] for m in entry["mounts"]], ["/work", "/out"])
+        self.assertIn(":ro", entry["mounts"][0]["description"])
+        self.assertIn(":rw", entry["mounts"][1]["description"])
+        self.assertEqual((spec["memory"], spec["pids"]), ("2g", 512))
+        self.assertIn("2g memory and 512 processes", entry["notes"])
+        # the smoke run has no device: every call that needs one must be a refused call
+        needs_device = {"list_devices", "list_processes", "list_applications", "attach", "spawn", "resume", "kill",
+                        "push_server", "run_script", "enumerate_modules", "enumerate_exports", "detach"}
+        for call in spec["calls"]:
+            if call["tool"] in needs_device:
+                self.assertTrue(call.get("expect_error"), call["tool"])
+        self.assertGreaterEqual(len([c for c in spec["calls"] if c.get("expect_error")]), 6)
+        provenance = self.read("PROVENANCE.md")
+        for tool in tools_of("frida"):
+            self.assertIn(f"`{tool}`", provenance)
+
+
+def tools_of(name):
+    return read_json("servers", name, "tools.json")["tools"]
+
+
 class Radare2(unittest.TestCase):
     """r2mcp built from the reviewed commit with this repository's patch: open_file takes no URI under -s, no
     command it builds has a second line; started with -s /work, -g none, no prompts and exactly tools.json."""

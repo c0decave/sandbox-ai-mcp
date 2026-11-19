@@ -9,6 +9,7 @@
     "arxiv",
     "calculator",
     "cfr",
+    "frida",
     "jadx",
     "osv",
     "shodan",
@@ -675,6 +676,65 @@
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:frida",
+      "name": "frida",
+      "title": "Frida (Android instrumentation, your device)",
+      "description": "Dynamic instrumentation of an Android (or Linux) device with Frida 17.25.2: what devices, processes and apps there are, attach to a process that is running, load a script into it (given inline or read from the folder mounted read-only at /work) and collect the messages it posts, list the libraries of a process and their exports, and - only with FRIDA_WRITE=1 - spawn an app held before its first instruction, resume or kill it, or push the matching frida-server onto a USB device. The image carries frida-server and frida-gadget for every Android ABI (arm, arm64, x86, x86_64) and for Linux x86_64 and arm64, each the release file Frida publishes, pinned by its SHA-256; export_server unpacks one into the folder mounted writable at /out. The server talks to exactly one device endpoint, the one you configure (FRIDA_DEVICE, a frida-server at HOST:PORT, or FRIDA_ADB_SERVER, an adb server it can reach over TCP) and to nothing else; frida's local device - the processes of its own container - is never offered. Answers come in parts of at most 400 lines or 24,000 characters.",
+      "category": "Analysis: Files",
+      "tags": [
+        "analysis",
+        "android",
+        "frida",
+        "instrumentation",
+        "debugging",
+        "reverse-engineering"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/frida",
+      "page": "https://frida.re",
+      "license": "MIT (MCP server, sandbox-ai-mcp); wxWindows Library Licence 3.1 (Frida)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-frida",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "FRIDA_DEVICE",
+          "description": "The frida-server of your device as HOST:PORT, e.g. 192.168.1.33:27042 (the only address this server connects to)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "FRIDA_ADB_SERVER",
+          "description": "An adb server this container can reach over TCP, e.g. 192.168.1.10:5037; its USB devices are then offered",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "FRIDA_WRITE",
+          "description": "1: spawn, resume, kill and push_server are allowed (without it the device is only read)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder with your Frida scripts, read-only (--mount /work=DIR:ro); never written",
+          "required": false
+        },
+        {
+          "target": "/out",
+          "description": "Where export_server puts a frida-server binary, writable (--mount /out=DIR:rw): the only folder written",
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "It reaches one endpoint, the one you configure - and it has to be allowed to: a device or adb server in your own network is a private address, which a server with network full never reaches. Open exactly it: sandbox-ai mcp set frida --allow-tcp 192.168.1.33:27042 (or --allow-tcp IP:5037 for an adb server). An adb server on the host that runs sandbox-ai (--allow-host-port 5037) is NOT reachable from an MCP server's container: use a device or adb server reachable by TCP, or work with adb in the agent's own sandbox (the android image). Needs 2g memory and 512 processes (sandbox-ai 0.1.94 and newer apply them from the catalog). Without FRIDA_WRITE=1 nothing on the device is started, stopped or written. A script you load runs inside the app and can read and change everything the app may - run it only against apps you are allowed to instrument, and only on a device you own. Everything the device sends back (process and module names, what a script posts) was made by someone else: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "A device in your own network cannot be reached from a Tor exit: behind Tor only a frida-server with a public address (or an .onion relay) works; the device endpoint has to be reachable from where the tunnel leaves"
       }
     },
     {

@@ -11,7 +11,7 @@
   a device or adb server reachable by TCP, and open exactly it: ``sandbox-ai mcp set frida --allow-tcp IP:PORT``.)
 
 Frida's **local** device - the processes of this very container, the server's own included - is never offered and
-never attached to: every tool resolves a device through ``wanted_device``, which only knows the configured ones.
+never attached to: every tool resolves a device through ``Devices.wanted``, which refuses those names and knows only the configured ones.
 
 **What is in the image.** The ``frida`` Python bindings (one pinned version) and, for that very version,
 ``frida-server`` and ``frida-gadget`` for **every Android ABI** Frida publishes (arm, arm64, x86, x86_64) plus the
@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import collections
 import errno
+import lzma
 import json
 import logging
 import os
@@ -55,8 +56,11 @@ WORK = "/work"
 OUT = "/out"
 #: Root -> where it is in this container (tests point them at temporary folders).
 ROOTS: dict[str, str] = {WORK: WORK, OUT: OUT}
-#: Where the pinned frida-server/frida-gadget binaries of the image live: /opt/frida/<platform>/<abi>/<name>
+#: Where the pinned frida-server/frida-gadget release files of the image live, as published (xz-compressed, so the
+#: image carries exactly the bytes whose SHA-256 GitHub publishes): /opt/frida/<platform>/<abi>/<name>.xz
 BINARIES = "/opt/frida"
+SCRATCH = "/tmp/frida-mcp"
+MAX_BINARY_BYTES = 256 << 20       # a decompressed frida-server, at most
 ADB = "/usr/bin/adb"
 FRIDA_VERSION = "17.25.2"          # the bindings and the binaries in the image (the same version)
 
@@ -100,27 +104,49 @@ _WRITE = os.environ.get("FRIDA_WRITE", "").strip() in ("1", "true", "yes", "on")
 _ENDPOINT = re.compile(r"^(?:\[(?P<v6>[0-9A-Fa-f:.]{2,45})\]|(?P<host>[A-Za-z0-9.-]{1,253})):(?P<port>[0-9]{1,5})$")
 
 
+class Refused(ValueError):
+    """An argument, a file or a device this server does not take; the text says why and what to do instead."""
+
+
 def endpoint(value: str, name: str) -> tuple[str, int]:
-    """HOST:PORT (or [IPv6]:PORT) of a configured endpoint; ValueError otherwise."""
-    match = _ENDPOINT.match(value.strip())
+    """HOST:PORT (or [IPv6]:PORT) of a configured endpoint; Refused otherwise."""
+    match = _ENDPOINT.match(str(value).strip())
     if not match:
-        raise ValueError(f"{name} must be HOST:PORT (e.g. 192.168.1.33:27042), not {value[:60]!r}")
+        raise Refused(f"{name} must be HOST:PORT (e.g. 192.168.1.33:27042), not {str(value)[:60]!r}")
     port = int(match["port"])
     if not 0 < port < 65536:
-        raise ValueError(f"{name}: the port must lie between 1 and 65535")
+        raise Refused(f"{name}: the port must lie between 1 and 65535")
     return (match["v6"] or match["host"]), port
 
 
+#: What frida and adb are told about the configured adb server (frida reads these when it first looks at USB
+#: devices, so they are set before it is imported; adb gets them, and -H/-P, for every call).
+ADB_ENV: dict[str, str] = {}
 if _ADB_SERVER:
     try:
         _host, _port = endpoint(_ADB_SERVER, "FRIDA_ADB_SERVER")
-        os.environ["ANDROID_ADB_SERVER_ADDRESS"] = _host
-        os.environ["ANDROID_ADB_SERVER_PORT"] = str(_port)
+        ADB_ENV = {"ANDROID_ADB_SERVER_ADDRESS": _host, "ANDROID_ADB_SERVER_PORT": str(_port)}
+        os.environ.update(ADB_ENV)
     except ValueError as _exc:
         log.error("%s", _exc)
         _ADB_SERVER = ""
 
 import frida  # noqa: E402 - after the adb server's address is in the environment
+
+#: frida 17 raises each of these straight from Exception - there is no common base class to catch, so the ones the
+#: bindings have are gathered here (a version that adds one is caught as well; a missing name is simply not there).
+FRIDA_ERROR_NAMES = ("AddressInUseError", "ExecutableNotFoundError", "ExecutableNotSupportedError",
+                     "InvalidArgumentError", "InvalidOperationError", "NotSupportedError", "OperationCancelledError",
+                     "PermissionDeniedError", "ProcessNotFoundError", "ProcessNotRespondingError", "ProtocolError",
+                     "ServerNotRunningError", "TimedOutError", "TransportError", "FridaError")
+FRIDA_ERRORS = tuple(found for found in (getattr(frida, name, None) for name in FRIDA_ERROR_NAMES)
+                     if isinstance(found, type) and issubclass(found, BaseException))
+
+
+def frida_error(name: str):
+    """frida.NAME where the bindings have it, else a class nothing raises (so an except clause stays valid)."""
+    found = getattr(frida, name, None)
+    return found if isinstance(found, type) and issubclass(found, BaseException) else type(name, (Exception,), {})
 
 mcp = FastMCP("frida-mcp", instructions=(
     "Frida against the Android device the human configured for this server (a frida-server at FRIDA_DEVICE, or a USB "
@@ -136,10 +162,6 @@ mcp = FastMCP("frida-mcp", instructions=(
 for _request in (types.ListResourcesRequest, types.ReadResourceRequest, types.ListResourceTemplatesRequest,
                  types.ListPromptsRequest, types.GetPromptRequest):
     mcp._mcp_server.request_handlers.pop(_request, None)
-
-
-class Refused(ValueError):
-    """An argument, a file or a device this server does not take; the text says why and what to do instead."""
 
 
 # --- arguments and answers -------------------------------------------------------------------------------------------
@@ -242,22 +264,22 @@ def answer(work) -> str:
         return utf8(work())
     except Refused as exc:
         raise ToolError(utf8(str(exc))) from None
-    except frida.ServerNotRunningError:
+    except frida_error("ServerNotRunningError"):
         raise ToolError(f"no frida-server answered on {configured_device() or 'the device'}: start it on the device "
                         "(push_server puts the matching one there) and make sure this server may reach it "
                         "(sandbox-ai mcp set frida --allow-tcp IP:PORT)") from None
-    except frida.TransportError as exc:
+    except frida_error("TransportError") as exc:
         raise ToolError(f"the connection to the device broke: {shown(exc)[:300]}") from None
-    except frida.InvalidArgumentError as exc:
+    except frida_error("InvalidArgumentError") as exc:
         raise ToolError(f"frida refused that: {shown(exc)[:300]}") from None
-    except frida.PermissionDeniedError as exc:
+    except frida_error("PermissionDeniedError") as exc:
         raise ToolError(f"the device refused that: {shown(exc)[:300]} (a frida-server that does not run as root "
                         "cannot see or attach to other apps)") from None
-    except frida.ProcessNotFoundError as exc:
+    except frida_error("ProcessNotFoundError") as exc:
         raise ToolError(f"no such process on the device: {shown(exc)[:200]} (list_processes shows them)") from None
-    except frida.NotSupportedError as exc:
+    except frida_error("NotSupportedError") as exc:
         raise ToolError(f"the device does not support that: {shown(exc)[:300]}") from None
-    except frida.FridaError as exc:
+    except FRIDA_ERRORS as exc:
         raise ToolError(f"frida: {type(exc).__name__}: {shown(exc)[:300]}") from None
     except OSError as exc:
         raise ToolError(f"the file system refused: {exc.strerror or type(exc).__name__}") from None
@@ -324,25 +346,26 @@ class Devices:
 
     def wanted(self, name: str = ""):
         """The device NAME says: "" for the only one there is; an id of list_devices. Never frida's local device."""
+        # frida's own devices are refused by name before anything is reached: "local" is this very container.
+        wanted = _text(name, "device", 128, "emulator-5554", empty=True) if name else ""
+        if wanted in ("local", "barebone", "socket"):
+            raise Refused(f"device: {wanted!r} is frida's own device of this container, not your Android device; "
+                          "this server never attaches to it (list_devices shows your devices)")
         devices = self.all_devices()
         if not devices:
             raise Refused(no_device_message())
-        if not name:
+        if not wanted:
             if len(devices) > 1:
                 raise Refused("device: there is more than one (" + ", ".join(shown(d.id) for d in devices[:8])
                               + "): name the one to use (list_devices shows them)")
             return devices[0]
-        wanted = _text(name, "device", 128, "emulator-5554")
-        if wanted in ("local", "barebone", "socket"):
-            raise Refused(f"device: {wanted!r} is frida's own device of this container, not your Android device; "
-                          "this server never attaches to it (list_devices shows your devices)")
         for device in devices:
             if device.id == wanted or device.name == wanted:
                 return device
         raise Refused(f"device: no device {shown(wanted)} (list_devices shows them)")
 
     # - sessions ------------------------------------------------------------------------------------------------
-    def attach(self, device, target, realm_spawn=False) -> tuple[int, dict]:
+    def attach(self, device, target) -> tuple[int, dict]:
         with self.lock:
             if len(self.sessions) >= MAX_SESSIONS:
                 raise Refused(f"{MAX_SESSIONS} sessions are open already: detach one (list_sessions shows them)")
@@ -410,11 +433,27 @@ def binary_path(platform: str, abi: str, kind: str) -> str:
     known = ANDROID_ABIS if platform == "android" else {name: () for name in LINUX_ABIS}
     if abi not in known:
         raise Refused(f"abi: {' or '.join(sorted(known))} for {platform} (list_abis shows what is in the image)")
-    name = f"frida-{kind}-{FRIDA_VERSION}-{platform}-{abi}" + (".so" if kind == "gadget" else "")
+    name = f"frida-{kind}-{FRIDA_VERSION}-{platform}-{abi}" + (".so" if kind == "gadget" else "") + ".xz"
     path = os.path.join(BINARIES, platform, abi, name)
     if not os.path.isfile(path):
-        raise Refused(f"the image has no {name} (list_abis shows what is there)")
+        raise Refused(f"the image has no {name[:-3]} (list_abis shows what is there)")
     return path
+
+
+def unpacked(source: str, target: str, mode: int) -> int:
+    """The release file SOURCE (xz, as published) unpacked to TARGET; its size. Nothing else is written."""
+    total = 0
+    with lzma.open(source, "rb") as packed, open(target, "xb") as out:
+        while True:
+            chunk = packed.read(1 << 20)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_BINARY_BYTES:
+                raise Refused(f"{os.path.basename(source)} unpacks to more than {MAX_BINARY_BYTES >> 20} MiB")
+            out.write(chunk)
+    os.chmod(target, mode)
+    return total
 
 
 def available_binaries() -> list[tuple[str, str, str, int]]:
@@ -520,12 +559,19 @@ def read_script(path) -> tuple[str, str]:
     return data.decode("utf-8", "replace"), display
 
 
-def out_file(name: str) -> str:
-    """A new file NAME in /out (nothing overwritten); Refused when /out is not mounted."""
+def check_out_name(name) -> str:
+    """NAME as a file this server may make in /out: one path segment, nothing else (checked before any file is
+    touched)."""
     text = _text(name, "out_name", 64, "frida-server-arm64")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", text):
         raise Refused("out_name: a name of letters, digits, '.', '_' or '-' (at most 64 characters); the file is "
                       "made in /out")
+    return text
+
+
+def out_file(name: str) -> str:
+    """A new file NAME in /out (nothing overwritten); Refused when /out is not mounted."""
+    text = check_out_name(name)
     if not os.path.isdir(ROOTS[OUT]):
         raise Refused("/out is not there: add the server with a writable folder (--mount /out=DIR:rw)")
     path = os.path.join(ROOTS[OUT], text)
@@ -547,8 +593,7 @@ def adb(arguments: list[str], serial: str = "", seconds: float = ADB_SECONDS) ->
     command = [ADB, "-H", host, "-P", str(port)] + (["-s", serial] if serial else []) + arguments
     try:
         process = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, timeout=seconds,
-                                 env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8",
-                                      "ANDROID_ADB_SERVER_ADDRESS": host, "ANDROID_ADB_SERVER_PORT": str(port)},
+                                 env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8", **ADB_ENV},
                                  start_new_session=True, check=False)
     except subprocess.TimeoutExpired:
         raise Refused(f"adb did not answer within {seconds:g} s") from None
@@ -591,8 +636,9 @@ def device_status() -> str:
                  f"{FRIDA_VERSION})"]
         lines.append(f"FRIDA_DEVICE: {shown(configured_device()) if configured_device() else 'not set'}")
         lines.append(f"FRIDA_ADB_SERVER: {shown(configured_adb()) if configured_adb() else 'not set'}")
-        lines.append(f"FRIDA_WRITE: {'1 (spawn, resume, kill and push_server are allowed)' if _WRITE else 'not set '
-                     '(the device is only read; spawn, resume, kill and push_server refuse)'}")
+        lines.append("FRIDA_WRITE: " + ("1 (spawn, resume, kill and push_server are allowed)" if _WRITE else
+                                        "not set (the device is only read; spawn, resume, kill and push_server "
+                                        "refuse)"))
         lines.append(f"/work (scripts): {'there' if os.path.isdir(ROOTS[WORK]) else 'not mounted'}; "
                      f"/out (exported binaries): {'writable' if os.path.isdir(ROOTS[OUT]) else 'not mounted'}")
         if not configured_device() and not configured_adb():
@@ -606,7 +652,7 @@ def device_status() -> str:
                 lines.append(f"  {shown(device.id)}  {shown(device.name)}  ({shown(device.type)})")
         except Refused as exc:
             lines.append(f"not reachable: {exc}")
-        except frida.FridaError as exc:
+        except FRIDA_ERRORS as exc:
             lines.append(f"not reachable: {type(exc).__name__}: {shown(exc)[:200]}")
         lines.append("The processes of this container (frida's local device) are never offered.")
         return "\n".join(lines)
@@ -619,11 +665,13 @@ def list_devices() -> str:
     server. Frida's local device - this container - is never among them."""
     def work() -> str:
         devices = DEVICES.all_devices()
+        if not devices:
+            raise Refused(no_device_message())
         items = []
         for device in devices:
             try:
                 parameters = device.query_system_parameters()
-            except frida.FridaError:
+            except FRIDA_ERRORS:
                 parameters = {}
             about = " ".join(f"{key}={shown(parameters[key])}" for key in ("os", "platform", "arch", "access")
                              if key in parameters and not isinstance(parameters[key], dict))
@@ -711,13 +759,14 @@ def export_server(abi: str, out_name: str, platform: str = "android", kind: str 
         wanted_abi = _text(abi, "abi", 32, "arm64")
         wanted_platform = _text(platform, "platform", 16, "android")
         wanted_kind = _text(kind, "kind", 16, "server")
+        check_out_name(out_name)   # every argument checked before a file is looked at
         source = binary_path(wanted_platform, wanted_abi, wanted_kind)
         target = out_file(out_name)
-        shutil.copyfile(source, target)
-        os.chmod(target, 0o755 if wanted_kind == "server" else 0o644)
-        return (f"{os.path.basename(source)} copied to /out/{os.path.basename(target)} ({os.path.getsize(target):,} "
-                f"bytes, frida {FRIDA_VERSION}). On the device: adb push it to /data/local/tmp/, chmod 755 it and "
-                "run it as root; then give this server --env FRIDA_DEVICE=IP:27042 (or forward the port).")
+        size = unpacked(source, target, 0o755 if wanted_kind == "server" else 0o644)
+        return (f"{os.path.basename(source)[:-3]} unpacked into /out/{os.path.basename(target)} ({size:,} bytes, "
+                f"frida {FRIDA_VERSION}). On the device: adb push it to /data/local/tmp/, chmod 755 it and run it as "
+                "root; then give this server --env FRIDA_DEVICE=IP:27042 (a port forwarded on the host is not "
+                "reachable from this container).")
     return answer(work)
 
 
@@ -733,9 +782,14 @@ def push_server(device: str = "", start: bool = True, target_folder: str = "/dat
     """
     def work() -> str:
         write_allowed("push_server")
+        if not configured_adb():
+            raise Refused("push_server pushes through adb: it needs an adb server this container can reach over TCP "
+                          "(--env FRIDA_ADB_SERVER=IP:5037, and sandbox-ai mcp set frida --allow-tcp IP:5037). For a "
+                          "device reached by TCP use export_server and put the binary there yourself.")
         starting = _bool(start, "start")
         folder = _text(target_folder, "target_folder", 128, "/data/local/tmp")
-        if not re.fullmatch(r"/(?:data|sdcard|storage)(?:/[A-Za-z0-9._-]{1,64}){0,6}", folder):
+        if not re.fullmatch(r"/(?:data|sdcard|storage)(?:/[A-Za-z0-9._-]{1,64}){0,6}", folder) or \
+                any(part in (".", "..") for part in folder.split("/")):
             raise Refused("target_folder: a folder below /data, /sdcard or /storage, e.g. /data/local/tmp")
         chosen = DEVICES.wanted(device)
         if chosen.type != "usb":
@@ -747,7 +801,15 @@ def push_server(device: str = "", start: bool = True, target_folder: str = "/dat
         source = binary_path("android", abi, "server")
         name = f"frida-server-{FRIDA_VERSION}-{abi}"
         remote = f"{folder}/{name}"
-        adb(["push", source, remote], serial=serial)
+        os.makedirs(SCRATCH, mode=0o700, exist_ok=True)
+        scratch = os.path.join(SCRATCH, f"push-{os.getpid()}-{int(time.time())}")
+        os.makedirs(scratch, mode=0o700)
+        try:
+            local = os.path.join(scratch, name)
+            unpacked(source, local, 0o755)
+            adb(["push", local, remote], serial=serial)
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
         adb(["shell", "chmod", "755", remote], serial=serial, seconds=30.0)
         lines = [f"{os.path.basename(source)} pushed to {shown(remote)} on {shown(serial)} "
                  f"(the device reports {shown(reported)} -> {abi}, frida {FRIDA_VERSION})"]
@@ -775,7 +837,7 @@ def attach(target: str, device: str = "") -> str:
     def work() -> str:
         wanted = target_of(target)
         chosen = DEVICES.wanted(device)
-        number, found = DEVICES.attach(chosen, wanted)
+        number, _ = DEVICES.attach(chosen, wanted)
         return (f"session {number}: attached to {shown(wanted)} on {shown(chosen.id)} (run_script, "
                 f"enumerate_modules and enumerate_exports take session={number}; detach ends it)")
     return answer(work)
@@ -804,7 +866,7 @@ def detach(session: int) -> str:
         found = DEVICES.drop(session)
         try:
             found["session"].detach()
-        except frida.FridaError:
+        except FRIDA_ERRORS:
             pass
         return f"session {session} ended ({shown(found['target'])} on {shown(found['device'])})"
     return answer(work)
@@ -826,6 +888,8 @@ def run_script(session: int, script: str = "", path: str = "", seconds: int = SC
     def work() -> str:
         wait = _int(seconds, "seconds", *SCRIPT_RANGE)
         limit = _int(max_messages, "max_messages", 1, MAX_MESSAGES)
+        if isinstance(script, str) and len(script) > MAX_SCRIPT_BYTES:
+            raise Refused(f"the script is larger than {MAX_SCRIPT_BYTES >> 10} KiB")
         given = _text(script, "script", MAX_SCRIPT_BYTES, "send(1 + 1)", empty=True) if script else ""
         wanted_path = _text(path, "path", 4096, "hooks.js", empty=True) if path else ""
         if bool(given) == bool(wanted_path):
@@ -866,9 +930,8 @@ def run_script(session: int, script: str = "", path: str = "", seconds: int = SC
         head = (f"{where} loaded into {shown(found['target'])} (session {session}); {len(collected)} messages in "
                 f"{wait} s" + (" (the limit was reached: more are waiting)" if len(collected) >= limit else ""))
         body = "\n".join(f"{number:>4}  {line}" for number, line in enumerate(collected, start=1))
-        tail = ("\n(the script stays loaded and keeps hooking until detach; run_script again to collect more)"
-                if collected or True else "")
-        return page(head, body, 1, "run_script with the same arguments and") + tail if body else head + tail
+        tail = "\n(the script stays loaded and keeps hooking until detach; run_script again to collect more)"
+        return (page(head, body, 1, "run_script with the same arguments and") if body else head) + tail
     return answer(work)
 
 
@@ -947,7 +1010,7 @@ def run_in_session(found: dict, expression: str, seconds: float = CALL_SECONDS):
     finally:
         try:
             script.unload()
-        except frida.FridaError:
+        except FRIDA_ERRORS:
             pass
 
 
