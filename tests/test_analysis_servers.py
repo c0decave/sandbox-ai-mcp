@@ -133,9 +133,10 @@ class EveryServer(unittest.TestCase):
                 for mount in spec.get("mounts", []):
                     self.assertIn(mount["target"], declared,
                                   f"{name}: the smoke mounts {mount['target']}, the entry does not offer it")
-                    # the analysis servers read their input from /work; files, filesystem, exec and tasks write /work
-                    # by design
-                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name not in ("files", "filesystem"):
+                    # the analysis servers read their input from /work; files, filesystem, exec, tasks and axross (with
+                    # AXROSS_WRITE=1) write /work by design
+                    if mount.get("writable") and name not in WORKSPACE_SERVERS and name not in ("files", "filesystem",
+                                                                                                "axross"):
                         self.assertNotEqual(mount["target"], "/work",
                                             f"{name}: input is mounted read-only")
                 for target, mount in declared.items():

@@ -60,6 +60,7 @@ ordinary request per URL; more requests to that site only with its aggression 3,
 | [engram](servers/engram) | Engram 3.6.0's persistent memory for coding agents: observations (decisions, bugs, conventions) in SQLite with full-text search, session summaries, context after a compaction, topic keys, conflict review, pins; only its MCP server (23 agent tools), no CLI, HTTP API, TUI, cloud or sync. The memory is a folder mounted writable at `/data`, one project per folder (`ENGRAM_PROJECT`, default `brain`) | none | - (the memory is the `/data` folder) |
 | [files](servers/files) | reliable reads and writes of the agent's workspace, made for small local models that get file writes wrong (our own server): read in parts with the file's sha256, list, glob, search, stat, diff, checksum; atomic writes that never replace a file changed since it was read (`expected_sha256`), `write_markdown` that repairs what local models get wrong (a fence around everything, literal `\n`, CRLF, `#Heading`, an open code fence, ...) and lists each repair, exact edits, line inserts and deletes, strict patches, move, copy, delete into a trash. Every write answers lines added/removed and the new sha256. Only the folder mounted at `/work` is written (`/ref1`-`/ref3` read-only); no link followed out of a folder, none through on a write; `FILES_READONLY=1` | none | - (the workspace is the `/work` folder) |
 | [filesystem](servers/filesystem) | the official MCP filesystem server (2.1.0) for agents on capable models that expect the reference tool set: read whole files (or head/tail), media as base64, several at once, write, `edit_file` with a git-style diff (`dryRun`), `create_directory`, list (with sizes), `directory_tree`, `move_file`, `search_files` (glob on names), `get_file_info`. Allowed are exactly the folders mounted at `/work` and `/ref1`-`/ref3`; MCP Roots are never used, so a client cannot widen them; links out of the folders refused. Which of files and filesystem: *files or filesystem?* under [Using them in sandbox-ai](#using-them-in-sandbox-ai) | none | - (the folders you mount) |
+| [axross](servers/axross) | axross's file tools (axross-headless-mcp 0.15.180, the user's own project; only the modules this configuration runs are in the image, the rest of the package deleted) on the folder mounted at `/work` and on the **SFTP connections saved as axross profiles** (`remote_open`, then `backend='profile:NAME'`): list, stat, read (4 MiB a call), checksum, walk, recursive checksum, grep (a regex in a killable child), versions; with `AXROSS_WRITE=1` write, mkdir, remove, rename, copy, bulk copy, links, chmod (no setuid). `/work` is confined by descriptor (openat2: no `..`, no link out), secret files are never read; a remote is what its SSH account reaches (`..` refused for writes, production profiles read-only). SFTP only, host keys only from known_hosts (never trusted on first use), passwords from `AXROSS_PASSWORDS`. No scripts, remote commands, agent or HTTP. Pending: not yet built and signed | none (local disk); for a connection `--network full` and, in your network, `--allow-tcp IP:22` | optional: `AXROSS_PASSWORDS` (the profiles' passwords) |
 
 Looked at on 2026-11-17 and not admitted (the reasons: [docs/CANDIDATES.md](docs/CANDIDATES.md#the-candidates-security-review-of-2026-11-17);
 their prepared folders stay in [`candidates/`](candidates)): **ghidra** (pyghidra-mcp 0.3.0 with Ghidra 12.2 and 101
@@ -161,6 +162,9 @@ sandbox-ai mcp add filesystem --mount /work=~/projects/myapp:rw   # the official
 sandbox-ai mcp add exec --mount /work=~/projects/app:rw    # commands in the project, no network (small local models)
 sandbox-ai mcp add tasks --mount /work=~/projects/app:rw   # the plan in ~/projects/app/.tasks
 sandbox-ai mcp add code-search --mount /work=~/projects/app:ro   # find and read code by name, read-only
+sandbox-ai mcp add axross --mount /work=~/projects/app:ro   # axross's file tools on a folder, no network
+sandbox-ai mcp add axross --as axross-sftp --network full --allow-tcp 192.168.1.20:22 --env AXROSS_PASSWORDS \
+  --mount /work=~/projects/app:ro --mount /axross=~/.config/axross:ro --mount /ssh=~/.ssh:ro   # + SFTP profiles
 sandbox-ai claude --mcp duckduckgo --mcp web-fetch
 sandbox-ai claude --mcp radare2 --mcp capa
 sandbox-ai claude --mcp jadx --mcp cfr --mcp smali
@@ -351,6 +355,28 @@ agent's anyway), deleting and moving asked for, anything else refused:
 
 Tell a small model in its instructions to use `write_markdown` for `.md` files and `edit_file` for small changes, and to
 read before it writes. See [its PROVENANCE.md](servers/files/PROVENANCE.md).
+
+**axross** is axross's own MCP server (the user's project c0decave/axross-headless-mcp) on a folder and on the SFTP
+connections saved in axross. The profiles are axross's `~/.config/axross/profiles.json`, mounted read-only at `/axross`
+(nothing else of that folder is read); known hosts and key files come from a folder mounted read-only at `/ssh` - a
+profile's key file is looked up there by its file name (keys without a passphrase); a host whose key is not in
+`/ssh/known_hosts` is refused with the command to check and add it. A profile that stores its password in axross's
+keyring gets it from the secret `AXROSS_PASSWORDS`, a JSON object of profile names and passwords:
+
+```bash
+printf '%s' '{"backup-box": "the password"}' | sandbox-ai secrets set AXROSS_PASSWORDS
+sandbox-ai mcp add axross --network full --allow-tcp 192.168.1.20:22 --env AXROSS_PASSWORDS \
+  --mount /work=~/projects/app:ro --mount /axross=~/.config/axross:ro --mount /ssh=~/.ssh:ro
+# writing: --env AXROSS_WRITE=1 (and /work :rw); a host on the internet needs --network full
+```
+
+Without a network (the default) it reaches nothing; `--allow-tcp IP:22` opens exactly one host of your network
+(sandbox-ai cannot yet keep a server to host names you choose, so a host on the internet needs `--network full`). A
+remote is whatever its SSH account may reach - give the profile an account of its own (best `internal-sftp` in a
+chroot) and flag it *production* in axross where nothing may change. SFTP only (no other backend, proxy, ProxyCommand
+or SSH agent). Recommended approvals: allow the read tools, ask for `write_file`, `remove`, `rename`, `copy`,
+`bulk_copy`, `symlink`, `hardlink` and `chmod`. See [its PROVENANCE.md](servers/axross/PROVENANCE.md) for what was
+reviewed and how much.
 
 **files or filesystem?** Both work on the folders you mount and nothing else, without network. **files** is our own
 server, made for agents on small local models: a whole-file write needs the `sha256` the file was read with, an edit
