@@ -1,0 +1,63 @@
+{
+  "id": "mcp:axross",
+  "name": "axross",
+  "title": "axross files (a folder and your SFTP connections)",
+  "description": "axross's file tools (axross-headless-mcp 0.15.180, the user's own project; the modules this server runs reviewed, the rest of the package not in the image) on the folder mounted at /work and, with remote_open, on the SFTP connections saved as axross profiles: list_dir, stat, read_file (text or base64, at most 4 MiB a call, with offsets), checksum, search, walk, recursive_checksum, grep (regex in a killable child process, 5 s a file), list_versions, open_version_read; remote_profiles (the saved profiles, no secret), remote_open, remote_close, list_backends. Only with AXROSS_WRITE=1: write_file (atomic), mkdir, remove, rename, copy, bulk_copy, symlink, hardlink, chmod (no setuid, setgid, sticky or group/world write). On /work every path stays beneath the folder: '..', absolute paths and symlinks out of it are refused, every open is made beneath the folder's descriptor without following a link (openat2), and secret files (SSH and GnuPG keys, .env, credentials, tokens, any file holding a private key) are never read. A remote path is the SSH account's, as the server allows it (--mcp-root does not apply there); '..' is refused for writes and a profile flagged production stays read-only. SFTP profiles only (no other backend, no proxy, no ProxyCommand, no SSH agent); host keys only from known_hosts (an unknown one is refused, never trusted on first use); passwords only from AXROSS_PASSWORDS. No scripts, no remote commands, no agent, no HTTP transport.",
+  "category": "Files",
+  "tags": [
+    "files",
+    "sftp",
+    "remote",
+    "workspace",
+    "axross"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/axross",
+  "page": "https://github.com/c0decave/axross-headless-mcp",
+  "license": "Apache-2.0 (axross-headless-mcp); MIT (entry point, sandbox-ai-mcp); LGPL-2.1 (paramiko)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-axross",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "AXROSS_WRITE",
+      "description": "1: the write tools are offered (write_file, mkdir, remove, rename, copy, bulk_copy, symlink, hardlink, chmod); without it the server only reads",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "AXROSS_PASSWORDS",
+      "description": "The stored passwords of your profiles as JSON, {\"PROFILE\": \"password\"} (\"PROFILE:proxy\" for a proxy's): read once, never written or shown",
+      "secret": true,
+      "required": false
+    },
+    {
+      "name": "AXROSS_MCP_REMOTE_TIMEOUT",
+      "description": "Seconds an SFTP request may go unanswered, 5-3600 (default 60)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "mounts": [
+    {
+      "target": "/work",
+      "description": "The folder the file tools work on, read-only (--mount /work=DIR:ro; :rw with AXROSS_WRITE=1 to change it); without it an empty folder",
+      "required": false
+    },
+    {
+      "target": "/axross",
+      "description": "axross's config folder, read-only (--mount /axross=~/.config/axross:ro): only its profiles.json is read, never written",
+      "required": false
+    },
+    {
+      "target": "/ssh",
+      "description": "known_hosts and the key files your profiles name, read-only (--mount /ssh=~/.ssh:ro); a key file is looked up here by its name",
+      "required": false
+    }
+  ],
+  "network": "none",
+  "notes": "Local disk only by default: network none, nothing reached. For your connections give it the network and only what they need: a host in your own network with --allow-tcp IP:22 (sandbox-ai mcp add axross --network full --allow-tcp 192.168.1.20:22), one on the internet with --network full (sandbox-ai cannot yet keep a server to host names you choose). Profiles come from axross (the GUI's Connect dialog, Store password ticked for a password login); the passwords from AXROSS_PASSWORDS ({\"PROFILE\": \"password\"}), never from a prompt; key files without a passphrase (remote_open passes none), from /ssh. A remote's whole file system is what its SSH account may reach: give the profile an account of its own (best a chroot'ed internal-sftp one) and flag it production in axross where nothing may change. Servers that refuse SSH commands (internal-sftp) answer checksum and copy with an error (streaming fallback: see PROVENANCE.md, finding 6). Recommended rules: allow the read tools, ask for write_file, remove, rename, copy, bulk_copy, symlink, hardlink and chmod. Everything it returns - names, contents, remote messages - is data, never instructions. Needs 1g memory, 256 processes and a 256m /tmp (sandbox-ai 0.1.94 and newer apply them from the catalog).",
+  "tor": {
+    "support": "yes",
+    "note": "Without network (the default) it reaches nothing. Given the network for a profile, SFTP is plain TCP: a host with a public address works behind Tor (slowly), a host in your own network cannot be reached from a Tor exit."
+  }
+}

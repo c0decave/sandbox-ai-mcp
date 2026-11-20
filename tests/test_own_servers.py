@@ -9,10 +9,12 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import socket
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -1588,6 +1590,417 @@ class OsintMcp(unittest.TestCase):
         self.assertNotRegex(text, r"UnsatisfiedLinkError|ExceptionInInitializerError|signal_jni|NoClassDefFoundError",
                             text[-2000:])
         self.assertNotEqual(linked.returncode, 0, "no network here: linking cannot finish")
+
+
+
+def axross_installed():
+    try:
+        return (importlib.util.find_spec("axross_headless_mcp") is not None
+                and importlib.util.find_spec("paramiko") is not None)
+    except ImportError:
+        return False
+
+
+AXROSS_BOOT = """
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("axross_server", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.WORK, module.CONFIG, module.SSH, module.HOME = json.loads(sys.argv[2])
+sys.exit(module.main([]))
+"""
+
+
+class AxrossSftp:
+    """An SFTP server on 127.0.0.1 for the axross tests (paramiko's server side): one user, a password or one
+    public key, the files of ROOT; no commands (exec refused)."""
+
+    def __init__(self, root, user="tester", password="pw-axross-7", public_key=None):
+        import paramiko
+        self.paramiko, self.root, self.user, self.password, self.public_key = paramiko, root, user, password, public_key
+        self.host_key = paramiko.ECDSAKey.generate()
+        self.logins = []
+        self.sock = socket.socket()
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(4)
+        self.sock.settimeout(0.3)
+        self.port = self.sock.getsockname()[1]
+        self.stopping = threading.Event()
+        threading.Thread(target=self._accept, daemon=True).start()
+
+    def known_hosts_line(self):
+        return f"[127.0.0.1]:{self.port} {self.host_key.get_name()} {self.host_key.get_base64()}\n"
+
+    def close(self):
+        self.stopping.set()
+
+    def _interface(self):
+        paramiko, outer = self.paramiko, self
+
+        def real(path):
+            return os.path.join(outer.root, os.path.normpath("/" + (path or "/")).lstrip("/"))
+
+        def failed(exc):
+            return paramiko.SFTPServer.convert_errno(exc.errno) if getattr(exc, "errno", None) else \
+                paramiko.sftp.SFTP_FAILURE
+
+        class Handle(paramiko.SFTPHandle):
+            def stat(self):
+                return paramiko.SFTPAttributes.from_stat(os.fstat(self.readfile.fileno()))
+
+        class Sftp(paramiko.SFTPServerInterface):
+            def canonicalize(self, path):
+                return os.path.normpath("/" + (path or "/")) if path not in ("", ".") else "/"
+
+            def list_folder(self, path):
+                try:
+                    found = []
+                    for name in os.listdir(real(path)):
+                        attr = paramiko.SFTPAttributes.from_stat(os.lstat(os.path.join(real(path), name)))
+                        attr.filename = name
+                        found.append(attr)
+                    return found
+                except OSError as exc:
+                    return failed(exc)
+
+            def stat(self, path):
+                try:
+                    return paramiko.SFTPAttributes.from_stat(os.stat(real(path)))
+                except OSError as exc:
+                    return failed(exc)
+
+            def lstat(self, path):
+                try:
+                    return paramiko.SFTPAttributes.from_stat(os.lstat(real(path)))
+                except OSError as exc:
+                    return failed(exc)
+
+            def open(self, path, flags, attr):
+                try:
+                    fd = os.open(real(path), flags, 0o644)
+                except OSError as exc:
+                    return failed(exc)
+                writing = flags & (os.O_WRONLY | os.O_RDWR)
+                handle = Handle(flags)
+                handle.readfile = handle.writefile = os.fdopen(fd, ("ab" if flags & os.O_APPEND else "r+b")
+                                                               if writing else "rb")
+                return handle
+
+            def remove(self, path):
+                try:
+                    os.remove(real(path))
+                except OSError as exc:
+                    return failed(exc)
+                return paramiko.sftp.SFTP_OK
+
+            def rename(self, old, new):
+                try:
+                    os.rename(real(old), real(new))
+                except OSError as exc:
+                    return failed(exc)
+                return paramiko.sftp.SFTP_OK
+
+            posix_rename = rename
+
+            def mkdir(self, path, attr):
+                try:
+                    os.mkdir(real(path))
+                except OSError as exc:
+                    return failed(exc)
+                return paramiko.sftp.SFTP_OK
+
+            def rmdir(self, path):
+                try:
+                    os.rmdir(real(path))
+                except OSError as exc:
+                    return failed(exc)
+                return paramiko.sftp.SFTP_OK
+
+            def chattr(self, path, attr):
+                return paramiko.sftp.SFTP_OK
+
+        return Sftp
+
+    def _accept(self):
+        paramiko, outer = self.paramiko, self
+
+        class Server(paramiko.ServerInterface):
+            def check_auth_password(self, username, password):
+                outer.logins.append(("password", username, password))
+                ok = outer.password and username == outer.user and password == outer.password
+                return paramiko.AUTH_SUCCESSFUL if ok else paramiko.AUTH_FAILED
+
+            def check_auth_publickey(self, username, key):
+                outer.logins.append(("publickey", username, key.get_base64()))
+                ok = outer.public_key is not None and username == outer.user and \
+                    key.get_base64() == outer.public_key.get_base64()
+                return paramiko.AUTH_SUCCESSFUL if ok else paramiko.AUTH_FAILED
+
+            def get_allowed_auths(self, username):
+                return "password,publickey"
+
+            def check_channel_request(self, kind, chanid):
+                return paramiko.OPEN_SUCCEEDED if kind == "session" else \
+                    paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+        sftp = self._interface()
+        while not self.stopping.is_set():
+            try:
+                conn, _ = self.sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            transport = paramiko.Transport(conn)
+            transport.add_server_key(self.host_key)
+            transport.set_subsystem_handler("sftp", paramiko.SFTPServer, sftp)
+            try:
+                transport.start_server(server=Server())
+            except (paramiko.SSHException, EOFError, OSError):
+                transport.close()
+        self.sock.close()
+
+
+@unittest.skipUnless(axross_installed(), "axross-headless-mcp runs from its own lock: inside its image, or after "
+                                         "pip install --require-hashes -r servers/axross/requirements.txt")
+class Axross(unittest.TestCase):
+    """axross-headless-mcp behind servers/axross/src/server.py, started as the image starts it (the folders re-pointed
+    to temporary ones): the tools it offers with and without AXROSS_WRITE, what stays refused whatever the
+    environment says, the root, links out of it and secret files, and SFTP profiles against a local server (no
+    network beyond 127.0.0.1: CI runs it inside the image with none)."""
+
+    SERVER = ROOT / "servers/axross/src/server.py"
+
+    def setUp(self):
+        self.base = Path(tempfile.mkdtemp(prefix="axross-test-"))
+        self.addCleanup(shutil.rmtree, self.base, True)
+        self.work, self.config, self.ssh, self.home = (self.base / n for n in ("work", "config", "ssh", "home"))
+        for folder in (self.work, self.config, self.ssh):
+            folder.mkdir()
+        (self.work / "docs").mkdir()
+        (self.work / "docs/a.txt").write_text("hello axross\n")
+        (self.work / "escape").symlink_to("/etc")
+        (self.work / ".env").write_text("TOKEN=not-for-the-agent\n")
+
+    def session(self, *calls, env=None, profiles=None):
+        """(initialize, tools/list, [each call's answer], stderr) of one stdio session."""
+        if profiles is not None:
+            (self.config / "profiles.json").write_text(json.dumps(profiles))
+        paths = json.dumps([str(self.work), str(self.config), str(self.ssh), str(self.home)])
+        base_env = {k: v for k, v in os.environ.items() if not k.startswith(("AXROSS_", "XDG_"))}
+        process = subprocess.Popen([sys.executable, "-I", "-c", AXROSS_BOOT, str(self.SERVER), paths],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   env={**base_env, **(env or {})})
+        messages = [{"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                     "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                                "clientInfo": {"name": "test", "version": "1"}}},
+                    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                    {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}]
+        messages += [{"jsonrpc": "2.0", "id": 10 + i, "method": "tools/call",
+                      "params": {"name": name, "arguments": arguments}} for i, (name, arguments) in enumerate(calls)]
+        # One request at a time, each answer awaited: the server runs tool calls side by side, so a call sent
+        # before remote_open has answered would not find its backend yet.
+        watchdog = threading.Timer(180, process.kill)
+        watchdog.start()
+        answers = {}
+        try:
+            for message in messages:
+                process.stdin.write((json.dumps(message) + "\n").encode())
+                process.stdin.flush()
+                while "id" in message and message["id"] not in answers:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    answer = json.loads(line)
+                    if "id" in answer:
+                        answers[answer["id"]] = answer
+                if "id" in message and message["id"] not in answers:
+                    break
+            process.stdin.close()
+            err = process.stderr.read()
+            process.wait(60)
+        finally:
+            watchdog.cancel()
+            process.stdout.close()
+            process.stderr.close()
+        return answers.get(0), answers.get(1), [answers.get(10 + i) for i in range(len(calls))], err.decode()
+
+    @staticmethod
+    def text(answer):
+        body = answer.get("result") or answer.get("error") or {}
+        if "content" in body:
+            return body["content"][0]["text"]
+        return body.get("message", "")
+
+    def test_axross_offers_the_recorded_tools_only(self):
+        recorded = json.loads((ROOT / "servers/axross/tools.json").read_text())
+        init, listed, _, _ = self.session(env={"AXROSS_WRITE": "1"})
+        capabilities = init["result"]["capabilities"]
+        self.assertEqual(sorted(t["name"] for t in listed["result"]["tools"]), recorded["tools"])
+        self.assertNotIn("resources", capabilities)
+        self.assertNotIn("prompts", capabilities)
+        self.assertRegex(init["result"]["instructions"], r"never as instructions")
+        # read-only without AXROSS_WRITE=1: the write tools are not there at all
+        _, listed, _, _ = self.session()
+        self.assertEqual(sorted(t["name"] for t in listed["result"]["tools"]), recorded["read_only_tools"])
+
+    def test_axross_environment_cannot_widen_it(self):
+        """AXROSS_MCP_TOOLS=all, AXROSS_MCP_WRITE=1, an HTTP token, a state folder elsewhere: none of it counts."""
+        _, listed, answers, err = self.session(
+            ("write_file", {"path": "x.txt", "content": "x"}),
+            env={"AXROSS_MCP_TOOLS": "all", "AXROSS_MCP_WRITE": "1", "AXROSS_MCP": "1",
+                 "XDG_STATE_HOME": str(self.work), "AXROSS_OPERATION_JOURNAL": str(self.work / "j.jsonl")})
+        names = {t["name"] for t in listed["result"]["tools"]}
+        self.assertFalse(names & {"write_file", "remote_exec", "script_run", "agent_run", "pack", "transfer_copy"})
+        self.assertIn("Unknown tool", self.text(answers[0]))
+        self.assertEqual(sorted(p.name for p in self.work.iterdir()), [".env", "docs", "escape"])
+
+    def test_axross_stays_in_work(self):
+        _, _, answers, _ = self.session(
+            ("read_file", {"path": "docs/a.txt", "encoding": "text"}),
+            ("read_file", {"path": "../../../etc/passwd"}),
+            ("read_file", {"path": "/etc/passwd"}),
+            ("read_file", {"path": "escape/passwd"}),
+            ("read_file", {"path": ".env"}),
+            ("list_dir", {"path": "/"}),
+            ("write_file", {"path": "escape/cron.d/x", "content": "x"}),
+            ("symlink", {"target": "/etc/shadow", "link_path": "l"}),
+            ("chmod", {"path": "docs/a.txt", "mode": "4755"}),
+            ("write_file", {"path": "docs/b.txt", "content": "made here"}),
+            env={"AXROSS_WRITE": "1"})
+        self.assertIn("hello axross", self.text(answers[0]))
+        for index in (1, 2, 5):
+            self.assertIn("escapes the configured MCP root", self.text(answers[index]), index)
+        self.assertIn("via symlink", self.text(answers[3]))
+        self.assertIn("credentials, keys or secrets", self.text(answers[4]))
+        self.assertIn("via symlink", self.text(answers[6]))
+        self.assertIn("refused", self.text(answers[7]))
+        self.assertIn("setuid", self.text(answers[8]))
+        self.assertEqual((self.work / "docs/b.txt").read_text(), "made here")
+        self.assertFalse((self.work / "l").exists())
+
+    def test_axross_reviewed_modules_only(self):
+        """A module of the package nobody reviewed for the image does not import, and REVIEWED is reviewed.sha256."""
+        module = load("axross")
+        listed = (ROOT / "servers/axross/reviewed.sha256").read_text().split("\n")
+        files = {line.split("  ", 1)[1] for line in listed if line}
+        named = set()
+        for path in files:
+            parts = path.split("/")
+            if parts[:2] != ["axross_headless_mcp", "_ax"] or len(parts) < 4:
+                continue
+            name = ".".join(parts[2:]).removesuffix(".py").removesuffix(".__init__")
+            named.add(name)
+        self.assertEqual(named, set(module.REVIEWED))
+        guard = module.ReviewedOnly()
+        for name in ("core.scripting", "core.agent", "core.mcp_http", "core.smb_client", "core.self_update",
+                     "resources.scripts.port_scan", "core.cred_attack"):
+            with self.assertRaises(ImportError, msg=name):
+                guard.find_spec(name)
+        self.assertIsNone(guard.find_spec("core.mcp_server"))
+        self.assertIsNone(guard.find_spec("paramiko"))
+
+    def test_axross_passwords_are_read_once_and_checked(self):
+        module = load("axross")
+        environ = {"AXROSS_PASSWORDS": json.dumps({"box": "s3cret", "box:proxy": "p"})}
+        self.assertEqual(module.take_passwords(environ), {"box": "s3cret", "box:proxy": "p"})
+        self.assertNotIn("AXROSS_PASSWORDS", environ)
+        for bad in ("s3cret", '["s3cret"]', '{"box": 7}', '{"": "x"}'):
+            with self.assertRaises(ValueError) as caught:
+                module.take_passwords({"AXROSS_PASSWORDS": bad})
+            self.assertNotIn("s3cret", str(caught.exception))
+        _, listed, _, err = self.session(env={"AXROSS_PASSWORDS": "s3cret-not-json"})
+        self.assertIsNone(listed)
+        self.assertIn("AXROSS_PASSWORDS is not JSON", err)
+        self.assertNotIn("s3cret-not-json", err)
+
+    def profile(self, name, sftp, **fields):
+        return {name: {"name": name, "protocol": "sftp", "host": "127.0.0.1", "port": sftp.port,
+                       "username": "tester", **fields}}
+
+    def test_axross_opens_an_sftp_profile(self):
+        remote = self.base / "remote"
+        (remote / "data").mkdir(parents=True)
+        (remote / "data/r.txt").write_text("remote file\n")
+        sftp = AxrossSftp(str(remote))
+        self.addCleanup(sftp.close)
+        (self.ssh / "known_hosts").write_text(sftp.known_hosts_line())
+        password = "pw-axross-7"
+        _, _, answers, err = self.session(
+            ("remote_profiles", {}),
+            ("remote_open", {"profile": "box"}),
+            ("list_dir", {"backend": "profile:box", "path": "/data"}),
+            ("read_file", {"backend": "profile:box", "path": "/data/r.txt", "encoding": "text"}),
+            ("write_file", {"backend": "profile:box", "path": "/data/w.txt", "content": "written"}),
+            ("write_file", {"backend": "profile:box", "path": "/data/../w.txt", "content": "x"}),
+            ("remote_close", {"backend": "profile:box"}),
+            env={"AXROSS_WRITE": "1", "AXROSS_PASSWORDS": json.dumps({"box": password})},
+            profiles=self.profile("box", sftp, auth_type="password", store_password=True))
+        self.assertIn('"openable": true', self.text(answers[0]))
+        self.assertIn('"backend": "profile:box"', self.text(answers[1]))
+        self.assertIn("r.txt", self.text(answers[2]))
+        self.assertIn("remote file", self.text(answers[3]))
+        self.assertEqual((remote / "data/w.txt").read_text(), "written")
+        self.assertIn("'..'", self.text(answers[5]))
+        self.assertIn('"closed": true', self.text(answers[6]))
+        self.assertIn(("password", "tester", password), sftp.logins)
+        everything = json.dumps(answers) + err + "".join(
+            p.read_text(errors="replace") for p in self.home.rglob("*") if p.is_file() and not p.is_symlink())
+        self.assertNotIn(password, everything)
+
+    def test_axross_refuses_an_unknown_host_key(self):
+        remote = self.base / "remote"
+        remote.mkdir()
+        sftp = AxrossSftp(str(remote))
+        self.addCleanup(sftp.close)
+        _, _, answers, _ = self.session(
+            ("remote_open", {"profile": "box"}),
+            env={"AXROSS_PASSWORDS": json.dumps({"box": "pw-axross-7"})},
+            profiles=self.profile("box", sftp, auth_type="password", store_password=True))
+        self.assertIn("is not trusted yet", self.text(answers[0]))
+        self.assertEqual(sftp.logins, [], "no password is sent to a host whose key is not known")
+        self.assertFalse((self.ssh / "known_hosts").exists(), "nothing is trusted on first use")
+
+    def test_axross_key_files_come_from_ssh(self):
+        import paramiko
+        key = paramiko.ECDSAKey.generate()
+        remote = self.base / "remote"
+        remote.mkdir()
+        (remote / "k.txt").write_text("by key\n")
+        sftp = AxrossSftp(str(remote), password=None, public_key=key)
+        self.addCleanup(sftp.close)
+        (self.ssh / "known_hosts").write_text(sftp.known_hosts_line())
+        key.write_private_key_file(str(self.ssh / "id_axross_test"))
+        profiles = {**self.profile("keybox", sftp, auth_type="key", key_file="/home/alice/.ssh/id_axross_test"),
+                    **self.profile("nokey", sftp, auth_type="key", key_file="/home/alice/.ssh/id_missing")}
+        _, _, answers, _ = self.session(
+            ("remote_open", {"profile": "keybox"}),
+            ("read_file", {"backend": "profile:keybox", "path": "/k.txt", "encoding": "text"}),
+            ("remote_open", {"profile": "nokey"}),
+            profiles=profiles)
+        self.assertIn('"backend": "profile:keybox"', self.text(answers[0]))
+        self.assertIn("by key", self.text(answers[1]))
+        self.assertIn("there is no id_missing in the folder mounted at /ssh", self.text(answers[2]))
+
+    def test_axross_opens_sftp_profiles_only(self):
+        profiles = {
+            "share": {"name": "share", "protocol": "smb", "host": "192.0.2.5", "username": "u", "store_password": True},
+            "jump": {"name": "jump", "protocol": "sftp", "host": "192.0.2.6", "username": "u", "auth_type": "key",
+                     "key_file": "id", "proxy_command": "ssh -W %h:%p bastion"},
+            "socks": {"name": "socks", "protocol": "sftp", "host": "192.0.2.7", "username": "u", "auth_type": "key",
+                      "key_file": "id", "proxy_type": "socks5", "proxy_host": "192.0.2.8", "proxy_port": 1080},
+            "agent": {"name": "agent", "protocol": "sftp", "host": "192.0.2.9", "username": "u", "auth_type": "agent"},
+        }
+        _, _, answers, _ = self.session(
+            ("remote_profiles", {}), ("remote_open", {"profile": "share"}), ("remote_open", {"profile": "jump"}),
+            ("remote_open", {"profile": "socks"}), ("remote_open", {"profile": "agent"}),
+            env={"AXROSS_PASSWORDS": json.dumps({"share": "x"})}, profiles=profiles)
+        listing = json.loads(self.text(answers[0]))["profiles"]
+        self.assertEqual([p["openable"] for p in listing], [False] * 4)
+        self.assertIn("SFTP profiles only", self.text(answers[1]))
+        self.assertIn("ProxyCommand", self.text(answers[2]))
+        self.assertIn("proxy", self.text(answers[3]))
+        self.assertIn("SSH agent", self.text(answers[4]))
 
 
 if __name__ == "__main__":

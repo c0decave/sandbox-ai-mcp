@@ -1,0 +1,135 @@
+{
+  "name": "axross",
+  "network": "none",
+  "memory": "1g",
+  "pids": 256,
+  "tmp": "256m",
+  "env": {
+    "AXROSS_WRITE": "1"
+  },
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "writable": true,
+      "seed": [
+        {
+          "path": "escape",
+          "symlink": "/etc"
+        },
+        {
+          "path": "docs/readme.txt",
+          "text": "axross smoke test\n"
+        },
+        {
+          "path": "docs/.env",
+          "text": "TOKEN=not-for-the-agent\n"
+        }
+      ]
+    }
+  ],
+  "expect_tools": [
+    "list_dir",
+    "read_file",
+    "grep",
+    "write_file",
+    "remove",
+    "remote_profiles",
+    "remote_open"
+  ],
+  "calls": [
+    {
+      "tool": "list_dir",
+      "arguments": {
+        "path": "docs"
+      },
+      "expect": "readme.txt"
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "docs/readme.txt",
+        "encoding": "text"
+      },
+      "expect": "axross smoke test"
+    },
+    {
+      "tool": "grep",
+      "arguments": {
+        "pattern": "smoke",
+        "path": "docs"
+      },
+      "expect": "\"line_no\": 1"
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "docs/plan.txt",
+        "content": "written by the smoke test\n"
+      },
+      "expect": "\"size\": 26"
+    },
+    {
+      "tool": "checksum",
+      "arguments": {
+        "path": "docs/plan.txt"
+      },
+      "expect": "\"algorithm\": \"sha256\""
+    },
+    {
+      "tool": "remote_profiles",
+      "arguments": {},
+      "expect": "\"profiles\": []"
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "../etc/passwd"
+      },
+      "expect": "escapes the configured MCP root",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "escape/passwd"
+      },
+      "expect": "via symlink",
+      "expect_error": true
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "docs/.env"
+      },
+      "expect": "credentials, keys or secrets",
+      "expect_error": true
+    },
+    {
+      "tool": "write_file",
+      "arguments": {
+        "path": "/etc/cron.d/x",
+        "content": "x"
+      },
+      "expect": "escapes the configured MCP root",
+      "expect_error": true
+    },
+    {
+      "tool": "chmod",
+      "arguments": {
+        "path": "docs/plan.txt",
+        "mode": "4755"
+      },
+      "expect": "setuid",
+      "expect_error": true
+    },
+    {
+      "tool": "remote_open",
+      "arguments": {
+        "profile": "nowhere"
+      },
+      "expect": "no saved profile named 'nowhere'",
+      "expect_error": true
+    }
+  ]
+}

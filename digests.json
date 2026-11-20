@@ -2,6 +2,7 @@
   "images": {
     "agentql": null,
     "arxiv": null,
+    "axross": null,
     "binwalk": "sha256:e6aecaf7ad29ce2fe1a55c772bd190b5be9a06fbb0317e047afd2bae32e2ad35",
     "bluesky": "sha256:4ab8f8d5eeb60cd26f88662ff606cb67eef0a6aac068118594ae4be4bc9dcf57",
     "brave-search": "sha256:38913f44c127cf69edadd7cfcf625914aeb1b3e6820dbc6169943c030fdafec7",
@@ -16,6 +17,7 @@
     "exec": "sha256:6d634cfac8902b8a69ed2b11329ada6cafaf32b4a07fe12536f5684b49a69f3f",
     "files": "sha256:07202b086c27089fa04153aae05e65556840c8853ce9720c9c10c57a28e94522",
     "filesystem": "sha256:87598cd7a276976cf7fbad9f0fce27d26ebc6113fe167c09a4d476fecfe3c0c7",
+    "frida": null,
     "gowitness": "sha256:0a91d878fc1c751308103bdbb120c44367b8873a638256ca7ef692d6cdd28279",
     "jadx": null,
     "memory": "sha256:64351f24f4da7fab52e291bf7d92963c0d4dd90aa8209fe62ee8fd0a6ce87235",
@@ -28,6 +30,7 @@
     "sequential-thinking": "sha256:6a2cb5c3f4157e369785b8b3240ce912007df0a2243f4f72d153869c8b72db8b",
     "shodan": null,
     "signal": "sha256:3cfda4b288cd7984ee548ecb7c87d8429c6cda815a7e9f949a794e810d7d9d56",
+    "smali": null,
     "tasks": "sha256:f9498f09968df1bdb43f70f750e707ee41cacb1abea18a065f96d7aaff330fd1",
     "telegram": "sha256:e43da150a824f0f5cac9d274193abdfe876102740b8849b0afc3656b5f9c53dd",
     "telegram-user": "sha256:5f0e18813aa624e24aa50915eddcbfec64f1f8b7eb78d03883a4877494321a7d",
