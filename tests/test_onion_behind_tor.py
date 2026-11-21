@@ -10,8 +10,6 @@ import ipaddress
 import os
 from pathlib import Path
 import socket
-import sys
-import types
 import unittest
 from unittest import mock
 
@@ -25,43 +23,29 @@ NAMES = {ONION: ["10.192.0.5"], "other.onion": ["10.0.0.7"], "v6.onion": ["10.19
          "public.example.org": ["93.184.215.14"], "virtual.example.org": ["10.192.1.1"]}
 
 
-def stand_ins() -> dict:
-    """Modules for mcp and httpx, when they are not installed: enough to import a server."""
+def requirements_missing():
+    """Why the servers cannot be imported here, or None: web-fetch, gowitness and whatweb use httpx/httpcore and mcp's
+    own request handlers, which no stand-in reproduces - so without them the tests skip (as tests/test_own_servers.py
+    does) instead of failing on an import."""
     try:
+        import httpcore  # noqa: F401
         import httpx  # noqa: F401
         import mcp.server.fastmcp  # noqa: F401
-        return {}
-    except ImportError:
-        pass
-
-    class FastMCP:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def tool(self, *args, **kwargs):
-            return lambda function: function
-
-        def run(self, *args, **kwargs):
-            raise RuntimeError("a stand-in")
-
-    fastmcp = types.ModuleType("mcp.server.fastmcp")
-    fastmcp.FastMCP = FastMCP
-    utilities = types.ModuleType("mcp.server.fastmcp.utilities")
-    kinds = types.ModuleType("mcp.server.fastmcp.utilities.types")
-    kinds.Image = lambda data=None, format=None: ("image", format, data)
-    httpx = types.ModuleType("httpx")
-    httpx.HTTPError = type("HTTPError", (Exception,), {})
-    httpx.AsyncClient = None
-    return {"mcp": types.ModuleType("mcp"), "mcp.server": types.ModuleType("mcp.server"), "mcp.server.fastmcp": fastmcp,
-            "mcp.server.fastmcp.utilities": utilities, "mcp.server.fastmcp.utilities.types": kinds, "httpx": httpx}
+        import mcp.types  # noqa: F401
+    except ImportError as error:
+        return (f"the servers' requirements are not installed ({error}; pip install --require-hashes -r "
+                "servers/web-fetch/requirements.txt)")
+    return None
 
 
 def load(name):
-    with mock.patch.dict(sys.modules, stand_ins()):
-        spec = importlib.util.spec_from_file_location(f"onion_{name.replace('-', '_')}",
-                                                      ROOT / "servers" / name / "src/server.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    reason = requirements_missing()
+    if reason:
+        raise unittest.SkipTest(reason)
+    spec = importlib.util.spec_from_file_location(f"onion_{name.replace('-', '_')}",
+                                                  ROOT / "servers" / name / "src/server.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     return module
 
 
