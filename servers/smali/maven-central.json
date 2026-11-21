@@ -7,16 +7,16 @@
       "url_arg": "BAKSMALI_URL",
       "sha256_arg": "BAKSMALI_SHA256",
       "image_path": "/opt/smali/baksmali-3.0.10-fat-release.jar",
-      "built_from": ["com.android.tools.smali:baksmali:3.0.10", "com.android.tools.smali:dexlib2:3.0.10",
-                     "com.android.tools.smali:util:3.0.10"],
+      "built_from": ["com.android.tools.smali:smali-baksmali:3.0.10", "com.android.tools.smali:smali-dexlib2:3.0.10",
+                     "com.android.tools.smali:smali-util:3.0.10"],
       "own_prefixes": ["com/android/tools/smali/"]
     },
     {
       "url_arg": "SMALI_URL",
       "sha256_arg": "SMALI_SHA256",
       "image_path": "/opt/smali/smali-3.0.10-fat-release.jar",
-      "built_from": ["com.android.tools.smali:smali:3.0.10", "com.android.tools.smali:dexlib2:3.0.10",
-                     "com.android.tools.smali:util:3.0.10"],
+      "built_from": ["com.android.tools.smali:smali:3.0.10", "com.android.tools.smali:smali-dexlib2:3.0.10",
+                     "com.android.tools.smali:smali-util:3.0.10"],
       "own_prefixes": ["com/android/tools/smali/"]
     }
   ]

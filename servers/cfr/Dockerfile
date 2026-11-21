@@ -30,7 +30,7 @@ COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-cfr/
 RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && chmod 0644 /opt/cfr/cfr-0.152.jar \
  && test -x /usr/lib/jvm/java-21-openjdk-amd64/bin/java \
- && /usr/lib/jvm/java-21-openjdk-amd64/bin/java -XX:-UsePerfData -jar /opt/cfr/cfr-0.152.jar --version \
+ && /usr/lib/jvm/java-21-openjdk-amd64/bin/java -XX:-UsePerfData -jar /opt/cfr/cfr-0.152.jar --version 2>&1 \
       | grep -q "CFR 0.152" \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work

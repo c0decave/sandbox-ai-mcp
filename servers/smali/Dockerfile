@@ -69,19 +69,20 @@ COPY --from=tools /build/apktool/aapt2 /opt/apktool/aapt2
 COPY --from=tools /build/apktool/framework/1.apk /opt/apktool/framework/1.apk
 COPY src/server.py /opt/mcp/server.py
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-smali/
-# Every path src/server.py names must be there, and every tool must run, before anything ships.
+# Every path src/server.py names must be there, and every tool must run, before anything ships (a version may
+# come on stderr: CFR's does).
 RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && test -x /usr/lib/jvm/java-21-openjdk-amd64/bin/java \
  && test -x /usr/lib/jvm/java-21-openjdk-amd64/bin/keytool \
  && test -x /usr/bin/zipalign \
  && test -r /opt/apktool/framework/1.apk \
  && java=/usr/lib/jvm/java-21-openjdk-amd64/bin/java \
- && "$java" -XX:-UsePerfData -jar /opt/smali/baksmali-3.0.10-fat-release.jar --version | grep -q "baksmali 3.0.10" \
- && "$java" -XX:-UsePerfData -jar /opt/smali/smali-3.0.10-fat-release.jar --version | grep -q "smali 3.0.10" \
- && "$java" -XX:-UsePerfData -jar /opt/apktool/apktool_3.0.3.jar --version | grep -q "3.0.3" \
+ && "$java" -XX:-UsePerfData -jar /opt/smali/baksmali-3.0.10-fat-release.jar --version 2>&1 | grep -q "baksmali 3.0.10" \
+ && "$java" -XX:-UsePerfData -jar /opt/smali/smali-3.0.10-fat-release.jar --version 2>&1 | grep -q "smali 3.0.10" \
+ && "$java" -XX:-UsePerfData -jar /opt/apktool/apktool_3.0.3.jar --version 2>&1 | grep -q "3.0.3" \
  && "$java" -XX:-UsePerfData -cp /usr/share/java/apksigner-35.0.2.jar:/usr/share/java/apksig-0.9.jar \
-      com.android.apksigner.ApkSignerTool --version | grep -q "0.9" \
- && /opt/apktool/aapt2 version | grep -q "Android Asset Packaging Tool" \
+      com.android.apksigner.ApkSignerTool --version 2>&1 | grep -q "0.9" \
+ && /opt/apktool/aapt2 version 2>&1 | grep -q "Android Asset Packaging Tool" \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work /out
 ENV HOME=/tmp

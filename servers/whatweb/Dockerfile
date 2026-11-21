@@ -34,7 +34,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # rchardet, pry) is installed, so WhatWeb loads none.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
-      ca-certificates=20250419+deb13u1 ruby=1:3.3+b1 ruby3.3=3.3.13-0+deb13u1 libruby3.3=3.3.13-0+deb13u1 \
+      ca-certificates=20250419+deb13u1 ruby=1:3.3+b1 ruby3.3=3.3.14-0+deb13u1 libruby3.3=3.3.14-0+deb13u1 \
       ruby-rubygems=3.6.7-2 ruby-addressable=2.8.7-2 ruby-public-suffix=6.0.1-1 \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /opt/mcp/requirements.txt

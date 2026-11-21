@@ -182,10 +182,12 @@ class TheServers(unittest.TestCase):
         jars = {Path(jar["image_path"]).name: jar for jar in self.spec("smali")["jars"]}
         self.assertEqual(sorted(jars), ["baksmali-3.0.10-fat-release.jar", "smali-3.0.10-fat-release.jar"])
         group = "com.android.tools.smali"
+        # Google's artifact ids are smali, smali-baksmali, smali-dexlib2 and smali-util (the names of the release's
+        # sources jars too); com.android.tools.smali:baksmali:3.0.10 is not on Maven Central (CI, 2026-11-21)
         self.assertEqual(jars["baksmali-3.0.10-fat-release.jar"]["built_from"],
-                         [f"{group}:baksmali:3.0.10", f"{group}:dexlib2:3.0.10", f"{group}:util:3.0.10"])
+                         [f"{group}:smali-baksmali:3.0.10", f"{group}:smali-dexlib2:3.0.10", f"{group}:smali-util:3.0.10"])
         self.assertEqual(jars["smali-3.0.10-fat-release.jar"]["built_from"],
-                         [f"{group}:smali:3.0.10", f"{group}:dexlib2:3.0.10", f"{group}:util:3.0.10"])
+                         [f"{group}:smali:3.0.10", f"{group}:smali-dexlib2:3.0.10", f"{group}:smali-util:3.0.10"])
         for name, entry in jars.items():
             self.assertEqual(entry["own_prefixes"], ["com/android/tools/smali/"])
             self.assertTrue(entry["url"].endswith("/" + name))
@@ -205,6 +207,25 @@ class TheServers(unittest.TestCase):
                     self.assertRegex(dockerfile, rf"(?m)^ADD --checksum=sha256:\${{{entry['sha256_arg']}}} "
                                                  rf"\${{{entry['url_arg']}}} \S*/{Path(entry['image_path']).name}$")
                     self.assertTrue(entry["image_path"].startswith(f"/opt/{name}/"))
+
+    def test_every_variable_of_a_smoke_spec_is_passed_by_every_smoke_step(self):
+        # agentql's and shodan's smoke steps died on "the spec uses ${AGENTQL_API_KEY}: pass --var" (CI, 2026-11-21):
+        # a key a repository secret may hold is passed, empty without the secret, like BRAVE_API_KEY
+        workflow = (ROOT / ".github/workflows/build.yml").read_text()
+        used = set()
+        for spec in (ROOT / "servers").glob("*/smoke.json"):
+            used |= set(re.findall(r"\$\{([A-Z0-9_]+)\}", spec.read_text()))
+        steps = [chunk for chunk in workflow.split("\n      - ") if "scripts/smoke_test.py" in chunk
+                 and "--list-only" not in chunk]
+        self.assertEqual(len(steps), 3, "docker, sandbox-ai under Podman, sandbox-ai under Bubblewrap")
+        for step in steps:
+            for name in sorted(used):
+                with self.subTest(step=step.split("\n", 1)[0], variable=name):
+                    if name == "FIXTURES":
+                        self.assertIn('--var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures"', step)
+                    else:
+                        self.assertIn(f'--var "{name}=${{{name}}}"', step)
+                        self.assertIn(f"{name}: ${{{{ secrets.{name} }}}}", step)
 
     def test_the_workflow_compares_before_the_build_and_checks_the_built_image(self):
         workflow = (ROOT / ".github/workflows/build.yml").read_text()

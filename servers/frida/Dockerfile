@@ -59,7 +59,7 @@ COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-frida/
 # and the server must start without a device before anything ships.
 RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && test -x /usr/bin/adb \
- && chmod -R a-x,a+r /opt/frida \
+ && chmod -R a-x,a+rX /opt/frida \
  && /opt/venv/bin/python -c "import frida; assert frida.__version__ == '17.25.2', frida.__version__" \
  && for platform in android linux; do \
       for abi in $(ls /opt/frida/$platform); do \
@@ -71,5 +71,7 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && mkdir -p /work /out
 ENV HOME=/tmp
 USER 10001:10001
+# what the server's own user sees: every one of the 16 binaries (a folder without x hid them all)
+RUN /opt/venv/bin/python -c "import glob; found = glob.glob('/opt/frida/*/*/*.xz'); assert len(found) == 16, found"
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

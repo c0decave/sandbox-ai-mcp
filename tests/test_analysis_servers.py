@@ -275,6 +275,12 @@ class JavaDecompilers(unittest.TestCase):
                 for pin in pins + (self.JDK,):
                     self.assertIn(pin, provenance)
         self.assertIn(f"openjdk-21-jdk-headless={self.JDK}", jadx, "the bridge is compiled with the same JDK")
+        # the JDK's JRE pinned beside it in the build stage: apt's solver otherwise picks the newer JRE of
+        # trixie-security and refuses the pinned JDK (CI, 2026-11-21)
+        build_stage = jadx[:jadx.index("\nFROM ${DEBIAN_IMAGE}\n", jadx.index("FROM ${DEBIAN_IMAGE} AS"))]
+        self.assertIn(f"openjdk-21-jdk-headless={self.JDK} openjdk-21-jre-headless={self.JDK}", build_stage)
+        # CFR prints its version on stderr: the check reads both
+        self.assertIn('cfr-0.152.jar --version 2>&1', cfr)
         self.assertIn("javac --release 21 -Xlint:all -Werror", jadx)
 
     def test_our_code_only_and_the_shared_lock(self):
@@ -492,8 +498,14 @@ class FridaServer(unittest.TestCase):
 
     def test_the_binaries_stay_packed_and_nothing_in_the_image_is_executable(self):
         dockerfile = self.read("Dockerfile")
-        self.assertIn("chmod -R a-x,a+r /opt/frida", dockerfile)
+        # files lose every x bit, folders keep theirs (X): "a-x" alone made /opt/frida/android untraversable for the
+        # server's user, and list_abis found 0 binaries in CI (2026-11-21)
+        self.assertIn("chmod -R a-x,a+rX /opt/frida", dockerfile)
+        self.assertNotIn("chmod -R a-x,a+r /opt/frida", dockerfile)
         self.assertNotIn("unxz", dockerfile)
+        # and the server's own user sees all 16 binaries before the image ships
+        after_user = dockerfile[dockerfile.index("USER 10001:10001"):]
+        self.assertRegex(after_user, r"RUN /opt/venv/bin/python -c .*glob\.glob\('/opt/frida/\*/\*/\*\.xz'\).*== 16")
         self.assertIn("lzma.open", self.read("src", "server.py"))
 
     def test_it_reaches_only_what_the_human_configured(self):
@@ -763,7 +775,7 @@ class WhatWeb(unittest.TestCase):
         provenance = (ROOT / "servers" / "whatweb" / "PROVENANCE.md").read_text()
         commit = re.search(r"^ARG WHATWEB_COMMIT=([0-9a-f]{40})$", dockerfile, re.M).group(1)
         self.assertIn(commit, provenance)
-        for package in ("ruby3.3=3.3.13-0+deb13u1", "libruby3.3=3.3.13-0+deb13u1", "ruby-addressable=2.8.7-2",
+        for package in ("ruby3.3=3.3.14-0+deb13u1", "libruby3.3=3.3.14-0+deb13u1", "ruby-addressable=2.8.7-2",
                         "ruby-public-suffix=6.0.1-1"):
             self.assertIn(package, dockerfile)
             self.assertIn(package, provenance)

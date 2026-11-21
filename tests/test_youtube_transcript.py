@@ -199,6 +199,19 @@ class YoutubeTranscript(unittest.TestCase):
                 self.assertIn(expected, answer["error"])
                 self.assertLess(len(answer["error"]), 400)
                 self.assertNotIn("webshare", answer["error"].lower())
+        # get_video_info says why YouTube gave no facts, as get_transcript does: a runner's address got
+        # LOGIN_REQUIRED with no videoDetails, and the answer "YouTube gave no facts" hid the block (CI, 2026-11-21)
+        for player, expected in cases[:4]:
+            with self.subTest("get_video_info: " + expected):
+                self.module.VIDEOS = self.module.Videos()
+                StandIn(self, player=player)
+                self.assertIn(expected, self.module.get_video_info(VID)["error"])
+        self.module.VIDEOS = self.module.Videos()
+        StandIn(self, player={"playabilityStatus": {"status": "OK"}})
+        self.assertEqual(self.module.get_video_info(VID)["error"], "YouTube gave no facts for this video")
+        self.module.VIDEOS = self.module.Videos()
+        StandIn(self, player={"captions": {}})
+        self.assertEqual(self.module.get_video_info(VID)["error"], "YouTube gave no facts for this video")
         self.module.VIDEOS = self.module.Videos()
         StandIn(self, watch='<html><div class="g-recaptcha"></div></html>')
         self.assertIn("blocks requests", self.module.get_video_info(VID)["error"])

@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # binwalk plus the extractors it calls for common firmware formats
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
-      binwalk=2.4.3+dfsg1-2+deb13u1 xxd=2:9.1.1230-2 \
+      binwalk=2.4.3+dfsg1-2+deb13u1 xxd=2:9.1.1230-2+deb13u2 \
       7zip=25.01+dfsg-1~deb13u2 squashfs-tools=1:4.6.1-1 cpio=2.15+dfsg-2 unzip=6.0-29+deb13u1 \
       lzop=1.04-2 xz-utils=5.8.1-1+deb13u2 bzip2=1.0.8-6 \
  && rm -rf /var/lib/apt/lists/*

@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` (MIT); `mcp==1.30.0` and its dependencies hash-locked in `requirements.txt` (byte-identical to web-fetch's) |
 | Tool | urbanadventurer/WhatWeb **0.6.4** (GPL-2.0-or-later, `LICENSES/`), tag `v0.6.4`, commit `d279d93042d034f3fd29d5a893d44ccc0595d3f8` (GitHub release of 2026-04-02; the tag ref points at that commit, checked through the GitHub API on 2026-11-12), fetched by commit in the build stage and checked with `git rev-parse` |
-| Ruby | Debian `ruby3.3=3.3.13-0+deb13u1` and `libruby3.3=3.3.13-0+deb13u1` (trixie-security), `ruby=1:3.3+b1`, `ruby-rubygems=3.6.7-2`; gems `ruby-addressable=2.8.7-2`, `ruby-public-suffix=6.0.1-1` (with Debian's `publicsuffix` list) |
+| Ruby | Debian `ruby3.3=3.3.14-0+deb13u1` and `libruby3.3=3.3.14-0+deb13u1` (trixie-security; 3.3.13-0+deb13u1 left the archive on 2026-11-21), `ruby=1:3.3+b1`, `ruby-rubygems=3.6.7-2`; gems `ruby-addressable=2.8.7-2`, `ruby-public-suffix=6.0.1-1` (with Debian's `publicsuffix` list) |
 | Other Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1`; build stage `git=1:2.47.3-0+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as web-fetch's) |
 

@@ -38,8 +38,10 @@ page) with the ANDROID client context, then `GET` of the caption track's `baseUr
 check, no dynamic code. Findings: **no timeout** on any request (a stalled connection hangs the call) and **no size
 limit** on answers; redirects followed. Here a `requests.Session` subclass sets 10 s to connect and 30 s between bytes,
 reads at most 8 MiB and follows no redirect. The server calls the pinned version's own private steps
-(`_fetch_video_html`, `_extract_innertube_api_key`, `_fetch_innertube_data`, `_extract_captions_json`) to keep the
-player answer for the title and facts: a re-pin must re-check them.
+(`_fetch_video_html`, `_extract_innertube_api_key`, `_fetch_innertube_data`, `_extract_captions_json`, and
+`_assert_playability` - which only reads the player's `playabilityStatus` and raises upstream's error - when
+`get_video_info` gets no `videoDetails`) to keep the player answer for the title and facts: a re-pin must re-check
+them.
 
 **defusedxml 0.7.1:** `ElementTree.py` (154) and `common.py` (129), the modules youtube-transcript-api imports, and
 `__init__.py` (67), read in full: a subclass of the standard library's pure-Python `XMLParser` that raises on
@@ -71,7 +73,9 @@ whole flow against a stand-in for www.youtube.com on loopback (watch page, upstr
 page for all calls of a video); a transcript of 3,000 snippets read page by page (every line once, each page within
 24,000 characters); bot check, age restriction, unavailable, unplayable with a 900-character reason, no captions, a
 player answer of another shape, a reCAPTCHA page, HTTP 500, a redirect, a 9 MiB page and an XML entity declaration -
-each one short sentence, no referral link. The smoke spec: two real calls (marked upstream-limited for YouTube's bot
+each one short sentence, no referral link; `get_video_info` says the same for a player answer without facts (CI's
+first build, 2026-11-21: a runner got the bot check and the answer was only "YouTube gave no facts", which the
+smoke spec could not tell from a broken server). The smoke spec: two real calls (marked upstream-limited for YouTube's bot
 check, which GitHub's runners often get) and two refused. Not run here: the image build and the real calls
 (www.youtube.com is not reachable from this machine).
 

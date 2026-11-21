@@ -166,6 +166,8 @@ jobs:
       - name: Smoke spec (real and refused calls)
         env:
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          AGENTQL_API_KEY: ${{ secrets.AGENTQL_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
           SERVER: ${{ matrix.server }}
         # The output goes into a file (not a pipe, which a leftover process could hold open), then into the log;
         # smoke_test.py writes a failure as an error annotation and an upstream rate limit as a warning, which the
@@ -175,7 +177,8 @@ jobs:
           python3 scripts/smoke_test.py --engine docker \
             --image "local/sandbox-ai-mcp-${SERVER}:ci" \
             --spec "servers/${SERVER}/smoke.json" \
-            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "AGENTQL_API_KEY=${AGENTQL_API_KEY}" \
+            --var "SHODAN_API_KEY=${SHODAN_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             > smoke.txt 2>&1 || status=$?
           cat smoke.txt
           exit "$status"
@@ -285,11 +288,14 @@ jobs:
         env:
           IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          AGENTQL_API_KEY: ${{ secrets.AGENTQL_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
         run: |
           podman pull -q "${IMAGE}"
           python3 scripts/smoke_test.py --runner sandbox-ai-podman --sandbox-ai sandbox-ai --image "${IMAGE}" \
             --spec servers/${{ matrix.server }}/smoke.json --tools-file servers/${{ matrix.server }}/tools.json \
-            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "AGENTQL_API_KEY=${AGENTQL_API_KEY}" \
+            --var "SHODAN_API_KEY=${SHODAN_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             --report "smoke-${{ matrix.server }}-sandbox-ai-podman.json"
 
       - name: Rootfs of the pushed image
@@ -307,12 +313,15 @@ jobs:
         env:
           IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
           BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          AGENTQL_API_KEY: ${{ secrets.AGENTQL_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
         run: |
           python3 scripts/smoke_test.py --runner sandbox-ai-bwrap --sandbox-ai sandbox-ai --image "${IMAGE}" \
             --rootfs rootfs-out/rootfs-${{ matrix.server }}.tar.gz \
             --rootfs-meta rootfs-out/rootfs-${{ matrix.server }}.json \
             --spec servers/${{ matrix.server }}/smoke.json --tools-file servers/${{ matrix.server }}/tools.json \
-            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "AGENTQL_API_KEY=${AGENTQL_API_KEY}" \
+            --var "SHODAN_API_KEY=${SHODAN_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             --report "smoke-${{ matrix.server }}-sandbox-ai-bwrap.json"
 
       - name: Leave out a rootfs that failed under Bubblewrap
