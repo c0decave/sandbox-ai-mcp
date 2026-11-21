@@ -47,7 +47,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # instead - the JRE here is openjdk-21-jre-headless, as in servers/jadx and servers/cfr.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
-      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13+9-1~deb13u2 \
+      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1 \
       zipalign=1:10.0.0+r36-1.1 libapksig-java=35.0.2-1 \
  && apt-get download -q apksigner=35.0.2-1 \
  && dpkg-deb --fsys-tarfile apksigner_35.0.2-1_all.deb \

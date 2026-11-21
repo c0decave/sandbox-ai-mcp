@@ -1,7 +1,8 @@
 {
   "schema": "sandbox-ai-mcp-maven-central",
   "version": 1,
-  "about": "The fat jars of baksmali/smali's release 3.0.10 compared in CI with google/smali's own 3.0.10 on Maven Central (scripts/maven_central.py, before the image is built): every file of the Maven Central jars but META-INF/ byte for byte in the fat jar, and nothing else under com/android/tools/smali/.",
+  "about": "The fat jars of baksmali/smali's release 3.0.10 compared in CI with google/smali's own 3.0.10 in Google's Maven repository (maven.google.com; 3.0.10 is not on Maven Central) by scripts/maven_central.py, before the image is built: every file of Google's jars but META-INF/ byte for byte in the fat jar, and nothing else under com/android/tools/smali/.",
+  "repository": "https://dl.google.com/dl/android/maven2",
   "jars": [
     {
       "url_arg": "BAKSMALI_URL",

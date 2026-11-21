@@ -10,7 +10,7 @@ ARG JADX_URL=https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.
 ARG JADX_SHA256=545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974
 ARG JADX_JAR_SHA256=fe3e12c45acf75f92369685fd02d1d7a7323385dc725680a9b98a0dac0ea554b
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openjdk-21-jdk-headless=21.0.13+9-1~deb13u2 openjdk-21-jre-headless=21.0.13+9-1~deb13u2 \
+ && apt-get install -y --no-install-recommends openjdk-21-jdk-headless=21.0.13.1+2-1~deb13u1 openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1 \
       unzip=6.0-29+deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 ADD --checksum=sha256:${JADX_SHA256} ${JADX_URL} /build/jadx-1.5.6.zip
@@ -30,7 +30,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # ca-certificates only for pip's download while the image is built (Debian's pip uses the system's certificates)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
-      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13+9-1~deb13u2 \
+      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /opt/mcp/requirements.txt
 # pip is removed from the venv and the venv tooling is purged: nothing installs Python packages at run time

@@ -224,7 +224,7 @@ class JavaDecompilers(unittest.TestCase):
     JADX_ZIP = "545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974"
     JADX_JAR = "fe3e12c45acf75f92369685fd02d1d7a7323385dc725680a9b98a0dac0ea554b"
     CFR_JAR = "f686e8f3ded377d7bc87d216a90e9e9512df4156e75b06c655a16648ae8765b2"
-    JDK = "21.0.13+9-1~deb13u2"
+    JDK = "21.0.13.1+2-1~deb13u1"
 
     def read(self, name, *parts):
         return (ROOT / "servers" / name).joinpath(*parts).read_text()
@@ -345,7 +345,7 @@ class AndroidTools(unittest.TestCase):
     APKTOOL_JAR = "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423"
     APKTOOL_AAPT2 = "df312db814c018019b2b79a993b041b738d7b76f4a8f28da25bc874a026368cc"
     APKTOOL_FRAMEWORK = "5dd984016ed5a5eb0eef866e2c6e8cd352e1427828ec23adb18005cf5648f3d7"
-    JDK = "21.0.13+9-1~deb13u2"
+    JDK = "21.0.13.1+2-1~deb13u1"
     #: The upstream commit the jars are built from (google/smali's main head, "Version 3.0.10").
     SMALI_COMMIT = "7a325fc45dc02d0e428da5b54685e5887903efca"
 
@@ -503,9 +503,13 @@ class FridaServer(unittest.TestCase):
         self.assertIn("chmod -R a-x,a+rX /opt/frida", dockerfile)
         self.assertNotIn("chmod -R a-x,a+r /opt/frida", dockerfile)
         self.assertNotIn("unxz", dockerfile)
-        # and the server's own user sees all 16 binaries before the image ships
+        # and the server's own user sees every binary the image adds before the image ships
+        added = len(re.findall(r"^ADD --checksum=sha256:\S+ https://github\.com/frida/frida/releases/download/\S+ "
+                               r"/opt/frida/(?:android|linux)/[a-z0-9_]+/frida-(?:server|gadget)-\S+\.xz$", dockerfile, re.M))
+        self.assertEqual(added, 12)
         after_user = dockerfile[dockerfile.index("USER 10001:10001"):]
-        self.assertRegex(after_user, r"RUN /opt/venv/bin/python -c .*glob\.glob\('/opt/frida/\*/\*/\*\.xz'\).*== 16")
+        self.assertRegex(after_user, r"RUN /opt/venv/bin/python -c .*glob\.glob\('/opt/frida/\*/\*/\*\.xz'\).*"
+                                     rf"== {added}, found")
         self.assertIn("lzma.open", self.read("src", "server.py"))
 
     def test_it_reaches_only_what_the_human_configured(self):

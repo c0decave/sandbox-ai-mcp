@@ -1,11 +1,12 @@
-#!/usr/bin/env python3
-"""Compare the jars a server ships with the same releases on Maven Central (CI, before the image is built).
+"""Compare the jars a server ships with the same release in its publisher's Maven repository (CI, before the build).
 
-A server whose jars come from somewhere other than Maven Central (a GitHub release asset) names, in
+A server whose jars come from somewhere other than a Maven repository (a GitHub release asset) names, in
 ``servers/NAME/maven-central.json``, the Dockerfile ARGs that pin each jar (its URL and SHA-256), where the image
-keeps it, and the Maven Central artifacts it is built from::
+keeps it, the Maven artifacts it is built from, and the repository they are in (``repository``: Maven Central, the
+default, or Google's Maven, where Google publishes com.android.tools.* - smali 3.0.10 is there, not on Maven Central)::
 
     {"schema": "sandbox-ai-mcp-maven-central", "version": 1,
+     "repository": "https://dl.google.com/dl/android/maven2",
      "jars": [{"url_arg": "SMALI_URL", "sha256_arg": "SMALI_SHA256",
                "image_path": "/opt/smali/smali-3.0.10-fat-release.jar",
                "built_from": ["com.android.tools.smali:smali:3.0.10", ...],
@@ -14,9 +15,10 @@ keeps it, and the Maven Central artifacts it is built from::
 What is compared, per jar:
 
 1. The shipped jar is downloaded from the URL of its ARG and must hash to the ARG's SHA-256 (the bytes the image's
-   ``ADD --checksum`` takes). Each Maven Central jar is downloaded with its ``.sha1`` and ``.sha256`` from Maven
-   Central and must hash to both (a missing ``.sha256`` is said; a missing ``.sha1`` fails).
-2. A jar that is byte for byte one of its Maven Central jars passes as such.
+   ``ADD --checksum`` takes). Each Maven jar is downloaded from the repository, with every checksum file
+   (``.sha1``, ``.sha256``, ``.sha512``) the repository publishes for it, and must hash to each of them (a missing
+   one is said; with none, the jar is the one the repository serves over HTTPS, its SHA-256 said).
+2. A jar that is byte for byte one of its Maven jars passes as such.
 3. Otherwise the entries: every file of every ``built_from`` jar except its ``META-INF/`` must be in the shipped jar
    with identical bytes (nothing of the release left out or changed), and every file of the shipped jar under an
    ``own_prefixes`` folder must be one of those files with identical bytes (nothing added to the release's
@@ -53,13 +55,19 @@ ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = "sandbox-ai-mcp-maven-central"
 VERSION = 1
 REPOSITORY = "https://repo1.maven.org/maven2"
+#: The Maven repositories a spec may name ("repository", default Maven Central): Maven Central, and Google's Maven
+#: (maven.google.com), where Google publishes com.android.tools.* - smali 3.0.10 is there, not on Maven Central.
+REPOSITORIES = (REPOSITORY, "https://dl.google.com/dl/android/maven2")
+#: The checksum files a repository may publish next to a jar; every one that is there must match.
+CHECKSUMS = ("sha1", "sha256", "sha512")
 MAX_SIZE = 64 << 20
 #: Where a shipped jar may come from (its Dockerfile ARG) - nothing else is fetched.
 SHIPPED_HOSTS = ("https://github.com/",)
 _COORDINATE = re.compile(r"^([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)$")
 _ARG = re.compile(r"^ARG\s+([A-Z0-9_]+)=(\S+)\s*$", re.M)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_SHA1 = re.compile(r"^[0-9a-f]{40}$")
+_DIGEST = {"sha1": re.compile(r"^[0-9a-f]{40}$"), "sha256": re.compile(r"^[0-9a-f]{64}$"),
+           "sha512": re.compile(r"^[0-9a-f]{128}$")}
 DIAGNOSE_MAX = 20
 
 Fetch = Callable[[str], "bytes | None"]
@@ -100,6 +108,9 @@ def load_spec(folder: Path) -> dict | None:
     if not isinstance(spec, dict) or spec.get("schema") != SCHEMA or spec.get("version") != VERSION \
             or not isinstance(spec.get("jars"), list) or not spec["jars"]:
         raise Problem(f"{path}: expected {{\"schema\": \"{SCHEMA}\", \"version\": {VERSION}, \"jars\": [...]}}")
+    repository = spec.get("repository", REPOSITORY)
+    if repository not in REPOSITORIES:
+        raise Problem(f"{path}: repository {repository!r} is none of {', '.join(REPOSITORIES)}")
     args = dict(_ARG.findall((folder / "Dockerfile").read_text(encoding="utf-8")))
     jars = []
     for jar in spec["jars"]:
@@ -123,7 +134,7 @@ def load_spec(folder: Path) -> dict | None:
             raise Problem(f"{path}: own_prefixes must list package folders such as \"org/example/\"")
         jars.append({"name": url.rsplit("/", 1)[1], "url": url, "sha256": sha256, "image_path": image_path,
                      "built_from": built_from, "own_prefixes": prefixes})
-    return {"jars": jars}
+    return {"jars": jars, "repository": repository}
 
 
 def maven_url(coordinate: str, repository: str = REPOSITORY) -> str:
@@ -131,29 +142,34 @@ def maven_url(coordinate: str, repository: str = REPOSITORY) -> str:
     return f"{repository}/{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.jar"
 
 
-def maven_jar(coordinate: str, get: Fetch, notes: list[str]) -> bytes:
-    """The Maven Central jar of *coordinate*, checked against the .sha1 and .sha256 Maven Central publishes."""
-    url = maven_url(coordinate)
+def maven_jar(coordinate: str, get: Fetch, notes: list[str], repository: str = REPOSITORY) -> bytes:
+    """The jar of *coordinate* in *repository*, checked against every checksum file (.sha1, .sha256, .sha512) the
+    repository publishes for it."""
+    url = maven_url(coordinate, repository)
     data = get(url)
     if data is None:
-        raise Problem(f"{coordinate}: not on Maven Central ({url})")
+        raise Problem(f"{coordinate}: not in {repository} ({url})")
     sums = {}
-    for kind, pattern in (("sha1", _SHA1), ("sha256", _SHA256)):
+    for kind in CHECKSUMS:
+        pattern = _DIGEST[kind]
         text = get(f"{url}.{kind}")
         if text is None:
-            if kind == "sha1":
-                raise Problem(f"{coordinate}: Maven Central has no {url}.sha1")
-            notes.append(f"{coordinate}: Maven Central publishes no .sha256 (checked by its .sha1)")
+            if kind != "sha512":
+                notes.append(f"{coordinate}: {repository} publishes no .{kind}")
             continue
         value = text.decode("ascii", "replace").split()[0].strip().lower() if text.strip() else ""
         if not pattern.match(value):
             raise Problem(f"{coordinate}: {url}.{kind} holds no {kind} ({value[:80]!r})")
         actual = hashlib.new(kind, data).hexdigest()
         if actual != value:
-            raise Problem(f"{coordinate}: the jar's {kind} is {actual}, Maven Central's .{kind} says {value}")
+            raise Problem(f"{coordinate}: the jar's {kind} is {actual}, {url}.{kind} says {value}")
         sums[kind] = value
-    notes.append(f"{coordinate}: {len(data)} bytes, " + ", ".join(f"{k} {v}" for k, v in sums.items())
-                 + " (as Maven Central publishes them)")
+    if not sums:
+        notes.append(f"{coordinate}: {repository} publishes no checksum for it: the jar is the one served over HTTPS "
+                     f"there, sha256 {hashlib.sha256(data).hexdigest()}")
+    else:
+        notes.append(f"{coordinate}: {len(data)} bytes, " + ", ".join(f"{k} {v}" for k, v in sums.items())
+                     + f" (as {repository} publishes them)")
     return data
 
 
@@ -183,7 +199,7 @@ def _normalized_javap(data: bytes, javap: str) -> str | None:
 
 def compare(shipped_name: str, shipped: bytes, built_from: dict[str, bytes], own_prefixes: list[str],
             javap: str | None = None) -> dict:
-    """What *shipped* is compared with the Maven Central jars *built_from* (coordinate -> bytes)."""
+    """What *shipped* is compared with the Maven jars *built_from* (coordinate -> bytes)."""
     for coordinate, data in built_from.items():
         if data == shipped:
             return {"jar": shipped_name, "passed": True, "identical_to": coordinate,
@@ -238,7 +254,7 @@ def check(folder: Path, get: Fetch = fetch, javap: str | None = None) -> dict:
         built_from = {}
         for coordinate in jar["built_from"]:
             if coordinate not in cache:
-                cache[coordinate] = maven_jar(coordinate, get, notes)
+                cache[coordinate] = maven_jar(coordinate, get, notes, spec["repository"])
             built_from[coordinate] = cache[coordinate]
         report = compare(jar["name"], shipped, built_from, jar["own_prefixes"], javap)
         report["sha256"] = jar["sha256"]

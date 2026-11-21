@@ -13,7 +13,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # ca-certificates only for pip's download while the image is built (Debian's pip uses the system's certificates)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
-      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13+9-1~deb13u2 \
+      ca-certificates=20250419+deb13u1 openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1 \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /opt/mcp/requirements.txt
 # pip is removed from the venv and the venv tooling is purged: nothing installs Python packages at run time

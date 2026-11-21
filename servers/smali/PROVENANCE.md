@@ -8,7 +8,7 @@
 | APK tool | **apktool 3.0.3** (iBotPeaches/Apktool, Apache-2.0, `LICENSES/apktool-Apache-2.0.txt`, `apktool-NOTICE.txt`), released 2026-07-20: `apktool_3.0.3.jar`, SHA-256 `dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423` (the SHA-256 GitHub publishes) |
 | Out of that jar | apktool's own **aapt2 2.20** (`prebuilt/linux/aapt2`), SHA-256 `df312db814c018019b2b79a993b041b738d7b76f4a8f28da25bc874a026368cc`, and its **android-framework.jar**, SHA-256 `5dd984016ed5a5eb0eef866e2c6e8cd352e1427828ec23adb18005cf5648f3d7` (installed as `/opt/apktool/framework/1.apk`) - both checked when the image is built |
 | Signing and aligning | Debian trixie `zipalign=1:10.0.0+r36-1.1` (android-platform-build), `libapksig-java=35.0.2-1` and the one jar of `apksigner=35.0.2-1` (android-platform-tools-apksig, Apache-2.0), with `keytool` of the JRE |
-| Java | Debian trixie `openjdk-21-jre-headless=21.0.13+9-1~deb13u2` (trixie-security; the same as servers/jadx and servers/cfr) |
+| Java | Debian trixie `openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1` (trixie-security; the same as servers/jadx and servers/cfr; 21.0.13.1+2-1~deb13u1 replaced 21.0.13+9-1~deb13u2 on 2026-11-21, in which CI's Trivy found the CRITICAL CVE-2026-114820 and CVE-2026-114938) |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line) |
 | Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), `unzip=6.0-29+deb13u1` (build stage), the JRE and Android tools above |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as the other servers') |
@@ -22,8 +22,8 @@ the cut-off, and nothing is fetched at run time.
 `JesusFreke/smali` - the original - is **archived** (read-only since 2024-01-17, last release 2.5.2 of 2021): it is
 dead. Its maintained continuation is **google/smali** (`com.android.tools.smali`, active: the commit we pin is of
 2026-08-19). Google tags releases there (up to `3.0.9`) but publishes **no release assets**, and the Maven
-coordinates (`com.android.tools.smali:smali:3.0.10` on Maven Central / maven.google.com) could not be reached from
-this sandbox (CI compares the jars with them: point 6 below). The jars we pin therefore come from **baksmali/smali**, the organisation that publishes "release
+coordinates (`com.android.tools.smali:smali:3.0.10` in Google's Maven repository, maven.google.com) could not be
+reached from this sandbox (CI compares the jars with them: point 6 below). The jars we pin therefore come from **baksmali/smali**, the organisation that publishes "release
 artifacts for all versions (v3 by @google, v2 and v1 by @JesusFreke)" - a third party, so its jars were checked
 against Google's source here (below). The alternative, Debian's `libsmali-java` 2.5.2 (signed archive, built by
 Debian), is JesusFreke's dead 2021 version: it does not read today's DEX files, so it is not used.
@@ -60,20 +60,23 @@ Debian), is JesusFreke's dead 2021 version: it does not read today's DEX files, 
    started), `java.net.URLClassLoader` only in Guava's `ClassPath` and that loader. File writes: baksmali's
    `Baksmali`/`FileDeferredOutputStream` and `util/PathUtil` - the output folder we give it, which is a folder of our
    scratch.
-6. **Compared with Maven Central in CI** (`maven-central.json`, `scripts/maven_central.py`; the step
-   "Maven Central - the shipped jars against the release there" of every build, before the image is built; a
+6. **Compared with Google's own 3.0.10 in CI** (`maven-central.json`, `scripts/maven_central.py`; the step
+   "Maven repository - the shipped jars against the release there" of every build, before the image is built; a
    difference fails the job, so no image of smali is pushed or signed without it). Google publishes
-   `com.android.tools.smali:{smali,baksmali,dexlib2,util}:3.0.10` on Maven Central (`repo1.maven.org`), which this
-   sandbox cannot reach. CI downloads the two fat jars by the URL and SHA-256 of the Dockerfile's ARGs (the bytes
-   `ADD --checksum` puts into the image) and the four Maven Central jars, each checked against the `.sha1` and
-   `.sha256` Maven Central publishes for it; then, per fat jar (baksmali's: baksmali + dexlib2 + util; smali's:
-   smali + dexlib2 + util), **every file of those Maven Central jars except their `META-INF/`** (the classes and
-   resources such as `smali.properties`) must be in the fat jar with **identical bytes**, and **every file of the
-   fat jar under `com/android/tools/smali/`** must be one of them (nothing added to Google's packages). The
-   comparison is written to `maven-central-smali.json` in the job's artifact `ci-smali`, and the step after the
-   build checks that the image's `/opt/smali/*.jar` hash to the SHA-256 compared. **Not compared** that way: the
-   bundled third-party libraries of point 4 (Guava, jcommander, ANTLR, ...), which are named by their
-   `pom.properties` and covered by Trivy's scan; and the fat jars were not rebuilt from the commit with Gradle.
+   `com.android.tools.smali:{smali,smali-baksmali,smali-dexlib2,smali-util}:3.0.10` in **Google's Maven repository**
+   (maven.google.com, served from `dl.google.com/dl/android/maven2`) - **not on Maven Central**, where CI's first
+   build found neither `baksmali` nor `smali-baksmali` 3.0.10 (run 44943705174, 2026-11-21); neither is reachable from
+   this sandbox. CI downloads the two fat jars by the URL and SHA-256 of the Dockerfile's ARGs (the bytes
+   `ADD --checksum` puts into the image) and the four jars from Google's repository, each checked against every
+   checksum file (`.sha1`, `.sha256`, `.sha512`) Google publishes beside it (the job's log says which there are);
+   then, per fat jar (baksmali's: smali-baksmali + smali-dexlib2 + smali-util; smali's: smali + smali-dexlib2 +
+   smali-util), **every file of those jars except their `META-INF/`** (the classes and resources such as
+   `smali.properties`) must be in the fat jar with **identical bytes**, and **every file of the fat jar under
+   `com/android/tools/smali/`** must be one of them (nothing added to Google's packages). The comparison is written
+   to `maven-central-smali.json` in the job's artifact `ci-smali`, and the step after the build checks that the
+   image's `/opt/smali/*.jar` hash to the SHA-256 compared. **Not compared** that way: the bundled third-party
+   libraries of point 4 (Guava, jcommander, ANTLR, ...), which are named by their `pom.properties` and covered by
+   Trivy's scan; and the fat jars were not rebuilt from the commit with Gradle.
 
 ## apktool 3.0.3 (read where the confinement depends on it)
 
@@ -210,4 +213,4 @@ are removed. **Network:** none (no socket, no URL, nothing imported that could).
   with a resource table, built here with apktool's aapt2 - apktool's build step needs one, and `demo.apk` has none.
 
 **Not run here (no container engine):** the image build, the smoke spec under Podman and Bubblewrap, Trivy. Signing
-waits for CI to build the image and both smoke runs to pass, after the comparison with Maven Central (point 6).
+waits for CI to build the image and both smoke runs to pass, after the comparison with Google's jars (point 6).

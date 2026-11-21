@@ -51,8 +51,9 @@ def fat(**changes: bytes | None) -> bytes:
 class Server:
     """A server folder with a Dockerfile and a maven-central.json, and a fake Maven Central."""
 
-    def __init__(self, folder: Path, shipped: bytes, sha256: str | None = None):
+    def __init__(self, folder: Path, shipped: bytes, sha256: str | None = None, repository: str | None = None):
         self.folder = folder
+        self.repo = repository or REPO
         (folder / "Dockerfile").write_text(
             "FROM scratch\n"
             "ARG LIB_URL=https://github.com/example/lib/releases/download/1.0/lib-1.0-fat.jar\n"
@@ -61,10 +62,11 @@ class Server:
             "schema": "sandbox-ai-mcp-maven-central", "version": 1,
             "jars": [{"url_arg": "LIB_URL", "sha256_arg": "LIB_SHA256", "image_path": "/opt/lib/lib-1.0-fat.jar",
                       "built_from": ["org.example:lib:1.0", "org.example:core:1.0"],
-                      "own_prefixes": ["org/example/"]}]}))
+                      "own_prefixes": ["org/example/"]}],
+            **({"repository": repository} if repository else {})}))
         self.files = {"https://github.com/example/lib/releases/download/1.0/lib-1.0-fat.jar": shipped}
         for artifact, files in (("lib", LIB), ("core", CORE)):
-            self.publish(f"{REPO}/org/example/{artifact}/1.0/{artifact}-1.0.jar", jar(files))
+            self.publish(f"{self.repo}/org/example/{artifact}/1.0/{artifact}-1.0.jar", jar(files))
         self.asked: list[str] = []
 
     def publish(self, url: str, data: bytes, sha1: str | None = None, sha256: str | None = None):
@@ -137,21 +139,39 @@ class Compare(unittest.TestCase):
         with self.assertRaisesRegex(maven_central.Problem, "sha1"):
             maven_central.check(self.folder, server.get)
 
-    def test_a_missing_sha1_fails_and_a_missing_sha256_is_said(self):
+    def test_every_published_checksum_is_checked_and_a_missing_one_is_said(self):
         server = Server(self.folder, fat())
         url = f"{REPO}/org/example/core/1.0/core-1.0.jar"
         del server.files[url + ".sha256"]
         report = maven_central.check(self.folder, server.get)
         self.assertTrue(report["passed"])
         self.assertTrue(any("no .sha256" in note for note in report["notes"]))
-        del server.files[url + ".sha1"]
-        with self.assertRaisesRegex(maven_central.Problem, r"\.sha1"):
+        server.files[url + ".sha512"] = b"3" * 128
+        with self.assertRaisesRegex(maven_central.Problem, "sha512"):
             maven_central.check(self.folder, server.get)
+        del server.files[url + ".sha512"], server.files[url + ".sha1"]
+        report = maven_central.check(self.folder, server.get)
+        self.assertTrue(report["passed"], "the bytes are still compared")
+        self.assertTrue(any("publishes no checksum" in note for note in report["notes"]))
+
+    def test_googles_maven_repository_where_google_publishes(self):
+        # smali 3.0.10 is on Google's Maven (maven.google.com), not on Maven Central (CI, 2026-11-21)
+        google = "https://dl.google.com/dl/android/maven2"
+        server = Server(self.folder, fat(), repository=google)
+        report = maven_central.check(self.folder, server.get)
+        self.assertTrue(report["passed"], report)
+        self.assertIn(f"{google}/org/example/lib/1.0/lib-1.0.jar", server.asked)
+        self.assertFalse([url for url in server.asked if url.startswith(REPO)])
+
+    def test_another_repository_is_refused(self):
+        Server(self.folder, fat(), repository="https://maven.example.org/releases")
+        with self.assertRaisesRegex(maven_central.Problem, "repository"):
+            maven_central.load_spec(self.folder)
 
     def test_an_artifact_not_on_maven_central_fails(self):
         server = Server(self.folder, fat())
         del server.files[f"{REPO}/org/example/core/1.0/core-1.0.jar"]
-        with self.assertRaisesRegex(maven_central.Problem, "not on Maven Central"):
+        with self.assertRaisesRegex(maven_central.Problem, f"not in {REPO}"):
             maven_central.check(self.folder, server.get)
 
     def test_only_the_dockerfile_url_and_maven_central_are_fetched(self):
@@ -188,6 +208,7 @@ class TheServers(unittest.TestCase):
                          [f"{group}:smali-baksmali:3.0.10", f"{group}:smali-dexlib2:3.0.10", f"{group}:smali-util:3.0.10"])
         self.assertEqual(jars["smali-3.0.10-fat-release.jar"]["built_from"],
                          [f"{group}:smali:3.0.10", f"{group}:smali-dexlib2:3.0.10", f"{group}:smali-util:3.0.10"])
+        self.assertEqual(self.spec("smali")["repository"], "https://dl.google.com/dl/android/maven2")
         for name, entry in jars.items():
             self.assertEqual(entry["own_prefixes"], ["com/android/tools/smali/"])
             self.assertTrue(entry["url"].endswith("/" + name))
@@ -195,6 +216,7 @@ class TheServers(unittest.TestCase):
     def test_cfr_names_org_benf_cfr_0_152(self):
         (entry,) = self.spec("cfr")["jars"]
         self.assertEqual(entry["built_from"], ["org.benf:cfr:0.152"])
+        self.assertEqual(self.spec("cfr")["repository"], REPO)
         self.assertEqual(entry["image_path"], "/opt/cfr/cfr-0.152.jar")
 
     def test_the_image_paths_are_where_the_dockerfiles_put_the_jars(self):
@@ -232,7 +254,7 @@ class TheServers(unittest.TestCase):
         image_job = workflow[workflow.index("\n  image:"):workflow.index("\n  catalog:")]
         steps = re.findall(r"^      - (?:name: (.+)|uses: (\S+))$", image_job, re.M)
         names = [name or uses for name, uses in steps]
-        compare = next(i for i, n in enumerate(names) if n.startswith("Maven Central - "))
+        compare = next(i for i, n in enumerate(names) if n.startswith("Maven repository - "))
         build = next(i for i, n in enumerate(names) if n.startswith("Build"))
         shipped = next(i for i, n in enumerate(names) if n.startswith("The image ships the jars compared"))
         push = names.index("Push")

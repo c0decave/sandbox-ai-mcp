@@ -107,11 +107,12 @@ jobs:
         with:
           persist-credentials: false
 
-      # A server whose jars are a GitHub release asset, not Maven Central's (servers/NAME/maven-central.json: smali, cfr),
-      # has them compared with the same release on Maven Central (its .sha1/.sha256 checked) before anything is built:
-      # the whole jar byte for byte, or every file of the Maven Central jars in the fat jar byte for byte and nothing
+      # A server whose jars are a GitHub release asset (servers/NAME/maven-central.json: smali, cfr) has them compared
+      # with the same release in its publisher's Maven repository (cfr: Maven Central; smali: Google's Maven), its
+      # .sha1/.sha256 checked where published, before anything is built:
+      # the whole jar byte for byte, or every file of the Maven jars in the fat jar byte for byte and nothing
       # added under their packages. A difference stops the job here. Other servers: nothing to do.
-      - name: Maven Central - the shipped jars against the release there
+      - name: Maven repository - the shipped jars against the release there
         env:
           SERVER: ${{ matrix.server }}
         run: python3 scripts/maven_central.py --server "${SERVER}" --report "maven-central-${SERVER}.json"

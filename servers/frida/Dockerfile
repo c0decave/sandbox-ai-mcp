@@ -71,7 +71,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && mkdir -p /work /out
 ENV HOME=/tmp
 USER 10001:10001
-# what the server's own user sees: every one of the 16 binaries (a folder without x hid them all)
-RUN /opt/venv/bin/python -c "import glob; found = glob.glob('/opt/frida/*/*/*.xz'); assert len(found) == 16, found"
+# what the server's own user sees: all 12 binaries (4 Android and 2 Linux ABIs, server and gadget each); a folder
+# without its x bit hid them all
+RUN /opt/venv/bin/python -c "import glob; found = glob.glob('/opt/frida/*/*/*.xz'); assert len(found) == 12, found"
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]
