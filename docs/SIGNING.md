@@ -29,8 +29,9 @@ code when `SANDBOX_AI_CHECKOUT` names a sandbox-ai checkout).
 
 ## What the CI run produces
 
-`.github/workflows/build.yml`, per server of `servers/`: build, smoke test with the hardened run line, Trivy,
-push to `ghcr.io/c0decave/sandbox-ai-mcp-NAME`, then with a checkout of sandbox-ai (`SANDBOX_AI_REF`):
+`.github/workflows/build.yml`, per server of `servers/`: for smali and cfr first the comparison of their jars with
+Maven Central (`scripts/maven_central.py`, a difference fails the job), then build, smoke test with the hardened run
+line, Trivy, push to `ghcr.io/c0decave/sandbox-ai-mcp-NAME`, then with a checkout of sandbox-ai (`SANDBOX_AI_REF`):
 
 - `smoke-NAME-sandbox-ai-podman.json`: the pushed `IMAGE@DIGEST` started with sandbox-ai's own `podman run` line
   (`mcp.image_command`), `tools/list` compared with `servers/NAME/tools.json`, the smoke calls;

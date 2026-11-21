@@ -107,6 +107,15 @@ jobs:
         with:
           persist-credentials: false
 
+      # A server whose jars are a GitHub release asset, not Maven Central's (servers/NAME/maven-central.json: smali, cfr),
+      # has them compared with the same release on Maven Central (its .sha1/.sha256 checked) before anything is built:
+      # the whole jar byte for byte, or every file of the Maven Central jars in the fat jar byte for byte and nothing
+      # added under their packages. A difference stops the job here. Other servers: nothing to do.
+      - name: Maven Central - the shipped jars against the release there
+        env:
+          SERVER: ${{ matrix.server }}
+        run: python3 scripts/maven_central.py --server "${SERVER}" --report "maven-central-${SERVER}.json"
+
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build (loaded locally for the checks)
@@ -118,6 +127,12 @@ jobs:
           push: false
           tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
           labels: ${{ env.SOURCE_LABEL }}
+
+      # The jars at their image paths hash to the SHA-256 compared above (ADD --checksum took the same bytes).
+      - name: The image ships the jars compared with Maven Central
+        env:
+          SERVER: ${{ matrix.server }}
+        run: python3 scripts/maven_central.py --server "${SERVER}" --image "local/sandbox-ai-mcp-${SERVER}:ci"
 
       # radare2, capa, binwalk, jadx, cfr and smali read a file: the fixtures their smoke specs mount at /work.
       - name: Smoke fixtures (checked against their SHA-256)
@@ -350,6 +365,7 @@ jobs:
             rootfs-out/rootfs-${{ matrix.server }}.json
             smoke-${{ matrix.server }}-sandbox-ai-podman.json
             smoke-${{ matrix.server }}-sandbox-ai-bwrap.json
+            maven-central-${{ matrix.server }}.json
           if-no-files-found: warn
           overwrite: true   # a re-run of the job replaces its artifact
 

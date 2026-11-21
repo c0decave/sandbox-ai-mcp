@@ -1,0 +1,14 @@
+{
+  "schema": "sandbox-ai-mcp-maven-central",
+  "version": 1,
+  "about": "CFR's GitHub release asset cfr-0.152.jar compared in CI with org.benf:cfr:0.152 on Maven Central (scripts/maven_central.py, before the image is built): the whole jar byte for byte, else every file but META-INF/ byte for byte and nothing else under org/benf/cfr/.",
+  "jars": [
+    {
+      "url_arg": "CFR_URL",
+      "sha256_arg": "CFR_SHA256",
+      "image_path": "/opt/cfr/cfr-0.152.jar",
+      "built_from": ["org.benf:cfr:0.152"],
+      "own_prefixes": ["org/benf/cfr/"]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "sandbox-ai-mcp-maven-central",
+  "version": 1,
+  "about": "The fat jars of baksmali/smali's release 3.0.10 compared in CI with google/smali's own 3.0.10 on Maven Central (scripts/maven_central.py, before the image is built): every file of the Maven Central jars but META-INF/ byte for byte in the fat jar, and nothing else under com/android/tools/smali/.",
+  "jars": [
+    {
+      "url_arg": "BAKSMALI_URL",
+      "sha256_arg": "BAKSMALI_SHA256",
+      "image_path": "/opt/smali/baksmali-3.0.10-fat-release.jar",
+      "built_from": ["com.android.tools.smali:baksmali:3.0.10", "com.android.tools.smali:dexlib2:3.0.10",
+                     "com.android.tools.smali:util:3.0.10"],
+      "own_prefixes": ["com/android/tools/smali/"]
+    },
+    {
+      "url_arg": "SMALI_URL",
+      "sha256_arg": "SMALI_SHA256",
+      "image_path": "/opt/smali/smali-3.0.10-fat-release.jar",
+      "built_from": ["com.android.tools.smali:smali:3.0.10", "com.android.tools.smali:dexlib2:3.0.10",
+                     "com.android.tools.smali:util:3.0.10"],
+      "own_prefixes": ["com/android/tools/smali/"]
+    }
+  ]
+}

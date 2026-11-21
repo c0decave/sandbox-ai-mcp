@@ -23,7 +23,7 @@ the cut-off, and nothing is fetched at run time.
 dead. Its maintained continuation is **google/smali** (`com.android.tools.smali`, active: the commit we pin is of
 2026-08-19). Google tags releases there (up to `3.0.9`) but publishes **no release assets**, and the Maven
 coordinates (`com.android.tools.smali:smali:3.0.10` on Maven Central / maven.google.com) could not be reached from
-this sandbox. The jars we pin therefore come from **baksmali/smali**, the organisation that publishes "release
+this sandbox (CI compares the jars with them: point 6 below). The jars we pin therefore come from **baksmali/smali**, the organisation that publishes "release
 artifacts for all versions (v3 by @google, v2 and v1 by @JesusFreke)" - a third party, so its jars were checked
 against Google's source here (below). The alternative, Debian's `libsmali-java` 2.5.2 (signed archive, built by
 Debian), is JesusFreke's dead 2021 version: it does not read today's DEX files, so it is not used.
@@ -60,10 +60,20 @@ Debian), is JesusFreke's dead 2021 version: it does not read today's DEX files, 
    started), `java.net.URLClassLoader` only in Guava's `ClassPath` and that loader. File writes: baksmali's
    `Baksmali`/`FileDeferredOutputStream` and `util/PathUtil` - the output folder we give it, which is a folder of our
    scratch.
-6. **Not done here (for the user / CI):** the fat jars were **not rebuilt** from the commit and compared
-   byte-for-byte - that needs Gradle and Maven Central, neither reachable from this sandbox. Before the catalog is
-   signed, compare `com.android.tools.smali:{smali,baksmali,dexlib2,util}:3.0.10` from Maven Central (or
-   maven.google.com) with these jars, or build them in CI. The review above is what can be checked without that.
+6. **Compared with Maven Central in CI** (`maven-central.json`, `scripts/maven_central.py`; the step
+   "Maven Central - the shipped jars against the release there" of every build, before the image is built; a
+   difference fails the job, so no image of smali is pushed or signed without it). Google publishes
+   `com.android.tools.smali:{smali,baksmali,dexlib2,util}:3.0.10` on Maven Central (`repo1.maven.org`), which this
+   sandbox cannot reach. CI downloads the two fat jars by the URL and SHA-256 of the Dockerfile's ARGs (the bytes
+   `ADD --checksum` puts into the image) and the four Maven Central jars, each checked against the `.sha1` and
+   `.sha256` Maven Central publishes for it; then, per fat jar (baksmali's: baksmali + dexlib2 + util; smali's:
+   smali + dexlib2 + util), **every file of those Maven Central jars except their `META-INF/`** (the classes and
+   resources such as `smali.properties`) must be in the fat jar with **identical bytes**, and **every file of the
+   fat jar under `com/android/tools/smali/`** must be one of them (nothing added to Google's packages). The
+   comparison is written to `maven-central-smali.json` in the job's artifact `ci-smali`, and the step after the
+   build checks that the image's `/opt/smali/*.jar` hash to the SHA-256 compared. **Not compared** that way: the
+   bundled third-party libraries of point 4 (Guava, jcommander, ANTLR, ...), which are named by their
+   `pom.properties` and covered by Trivy's scan; and the fat jars were not rebuilt from the commit with Gradle.
 
 ## apktool 3.0.3 (read where the confinement depends on it)
 
@@ -200,4 +210,4 @@ are removed. **Network:** none (no socket, no URL, nothing imported that could).
   with a resource table, built here with apktool's aapt2 - apktool's build step needs one, and `demo.apk` has none.
 
 **Not run here (no container engine):** the image build, the smoke spec under Podman and Bubblewrap, Trivy. Signing
-waits for CI to build the image and both smoke runs to pass - and for the jar comparison in point 6 above.
+waits for CI to build the image and both smoke runs to pass, after the comparison with Maven Central (point 6).
