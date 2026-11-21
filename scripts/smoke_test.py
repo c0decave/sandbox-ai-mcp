@@ -353,6 +353,10 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
         "user": meta.get("user", 65534), "workdir": meta.get("workdir", "/tmp"), "env": meta.get("env", {})}},
         "smoke")
     checked = os.path.join(state, "definition.json")
+    # As sandbox-ai's mcp start writes it: with the egress rules of the server's network plan, which mcp_rootfs loads
+    # into each connection's namespace (a sandbox-ai with egress rules refuses a server with network without them).
+    if hasattr(mcp, "server_network"):
+        definition = {**definition, "egress": mcp.server_network("smoke", definition).get("egress")}
     with open(checked, "w", encoding="utf-8") as handle:
         json.dump(definition, handle)
     return rootfs_module.bwrap_command(checked, definition), environment, {"rootfs_sha256": meta["sha256"], **own}

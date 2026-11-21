@@ -328,6 +328,77 @@ DIGEST = "sha256:" + "ab" * 32
 SHA = "cd" * 32
 
 
+class BubblewrapEgress(unittest.TestCase):
+    """sandbox-ai's mcp_rootfs refuses a server with network whose definition has no egress rules ("a server with
+    network has no egress rules: it would reach your network"): every Bubblewrap smoke of a server with network failed
+    so (CI run 44944513147, 2026-11-21, sandbox-ai 0.1.188). The smoke runner writes the definition as sandbox-ai's
+    mcp start does: with the egress of the server's network plan (mcp.server_network)."""
+
+    def fake_checkout(self, plans):
+        written = {}
+
+        class Rootfs:
+            @staticmethod
+            def install(archive, sha256):
+                return "/tree"
+
+            @staticmethod
+            def bwrap_command(path, definition):
+                written.update(json.loads(Path(path).read_text()))
+                return ["bwrap", path]
+
+        class Mcp:
+            IMAGE_KEYS = None
+
+            @staticmethod
+            def validated_image(definition, where):
+                return definition
+
+            @staticmethod
+            def rootfs_module():
+                return Rootfs
+
+            @staticmethod
+            def server_network(name, definition):
+                plans.append(definition)
+                reaches = definition["network"] != "none"
+                return {"egress": {"kind": "internet", "hosts": [], "allow_private": [], "allow_tcp": []}
+                        if reaches else None}
+
+        return Mcp, written
+
+    def run_bwrap(self, network):
+        plans = []
+        mcp, written = self.fake_checkout(plans)
+        meta = {"sha256": "a" * 64, "entrypoint": ["/srv"], "user": 10001}
+        with mock.patch.object(smoke, "load_module", return_value=mcp), \
+                mock.patch.dict(os.environ, {"XDG_DATA_HOME": tempfile.mkdtemp()}):
+            smoke.sandbox_ai_argv("sandbox-ai-bwrap", "/checkout", "image", network, [], {}, "rootfs.tar.gz", meta)
+        return plans, written
+
+    def test_a_server_with_network_gets_the_egress_of_its_plan(self):
+        plans, written = self.run_bwrap("allowlist")
+        self.assertEqual(written["egress"], {"kind": "internet", "hosts": [], "allow_private": [], "allow_tcp": []})
+        self.assertEqual(plans[0]["network"], "full")
+        self.assertIn("rootfs", plans[0], "the plan of the definition that runs")
+
+    def test_a_server_without_network_gets_none(self):
+        _, written = self.run_bwrap("none")
+        self.assertIsNone(written.get("egress"))
+
+    @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "needs SANDBOX_AI_CHECKOUT (a sandbox-ai checkout)")
+    def test_sandbox_ai_s_own_plan_has_egress_rules_for_a_rootfs_server(self):
+        mcp = smoke.load_module(os.path.join(os.environ["SANDBOX_AI_CHECKOUT"], "sandbox", "mcp.py"), "mcp_for_egress")
+        if not hasattr(mcp, "server_network"):
+            self.skipTest("a sandbox-ai before network plans")
+        definition = {"network": "full", "env": [], "mounts": [], "rootfs": {
+            "path": "/tree", "sha256": "a" * 64, "entrypoint": ["/srv"], "user": 10001, "workdir": "/tmp", "env": {}}}
+        egress = mcp.server_network("smoke", definition).get("egress")
+        if egress is None and not hasattr(mcp, "egress_of"):
+            self.skipTest("a sandbox-ai before egress rules")
+        self.assertEqual(egress["kind"], "internet")
+
+
 class CatalogOfWhatPassed(unittest.TestCase):
     """The catalog job: ci_results.py picks the servers, make_catalog.py --only writes their entries alone."""
 
