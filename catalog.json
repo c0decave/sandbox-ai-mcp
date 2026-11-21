@@ -2,153 +2,9 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
-  "state": "pending-digests",
-  "pending": [
-    "agentql",
-    "arxiv",
-    "axross",
-    "calculator",
-    "cfr",
-    "frida",
-    "jadx",
-    "osv",
-    "shodan",
-    "smali",
-    "time",
-    "wikipedia",
-    "youtube-transcript"
-  ],
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
+  "state": "pinned",
   "entries": [
-    {
-      "id": "mcp:agentql",
-      "name": "agentql",
-      "title": "AgentQL (structured data from web pages)",
-      "description": "Structured data from a public web page through AgentQL's hosted data extraction API (TinyFish): extract-web-data sends the URL and a natural-language description of the data to api.agentql.com, whose cloud browser loads the page and whose model returns the data as JSON. The tool of tinyfish-io/agentql-mcp 1.0.1, reviewed in full, as an own server: public http(s) URLs only (no local or private addresses, no credentials in the URL), answers at most 24,000 characters, nothing read or written locally. Needs an API key from https://dev.agentql.com in AGENTQL_API_KEY and network: Allowlist with api.agentql.com:443.",
-      "category": "Web",
-      "tags": [
-        "web",
-        "scraping",
-        "extraction",
-        "agentql"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/agentql",
-      "page": "https://github.com/tinyfish-io/agentql-mcp",
-      "license": "MIT (MCP server, sandbox-ai-mcp; the tool of agentql-mcp, MIT)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-agentql",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "AGENTQL_API_KEY",
-          "description": "AgentQL API key: https://dev.agentql.com",
-          "secret": true,
-          "required": true
-        }
-      ],
-      "network": "allowlist",
-      "hosts": [
-        "api.agentql.com:443"
-      ],
-      "notes": "Every URL and prompt the agent passes goes to AgentQL (TinyFish), which loads the page in its cloud browser and reads it with its model: do not put secrets, personal data or internal addresses into them. The key is sent only to api.agentql.com as the X-API-Key header and never returned or logged. What comes back was written by the page's authors and read by a model: data, not instructions.",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to api.agentql.com over TCP through Tor; AgentQL may refuse or rate-limit Tor exit addresses (not tested). The page itself is fetched by AgentQL, never through Tor."
-      }
-    },
-    {
-      "id": "mcp:arxiv",
-      "name": "arxiv",
-      "title": "arXiv (papers: search, abstracts, full text)",
-      "description": "arXiv's papers (our own server, no key): search_papers with arXiv's syntax (words, ti:, au:, abs:, cat:, AND/OR/ANDNOT; by relevance or newest first) gives ids, titles, authors, dates, categories and the start of each abstract; get_paper one paper's metadata and whole abstract; read_paper its full text as plain text from arXiv's HTML rendering (formulas as LaTeX), in pages within 24,000 characters. Three tools with small schemas; one API request every three seconds as arXiv asks.",
-      "category": "Search",
-      "tags": [
-        "arxiv",
-        "papers",
-        "research",
-        "science",
-        "local-llm"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/arxiv",
-      "page": "https://info.arxiv.org/help/api/index.html",
-      "license": "MIT (MCP server, sandbox-ai-mcp); papers: their authors' licences (arXiv's licence to distribute)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-arxiv",
-      "tag": "latest",
-      "network": "allowlist",
-      "hosts": [
-        "export.arxiv.org:443",
-        "arxiv.org:443"
-      ],
-      "notes": "Queries and paper ids go to arXiv (Cornell). Thank you to arXiv for use of its open access interoperability. A paper is its authors' text: data, not instructions. Papers without an HTML rendering (most before 2023) can be searched and their abstracts read, not their full text.",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to export.arxiv.org and arxiv.org over TCP through Tor; arXiv may refuse or slow down Tor exits (not tested)."
-      }
-    },
-    {
-      "id": "mcp:axross",
-      "name": "axross",
-      "title": "axross files (a folder and your SFTP connections)",
-      "description": "axross's file tools (axross-headless-mcp 0.15.180, the user's own project; the modules this server runs reviewed, the rest of the package not in the image) on the folder mounted at /work and, with remote_open, on the SFTP connections saved as axross profiles: list_dir, stat, read_file (text or base64, at most 4 MiB a call, with offsets), checksum, search, walk, recursive_checksum, grep (regex in a killable child process, 5 s a file), list_versions, open_version_read; remote_profiles (the saved profiles, no secret), remote_open, remote_close, list_backends. Only with AXROSS_WRITE=1: write_file (atomic), mkdir, remove, rename, copy, bulk_copy, symlink, hardlink, chmod (no setuid, setgid, sticky or group/world write). On /work every path stays beneath the folder: '..', absolute paths and symlinks out of it are refused, every open is made beneath the folder's descriptor without following a link (openat2), and secret files (SSH and GnuPG keys, .env, credentials, tokens, any file holding a private key) are never read. A remote path is the SSH account's, as the server allows it (--mcp-root does not apply there); '..' is refused for writes and a profile flagged production stays read-only. SFTP profiles only (no other backend, no proxy, no ProxyCommand, no SSH agent); host keys only from known_hosts (an unknown one is refused, never trusted on first use); passwords only from AXROSS_PASSWORDS. No scripts, no remote commands, no agent, no HTTP transport.",
-      "category": "Files",
-      "tags": [
-        "files",
-        "sftp",
-        "remote",
-        "workspace",
-        "axross"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/axross",
-      "page": "https://github.com/c0decave/axross-headless-mcp",
-      "license": "Apache-2.0 (axross-headless-mcp); MIT (entry point, sandbox-ai-mcp); LGPL-2.1 (paramiko)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-axross",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "AXROSS_WRITE",
-          "description": "1: the write tools are offered (write_file, mkdir, remove, rename, copy, bulk_copy, symlink, hardlink, chmod); without it the server only reads",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "AXROSS_PASSWORDS",
-          "description": "The stored passwords of your profiles as JSON, {\"PROFILE\": \"password\"} (\"PROFILE:proxy\" for a proxy's): read once, never written or shown",
-          "secret": true,
-          "required": false
-        },
-        {
-          "name": "AXROSS_MCP_REMOTE_TIMEOUT",
-          "description": "Seconds an SFTP request may go unanswered, 5-3600 (default 60)",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The folder the file tools work on, read-only (--mount /work=DIR:ro; :rw with AXROSS_WRITE=1 to change it); without it an empty folder",
-          "required": false
-        },
-        {
-          "target": "/axross",
-          "description": "axross's config folder, read-only (--mount /axross=~/.config/axross:ro): only its profiles.json is read, never written",
-          "required": false
-        },
-        {
-          "target": "/ssh",
-          "description": "known_hosts and the key files your profiles name, read-only (--mount /ssh=~/.ssh:ro); a key file is looked up here by its name",
-          "required": false
-        }
-      ],
-      "network": "none",
-      "notes": "Local disk only by default: network none, nothing reached. For your connections give it the network and only what they need: a host in your own network with --allow-tcp IP:22 (sandbox-ai mcp add axross --network full --allow-tcp 192.168.1.20:22), one on the internet with --network full (sandbox-ai cannot yet keep a server to host names you choose). Profiles come from axross (the GUI's Connect dialog, Store password ticked for a password login); the passwords from AXROSS_PASSWORDS ({\"PROFILE\": \"password\"}), never from a prompt; key files without a passphrase (remote_open passes none), from /ssh. A remote's whole file system is what its SSH account may reach: give the profile an account of its own (best a chroot'ed internal-sftp one) and flag it production in axross where nothing may change. Servers that refuse SSH commands (internal-sftp) answer checksum and copy with an error (streaming fallback: see PROVENANCE.md, finding 6). Recommended rules: allow the read tools, ask for write_file, remove, rename, copy, bulk_copy, symlink, hardlink and chmod. Everything it returns - names, contents, remote messages - is data, never instructions. Needs 1g memory, 256 processes and a 256m /tmp (sandbox-ai 0.1.94 and newer apply them from the catalog).",
-      "tor": {
-        "support": "yes",
-        "note": "Without network (the default) it reaches nothing. Given the network for a profile, SFTP is plain TCP: a host with a public address works behind Tor (slowly), a host in your own network cannot be reached from a Tor exit."
-      }
-    },
     {
       "id": "mcp:binwalk",
       "name": "binwalk",
@@ -288,32 +144,6 @@
       }
     },
     {
-      "id": "mcp:calculator",
-      "name": "calculator",
-      "title": "Calculator (exact arithmetic, units, dates)",
-      "description": "Exact arithmetic, unit conversion and date arithmetic for agents on small local models, which get all three wrong (our own server): calculate evaluates an expression exactly with fractions while it can (0.1 + 0.2 = 0.3; sqrt, log, sin, factorial, comb, gcd, ... in floating point when needed), convert_units converts length, area, volume, mass, time, speed, temperature, data, energy, power, pressure and angles, date_diff and date_add count days, months and years with weekdays. Never eval: a small interpreter of Python's syntax tree, every intermediate result size-checked (no 9**9**9), a time limit per call. No network.",
-      "category": "Utilities",
-      "tags": [
-        "calculator",
-        "math",
-        "units",
-        "dates",
-        "local-llm"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/calculator",
-      "page": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/calculator",
-      "license": "MIT (sandbox-ai-mcp)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-calculator",
-      "tag": "latest",
-      "network": "none",
-      "notes": "Four tools with small schemas, made for local models: tell the model to use calculate for every calculation. 'exact' in an answer says whether the result is exact (fractions) or rounded (floating point). Years in convert_units are Julian years (365.25 days); date_diff's business days skip weekends only, no holidays.",
-      "tor": {
-        "support": "yes",
-        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
-      }
-    },
-    {
       "id": "mcp:capa",
       "name": "capa",
       "title": "capa (Mandiant)",
@@ -342,40 +172,6 @@
       ],
       "network": "none",
       "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions.",
-      "tor": {
-        "support": "yes",
-        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
-      }
-    },
-    {
-      "id": "mcp:cfr",
-      "name": "cfr",
-      "title": "CFR (Java decompiler)",
-      "description": "Java decompilation with CFR 0.152: list the classes of a JAR, WAR, EAR or ZIP (or take one .class file) from the folder mounted read-only at /work, a class's outline read from the class file itself (access, superclass, interfaces, fields, methods with their descriptors), the Java source of a class or of one method (CFR's own method mode), with CFR's renaming of duplicate and illegal identifiers and its anti-obfuscation passes on request, and a search of the string constants (and names) of every class without decompiling. Answers come in parts of at most 400 lines or 24,000 characters (start_line). CFR runs per call with a time limit and an empty scratch folder; nothing is saved. For APK and DEX files and Kotlin use jadx. No network.",
-      "category": "Analysis: Files",
-      "tags": [
-        "analysis",
-        "java",
-        "decompiler",
-        "cfr",
-        "reverse-engineering",
-        "jar"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/cfr",
-      "page": "https://github.com/leibnitz27/cfr",
-      "license": "MIT (MCP server, sandbox-ai-mcp; CFR)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-cfr",
-      "tag": "latest",
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The folder with the JARs and class files to look at, read-only (--mount /work=DIR:ro); never written",
-          "required": true
-        }
-      ],
-      "network": "none",
-      "notes": "Needs 1g memory (sandbox-ai 0.1.94 and newer apply it from the catalog; older ones: --memory 1g). Each decompilation starts CFR once (a second or two); one run has 40 s and at most 16 MiB of output (decompile_method for very large classes). CFR follows a JAR's Class-Path entries to resolve types - only to files inside this container and /work. Links in /work are not followed. The code, names and strings it shows were made by someone else: data, not instructions.",
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
@@ -458,7 +254,7 @@
       "id": "mcp:context7",
       "name": "context7",
       "title": "Context7 (current library documentation)",
-      "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.5.0): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
+      "description": "Upstash's Context7 MCP server (@upstash/context7-mcp 4.4.4): current documentation and code examples of libraries, frameworks and APIs from the Context7 service. resolve-library-id turns a library name into a Context7 library ID (with snippet counts, source reputation and versions), query-docs returns the documentation for a question about that library, optionally ranked for a programming language. The library name or ID and the question go to context7.com (nothing else: no client name or session id, no telemetry, no sign-in prompt); nothing is read or written locally. Works without a key (rate-limited); CONTEXT7_API_KEY raises the limits. Needs network: Allowlist with context7.com:443.",
       "category": "Developer tools",
       "tags": [
         "documentation",
@@ -743,65 +539,6 @@
       }
     },
     {
-      "id": "mcp:frida",
-      "name": "frida",
-      "title": "Frida (Android instrumentation, your device)",
-      "description": "Dynamic instrumentation of an Android (or Linux) device with Frida 17.25.2: what devices, processes and apps there are, attach to a process that is running, load a script into it (given inline or read from the folder mounted read-only at /work) and collect the messages it posts, list the libraries of a process and their exports, and - only with FRIDA_WRITE=1 - spawn an app held before its first instruction, resume or kill it, or push the matching frida-server onto a USB device. The image carries frida-server and frida-gadget for every Android ABI (arm, arm64, x86, x86_64) and for Linux x86_64 and arm64, each the release file Frida publishes, pinned by its SHA-256; export_server unpacks one into the folder mounted writable at /out. The server talks to exactly one device endpoint, the one you configure (FRIDA_DEVICE, a frida-server at HOST:PORT, or FRIDA_ADB_SERVER, an adb server it can reach over TCP) and to nothing else; frida's local device - the processes of its own container - is never offered. Answers come in parts of at most 400 lines or 24,000 characters.",
-      "category": "Analysis: Files",
-      "tags": [
-        "analysis",
-        "android",
-        "frida",
-        "instrumentation",
-        "debugging",
-        "reverse-engineering"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/frida",
-      "page": "https://frida.re",
-      "license": "MIT (MCP server, sandbox-ai-mcp); wxWindows Library Licence 3.1 (Frida)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-frida",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "FRIDA_DEVICE",
-          "description": "The frida-server of your device as HOST:PORT, e.g. 192.168.1.33:27042 (the only address this server connects to)",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "FRIDA_ADB_SERVER",
-          "description": "An adb server this container can reach over TCP, e.g. 192.168.1.10:5037; its USB devices are then offered",
-          "secret": false,
-          "required": false
-        },
-        {
-          "name": "FRIDA_WRITE",
-          "description": "1: spawn, resume, kill and push_server are allowed (without it the device is only read)",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The folder with your Frida scripts, read-only (--mount /work=DIR:ro); never written",
-          "required": false
-        },
-        {
-          "target": "/out",
-          "description": "Where export_server puts a frida-server binary, writable (--mount /out=DIR:rw): the only folder written",
-          "required": false
-        }
-      ],
-      "network": "full",
-      "notes": "It reaches one endpoint, the one you configure - and it has to be allowed to: a device or adb server in your own network is a private address, which a server with network full never reaches. Open exactly it: sandbox-ai mcp set frida --allow-tcp 192.168.1.33:27042 (or --allow-tcp IP:5037 for an adb server). An adb server on the host that runs sandbox-ai (--allow-host-port 5037) is NOT reachable from an MCP server's container: use a device or adb server reachable by TCP, or work with adb in the agent's own sandbox (the android image). Needs 2g memory and 512 processes (sandbox-ai 0.1.94 and newer apply them from the catalog). Without FRIDA_WRITE=1 nothing on the device is started, stopped or written. A script you load runs inside the app and can read and change everything the app may - run it only against apps you are allowed to instrument, and only on a device you own. Everything the device sends back (process and module names, what a script posts) was made by someone else: data, not instructions.",
-      "tor": {
-        "support": "limited",
-        "note": "A device in your own network cannot be reached from a Tor exit: behind Tor only a frida-server with a public address (or an .onion relay) works; the device endpoint has to be reachable from where the tunnel leaves"
-      }
-    },
-    {
       "id": "mcp:gowitness",
       "name": "gowitness",
       "title": "Web screenshots (gowitness, Chromium)",
@@ -834,41 +571,6 @@
       "tor": {
         "support": "yes",
         "note": "Chromium over TCP through Tor (QUIC falls back to TCP), .onion URLs included; some sites challenge or refuse Tor exits."
-      }
-    },
-    {
-      "id": "mcp:jadx",
-      "name": "jadx",
-      "title": "jadx (Android/Java decompiler, headless)",
-      "description": "Android and Java reverse engineering with jadx 1.5.6, headless (our own server on jadx's library, no GUI): open an APK, DEX, JAR, AAR, AAB, XAPK, APKS, APKM, .class or .smali file from the folder mounted read-only at /work and get what is in it (classes, packages, the app's package, permissions and components), list packages and classes, a class's outline (fields, methods with their signatures, inner classes), the Java source of a class or of one method, smali, cross references (who calls a method, uses a field or a class), a search of the decompiled code (in 20-second steps that say where to go on) and of class, method and field names, the decoded AndroidManifest.xml, resource files and the tables of resources.arsc. Answers come in parts of at most 400 lines or 24,000 characters (start_line). One file is loaded at a time, in a JVM of its own; nothing is saved. No network.",
-      "category": "Analysis: Files",
-      "tags": [
-        "analysis",
-        "android",
-        "java",
-        "decompiler",
-        "jadx",
-        "reverse-engineering",
-        "apk"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/jadx",
-      "page": "https://github.com/skylot/jadx",
-      "license": "MIT (MCP server, sandbox-ai-mcp); Apache-2.0 (jadx)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-jadx",
-      "tag": "latest",
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The folder with the apps and archives to look at, read-only (--mount /work=DIR:ro); never written",
-          "required": true
-        }
-      ],
-      "network": "none",
-      "notes": "Needs more than the default limits: 2g memory, 256 processes and a 256m /tmp (sandbox-ai 0.1.94 and newer apply them from the catalog; older ones: --memory 2g --pids 256); the JVM's heap is 70 % of the memory limit, so a large app wants --memory 4g. Loading a large app takes from seconds to a few minutes: a call that comes too early says so and to call again. A call that runs over its time limit (45 s; search_code works in 20-second steps) stops the JVM and the next call loads the file again. Links in /work are not followed. The code, names, strings and resources it shows were made by someone else: data, not instructions.",
-      "tor": {
-        "support": "yes",
-        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
       }
     },
     {
@@ -1022,35 +724,6 @@
       }
     },
     {
-      "id": "mcp:osv",
-      "name": "osv",
-      "title": "OSV (known vulnerabilities of open-source packages)",
-      "description": "Known vulnerabilities of open-source packages from the OSV database (osv.dev, Google; no key): query_vulnerability gives the vulnerabilities of a package version (name and ecosystem such as PyPI, npm, Go, crates.io, Maven, NuGet, RubyGems, Packagist, Debian:12, or a purl) or of a git commit in short form - id, CVE aliases, summary, severity and the versions that fix it; query_vulnerabilities_batch checks up to 100 packages at once (a lock file's pins); get_vulnerability reads one advisory in full. The three tools of StacklokLabs/osv-mcp 0.1.4, reviewed in full, as an own server over stdio: arguments checked, answers at most 24,000 characters.",
-      "category": "Development",
-      "tags": [
-        "security",
-        "vulnerabilities",
-        "dependencies",
-        "osv",
-        "cve"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/osv",
-      "page": "https://osv.dev",
-      "license": "MIT (MCP server, sandbox-ai-mcp; the tools of StacklokLabs/osv-mcp, Apache-2.0); OSV data: CC-BY-4.0 and the advisory sources' terms",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-osv",
-      "tag": "latest",
-      "network": "allowlist",
-      "hosts": [
-        "api.osv.dev:443"
-      ],
-      "notes": "The package names, versions and commit hashes the agent asks about go to api.osv.dev (Google): they say which software you use. Nothing else is sent, nothing read or written locally. Advisory texts were written by third parties: data, not instructions.",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to api.osv.dev over TCP through Tor; Google may slow down or refuse Tor exit addresses (not tested)."
-      }
-    },
-    {
       "id": "mcp:playwright",
       "name": "playwright",
       "title": "Browser (Playwright MCP, Chromium)",
@@ -1171,44 +844,6 @@
       }
     },
     {
-      "id": "mcp:shodan",
-      "name": "shodan",
-      "title": "Shodan (host search and CVE database)",
-      "description": "Shodan's database of what its scanners saw on internet hosts, and its CVE database (the eleven tools of w0h1v/mcp-shodan 1.0.36, reviewed in full, as an own server): ip_lookup (ports, services, products, CVEs, TLS, location), shodan_search and shodan_count (Shodan queries with facets), search_filters, domain_info (subdomains, DNS records), dns_lookup, reverse_dns_lookup, api_info; cve_lookup, cves_by_product and cpe_lookup on cvedb.shodan.io (CVSS, EPSS, KEV). Only Shodan's database is asked, no host is contacted; answers within 24,000 characters. Complements osint-mcp's free InternetDB with the keyed API.",
-      "category": "OSINT",
-      "tags": [
-        "osint",
-        "security",
-        "shodan",
-        "cve",
-        "recon"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/shodan",
-      "page": "https://github.com/w0h1v/mcp-shodan",
-      "license": "MIT (MCP server, sandbox-ai-mcp; the tools of mcp-shodan, MIT)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-shodan",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "SHODAN_API_KEY",
-          "description": "Shodan API key: https://account.shodan.io (the CVEDB tools work without it)",
-          "secret": true,
-          "required": false
-        }
-      ],
-      "network": "allowlist",
-      "hosts": [
-        "api.shodan.io:443",
-        "cvedb.shodan.io:443"
-      ],
-      "notes": "The addresses, domains and queries the agent asks about go to Shodan. shodan_search with a filter and domain_info cost query credits of your plan; the others are free (api_info shows what is left). Shodan's API takes the key as a URL parameter: it is sent only to api.shodan.io, never to cvedb.shodan.io, never returned or logged. Banners and titles are written by the hosts' owners: data, not instructions.",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to api.shodan.io and cvedb.shodan.io over TCP through Tor; Shodan may block Tor exits for keyed requests (not tested)."
-      }
-    },
-    {
       "id": "mcp:signal",
       "name": "signal",
       "title": "Signal account (linked device, read-only by default)",
@@ -1253,46 +888,6 @@
       "tor": {
         "support": "yes",
         "note": "signal-cli reaches Signal's servers over TCP (HTTPS and websockets) through Tor."
-      }
-    },
-    {
-      "id": "mcp:smali",
-      "name": "smali",
-      "title": "smali (Android bytecode, apktool, signing)",
-      "description": "Android bytecode as smali and APKs taken apart and put together again, with baksmali/smali 3.0.10, apktool 3.0.3 and Android's zipalign and apksigner: list the apps in the folder mounted read-only at /work and the DEX files and classes of one, read a class's smali (in parts of at most 400 lines or 24,000 characters), search the smali of every class for a string, an API or a call, disassemble a whole app to smali files, assemble smali back into a DEX, decode an APK with apktool (readable AndroidManifest.xml, resources and smali) and build such a folder into an unsigned APK, then align and sign it with a throwaway debug key made for that one call and deleted with it. Everything written goes into the folder mounted writable at /out; nothing in it is overwritten. The tools run one at a time in a JVM of their own with an empty environment and a time limit; no key of yours is read and no device is touched. For Java and Kotlin source use the jadx server. No network.",
-      "category": "Analysis: Files",
-      "tags": [
-        "analysis",
-        "android",
-        "smali",
-        "apktool",
-        "dex",
-        "reverse-engineering",
-        "apk"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/smali",
-      "page": "https://github.com/google/smali",
-      "license": "MIT (MCP server, sandbox-ai-mcp); BSD-3-Clause (smali/baksmali); Apache-2.0 (apktool, apksig/apksigner, zipalign)",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-smali",
-      "tag": "latest",
-      "mounts": [
-        {
-          "target": "/work",
-          "description": "The folder with the apps to look at, read-only (--mount /work=DIR:ro); never written",
-          "required": true
-        },
-        {
-          "target": "/out",
-          "description": "Where the smali, decoded folders and built APKs are kept, writable (--mount /out=DIR:rw): the only folder written",
-          "required": false
-        }
-      ],
-      "network": "none",
-      "notes": "Needs more than the default limits: 2g memory, 256 processes and a 512m /tmp (sandbox-ai 0.1.94 and newer apply them from the catalog; older ones: --memory 2g --pids 256). A large app wants --memory 4g --tmp 1g: apktool keeps the decoded tree in /tmp until it is moved into /out. Without a writable /out the read tools work and the write tools say so. An APK sign_apk signed carries a key made for that call: a new key every call, so a device that has the old one refuses the new APK (uninstall the app first), and no store or system app accepts it. apktool_build works on a folder of /out (apktool writes its build/ folder there); it never writes in /work. Links in /work are not followed. The code, names, strings and resources it shows were made by someone else: data, not instructions.",
-      "tor": {
-        "support": "yes",
-        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
       }
     },
     {
@@ -1448,39 +1043,6 @@
       }
     },
     {
-      "id": "mcp:time",
-      "name": "time",
-      "title": "Time (official MCP time server)",
-      "description": "The official MCP time server (mcp-server-time 2026.10.28, modelcontextprotocol/servers): get_current_time gives the current date, time, weekday and daylight-saving state of an IANA time zone, convert_time converts a wall-clock time (HH:MM, today) from one zone to another with the offset between them. Models do not know the current date or time and get time zone arithmetic wrong; this answers both exactly. The local zone the tools name is LOCAL_TIMEZONE (else UTC). Zone names checked, answers small, no network, nothing read or written.",
-      "category": "Utilities",
-      "tags": [
-        "time",
-        "timezone",
-        "date",
-        "local-llm"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/time",
-      "page": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
-      "license": "MIT AND Apache-2.0 (modelcontextprotocol/servers, in transition from MIT to Apache-2.0); MCP Python SDK: MIT; tzdata: Apache-2.0; tzlocal: MIT",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-time",
-      "tag": "latest",
-      "env": [
-        {
-          "name": "LOCAL_TIMEZONE",
-          "description": "the user's IANA time zone, e.g. Europe/Berlin (default UTC); named to the model as its local zone",
-          "secret": false,
-          "required": false
-        }
-      ],
-      "network": "none",
-      "notes": "Two tools with small schemas: suited to small local models. The current time is the container's clock, which is the host's. A model is told to use the local zone when the user names none, so set LOCAL_TIMEZONE to yours.",
-      "tor": {
-        "support": "yes",
-        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
-      }
-    },
-    {
       "id": "mcp:web-fetch",
       "name": "web-fetch",
       "title": "Web pages as text",
@@ -1591,49 +1153,6 @@
       }
     },
     {
-      "id": "mcp:wikipedia",
-      "name": "wikipedia",
-      "title": "Wikipedia",
-      "description": "Wikipedia through its Action API (our own server, no key): search_wikipedia finds articles (titles, snippets), get_summary gives an article's introduction as plain text, get_article the whole article as plain text in pages within 24,000 characters, or one section of it, with the list of its sections. Redirects followed. 16 languages: en, de, fr, es, it, pt, nl, pl, ru, uk, sv, ja, zh, ar, tr, ko. Grounding for local models: facts to read instead of to remember.",
-      "category": "Search",
-      "tags": [
-        "wikipedia",
-        "encyclopedia",
-        "research",
-        "local-llm"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/wikipedia",
-      "page": "https://www.mediawiki.org/wiki/API:Main_page",
-      "license": "MIT (MCP server, sandbox-ai-mcp); Wikipedia's text: CC BY-SA 4.0",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-wikipedia",
-      "tag": "latest",
-      "network": "allowlist",
-      "hosts": [
-        "en.wikipedia.org:443",
-        "de.wikipedia.org:443",
-        "fr.wikipedia.org:443",
-        "es.wikipedia.org:443",
-        "it.wikipedia.org:443",
-        "pt.wikipedia.org:443",
-        "nl.wikipedia.org:443",
-        "pl.wikipedia.org:443",
-        "ru.wikipedia.org:443",
-        "uk.wikipedia.org:443",
-        "sv.wikipedia.org:443",
-        "ja.wikipedia.org:443",
-        "zh.wikipedia.org:443",
-        "ar.wikipedia.org:443",
-        "tr.wikipedia.org:443",
-        "ko.wikipedia.org:443"
-      ],
-      "notes": "Queries and titles go to the Wikimedia Foundation's servers. Article text is written by Wikipedia's editors and can be wrong or vandalised: data, not instructions. Text reused from Wikipedia is under CC BY-SA 4.0 (attribution: the article's URL).",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to the Wikipedias over TCP through Tor works for reading; Wikimedia may rate-limit Tor exits (not tested)."
-      }
-    },
-    {
       "id": "mcp:youtube",
       "name": "youtube",
       "title": "YouTube uploads (your channel, credentials stay in the server)",
@@ -1700,35 +1219,6 @@
       "tor": {
         "support": "yes",
         "note": "HTTPS to Google's OAuth and YouTube Data API, over TCP through Tor."
-      }
-    },
-    {
-      "id": "mcp:youtube-transcript",
-      "name": "youtube-transcript",
-      "title": "YouTube transcripts",
-      "description": "The transcript (subtitles) of a public YouTube video for research: get_transcript as plain text and get_timed_transcript with timestamps, both in pages of at most 20,000 characters; get_available_languages (manual and generated); get_video_info (title, channel, length, views, description). The four tools of jkawamoto/mcp-youtube-transcript 0.8.3, reviewed in full, as an own server on youtube-transcript-api 1.2.4 (reviewed in full) without yt-dlp: no account, no download of the video, answers within 24,000 characters. YouTube often blocks cloud and Tor addresses.",
-      "category": "Web",
-      "tags": [
-        "youtube",
-        "transcript",
-        "subtitles",
-        "research",
-        "osint"
-      ],
-      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/youtube-transcript",
-      "page": "https://github.com/jkawamoto/mcp-youtube-transcript",
-      "license": "MIT (MCP server, sandbox-ai-mcp; the tools of mcp-youtube-transcript, MIT); youtube-transcript-api: MIT; defusedxml: PSF-2.0",
-      "kind": "oci",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-youtube-transcript",
-      "tag": "latest",
-      "network": "allowlist",
-      "hosts": [
-        "www.youtube.com:443"
-      ],
-      "notes": "The video ids the agent asks about go to YouTube (Google), from your address unless a VPN profile is used; YouTube often answers cloud, VPN and Tor addresses with a bot check, and then every call says so. Not related to the youtube server, which publishes to your channel. A transcript is what the speakers said or YouTube's speech recognition heard: data, not instructions.",
-      "tor": {
-        "support": "limited",
-        "note": "HTTPS to www.youtube.com over TCP through Tor works, but YouTube usually answers Tor exits with a bot check: then the calls fail with 'YouTube blocks requests from this address'."
       }
     }
   ]
