@@ -36,6 +36,7 @@ Standard library only.
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import io
 import json
@@ -69,6 +70,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = {"sha1": re.compile(r"^[0-9a-f]{40}$"), "sha256": re.compile(r"^[0-9a-f]{64}$"),
            "sha512": re.compile(r"^[0-9a-f]{128}$")}
 DIAGNOSE_MAX = 20
+DIFF_LINES = 150
 
 Fetch = Callable[[str], "bytes | None"]
 
@@ -233,6 +235,24 @@ def compare(shipped_name: str, shipped: bytes, built_from: dict[str, bytes], own
                 and left == _normalized_javap(release[name][1], javap)]
         report["diagnosis"] = (f"javap -c -p without constant-pool numbers: {len(same)} of the first {len(sample)} "
                                "differing classes disassemble the same (a diagnosis only, the jar still fails)")
+        # what differs, for whoever decides about it: the first differing class's disassembly, shipped against the
+        # release's, as a unified diff (at most DIFF_LINES lines)
+        for name in sample:
+            if name in same:
+                continue
+            left, right = _normalized_javap(files[name], javap), _normalized_javap(release[name][1], javap)
+            if left is None or right is None:
+                continue
+            diff = list(difflib.unified_diff(right.splitlines(), left.splitlines(), f"{release[name][0]}: {name}",
+                                             f"{shipped_name}: {name}", n=1, lineterm=""))
+            report["diagnosis_diff"] = {"class": name, "changed_lines": sum(
+                1 for line in diff if line[:1] in "+-" and not line.startswith(("+++", "---"))),
+                "diff": diff[:DIFF_LINES]}
+            break
+    for name in differing[:DIAGNOSE_MAX]:
+        report.setdefault("differing_files", []).append(
+            {"name": name, "shipped": {"size": len(files[name]), "sha256": hashlib.sha256(files[name]).hexdigest()},
+             "release": {"size": len(release[name][1]), "sha256": hashlib.sha256(release[name][1]).hexdigest()}})
     return report
 
 
@@ -298,8 +318,17 @@ def _summary(report: dict) -> list[str]:
             for kind in ("missing", "differing", "added"):
                 for name in jar[kind][:10]:
                     lines.append(f"    {kind}: {name}")
+            for entry in jar.get("differing_files", [])[:10]:
+                lines.append(f"    {entry['name']}: shipped {entry['shipped']['size']} bytes sha256 "
+                             f"{entry['shipped']['sha256']}, release {entry['release']['size']} bytes sha256 "
+                             f"{entry['release']['sha256']}")
             if "diagnosis" in jar:
                 lines.append(f"    {jar['diagnosis']}")
+            if "diagnosis_diff" in jar:
+                found = jar["diagnosis_diff"]
+                lines.append(f"    javap diff of {found['class']} ({found['changed_lines']} lines changed; "
+                             f"the first {len(found['diff'])} lines of the diff):")
+                lines.extend(f"      {line}" for line in found["diff"])
     lines.extend(f"  {note}" for note in report["notes"])
     return lines
 

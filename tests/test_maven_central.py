@@ -110,6 +110,23 @@ class Compare(unittest.TestCase):
         self.assertFalse(report["passed"])
         self.assertEqual(report["jars"][0]["differing"], ["org/example/lib/B.class"])
 
+    def test_a_differing_class_is_shown_as_a_javap_diff(self):
+        # smali's smaliParser.class differed from Google's in CI (run 44945436428): the report says how
+        javap = Path(self.tmp.name) / "javap"
+        javap.write_text("#!/bin/sh\nfor f; do :; done\ntail -c +5 \"$f\" | tr X '\\n'\n")
+        javap.chmod(0o755)
+        server = Server(self.folder, fat(org__example__lib__B_dot_class=b"\xca\xfe\xba\xbeoneXtwoXthree"))
+        server.publish(f"{REPO}/org/example/lib/1.0/lib-1.0.jar",
+                       jar({**LIB, "org/example/lib/B.class": b"\xca\xfe\xba\xbeoneXzweiXthree"}))
+        report = maven_central.check(self.folder, server.get, javap=str(javap))
+        (result,) = report["jars"]
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["diagnosis_diff"]["class"], "org/example/lib/B.class")
+        self.assertIn("-zwei", result["diagnosis_diff"]["diff"])
+        self.assertIn("+two", result["diagnosis_diff"]["diff"])
+        self.assertEqual(result["differing_files"][0]["shipped"]["size"], 17)
+        self.assertIn("javap diff of org/example/lib/B.class", "\n".join(maven_central._summary(report)))
+
     def test_a_class_left_out_fails(self):
         _, report = self.run_check(fat(org__example__core__C_dot_class=None))
         self.assertFalse(report["passed"])
