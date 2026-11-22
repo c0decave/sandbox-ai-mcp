@@ -1,10 +1,27 @@
 {
   "version": 1,
   "rootfs": {
+    "axross": {
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-axross-301ff757ec8d/rootfs-axross.tar.gz",
+      "sha256": "301ff757ec8d5d7926353bd071818ed0db0b4a3d44a25c31986f4211733644f0",
+      "size": 52395361,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
     "binwalk": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-binwalk-732487302794/rootfs-binwalk.tar.gz",
-      "sha256": "732487302794b0b52b24bafa1a8fe35affc5f1246fdd1ec60b8d0ce6b18f7e04",
-      "size": 58880650,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-binwalk-d4f7b3e99cd1/rootfs-binwalk.tar.gz",
+      "sha256": "d4f7b3e99cd1c5aede5622edf5ed795a41ff841722f72ae670bf9752fafed56d",
+      "size": 58881139,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -20,9 +37,9 @@
       }
     },
     "calculator": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-calculator-35118c79d26e/rootfs-calculator.tar.gz",
-      "sha256": "35118c79d26ebd2d09189363e0efbf7ccc18d04e0614bbbaafe543c3aa46556c",
-      "size": 54860068,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-calculator-f7149a61febd/rootfs-calculator.tar.gz",
+      "sha256": "f7149a61febd5afe3e4298cd0de61558b278027848695d6768b630e180cf0846",
+      "size": 54860021,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -37,9 +54,9 @@
       }
     },
     "capa": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-capa-2d083316b1db/rootfs-capa.tar.gz",
-      "sha256": "2d083316b1db3b22e2622badcce7287233107ec74c144110a4384eca478812bb",
-      "size": 102866803,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-capa-57d8367451e5/rootfs-capa.tar.gz",
+      "sha256": "57d8367451e56c0e433175b570301fba7230b4bbd1b4c572027fd0b8b936d1ad",
+      "size": 102866530,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -57,9 +74,9 @@
       }
     },
     "cfr": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-cfr-49feb7e4ba6c/rootfs-cfr.tar.gz",
-      "sha256": "49feb7e4ba6cb12ff0458dc06f585c4f1ef07331d02654a3325b317ef0b218cf",
-      "size": 125930494,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-cfr-ef59e5731dfb/rootfs-cfr.tar.gz",
+      "sha256": "ef59e5731dfbb2aed1cf2e6a404467681461c96ea1370e93a61b71b946c18352",
+      "size": 125930696,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -74,9 +91,9 @@
       }
     },
     "engram": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-engram-b1e3b5e8c417/rootfs-engram.tar.gz",
-      "sha256": "b1e3b5e8c417bb8e64d66bf78f4bb4ab4f5026c8ae98c6d98ff685ab69208987",
-      "size": 34284650,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-engram-9343fb5d009a/rootfs-engram.tar.gz",
+      "sha256": "9343fb5d009a3775f421eb52897573dda46063c013425b3e3f915da4f76a1c43",
+      "size": 34284630,
       "entrypoint": [
         "/usr/local/bin/engram-mcp"
       ],
@@ -90,9 +107,9 @@
       }
     },
     "filesystem": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-filesystem-d33ab8018d63/rootfs-filesystem.tar.gz",
-      "sha256": "d33ab8018d6323ccade075c49b26ff34d021a79a47e5fe96855e40a3575fca60",
-      "size": 77531680,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-filesystem-28bedeabc373/rootfs-filesystem.tar.gz",
+      "sha256": "28bedeabc373f0db81527c8d72acf9d6548e635cd81cac5a35d734abc4116d94",
+      "size": 77530558,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -111,9 +128,9 @@
       }
     },
     "frida": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-frida-6811aadfeda8/rootfs-frida.tar.gz",
-      "sha256": "6811aadfeda8bfeaf945fbdf4b429f5f5446c81a9c6a9d1623fe0a5c1dd8a36d",
-      "size": 317510412,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-frida-54593907dd7d/rootfs-frida.tar.gz",
+      "sha256": "54593907dd7d8db9ef59d7c2946e5bfd1c629829626b8781ef2929cba79ccd27",
+      "size": 317511385,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -128,9 +145,9 @@
       }
     },
     "jadx": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-jadx-3efad26a7dbf/rootfs-jadx.tar.gz",
-      "sha256": "3efad26a7dbfd9f174e87a9c96fd80474555d59bd11bb7eeefda152c64de3e72",
-      "size": 196617853,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-jadx-dd97e6c428df/rootfs-jadx.tar.gz",
+      "sha256": "dd97e6c428dfc38e1279abb4cd32e5b6a95226f82882ddc49e98a2e9bef538c9",
+      "size": 196618410,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -145,9 +162,9 @@
       }
     },
     "memory": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-memory-73cffbace66f/rootfs-memory.tar.gz",
-      "sha256": "73cffbace66ff177b51f0284bdb510684369b0a1722d1949f83e3738d57c19eb",
-      "size": 77244490,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-memory-631d7a4155af/rootfs-memory.tar.gz",
+      "sha256": "631d7a4155afb96d436986e1b358654e52532f9c8d569b27b32f87e1ee119a1a",
+      "size": 77244521,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -163,9 +180,9 @@
       }
     },
     "searxng": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-searxng-d50f1a876bac/rootfs-searxng.tar.gz",
-      "sha256": "d50f1a876bacb9b32451b080ad6c56375ba4d8366e6d7dece51796c63caa77fd",
-      "size": 54838588,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-searxng-8267867f1286/rootfs-searxng.tar.gz",
+      "sha256": "8267867f12865e3a354fd4666d029e9cb9d3d0096230cfb378721a19480104d1",
+      "size": 54838682,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -180,9 +197,9 @@
       }
     },
     "sequential-thinking": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-sequential-thinking-c8f9918f39d8/rootfs-sequential-thinking.tar.gz",
-      "sha256": "c8f9918f39d83a2c3d98a89dd1da379c6f8e445cf629d1bfbe4410ac20c23b6f",
-      "size": 77237449,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-sequential-thinking-aaea2d0f4dec/rootfs-sequential-thinking.tar.gz",
+      "sha256": "aaea2d0f4decf157fba3272a0742196604dd19835707870be538f84b3bc21033",
+      "size": 77237337,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -198,9 +215,9 @@
       }
     },
     "time": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-time-02c16a0e6f66/rootfs-time.tar.gz",
-      "sha256": "02c16a0e6f667a6481a2d066f33e3d2b5e8b896716cd3d49d1c88d3e2978a595",
-      "size": 55373551,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-time-c8ef1b6d7823/rootfs-time.tar.gz",
+      "sha256": "c8ef1b6d782326c6a7a3f5c9e3419cfd2cac45ea40168f1a8c01ad1f75e89c74",
+      "size": 55373336,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -215,9 +232,9 @@
       }
     },
     "whatsapp": {
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-whatsapp-562cb62e8bd3/rootfs-whatsapp.tar.gz",
-      "sha256": "562cb62e8bd3af080edd565b16f8c1378c7b212d9c4dd161f7c1967b4bd81dde",
-      "size": 41643888,
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-whatsapp-a728ee36dea6/rootfs-whatsapp.tar.gz",
+      "sha256": "a728ee36dea6e13cd5e4b562b1b690a2f6800b822f067139c29b4716d8affacc",
+      "size": 41643991,
       "entrypoint": [
         "/usr/local/bin/wa-mcp",
         "serve"
@@ -236,6 +253,11 @@
     }
   },
   "limits": {
+    "axross": {
+      "memory": "1g",
+      "pids": 256,
+      "tmp": "256m"
+    },
     "cfr": {
       "memory": "1g"
     },
