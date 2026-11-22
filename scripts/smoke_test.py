@@ -271,6 +271,17 @@ def skipped_annotations(report: dict, retries: int) -> list[str]:
             for check in report.get("skipped", [])]
 
 
+EGRESS_REFUSED = "sandbox-ai mcp: egress: MCP server refused"
+
+
+def egress_refusal(runner: str, stderr: str) -> str | None:
+    """The line in which sandbox-ai refused the server's egress (its mcp_rootfs or connection wrapper), or None: a
+    run sandbox-ai refused has failed, even when the server, without its network, still answered."""
+    if not runner.startswith("sandbox-ai"):
+        return None
+    return next((line for line in stderr.splitlines() if line.startswith(EGRESS_REFUSED)), None)
+
+
 def load_module(path, name):
     import importlib.util
     spec = importlib.util.spec_from_file_location(name, path)
@@ -563,6 +574,10 @@ def main(argv=None) -> int:
     finally:
         stderr = session.close()
         report["stderr_tail"] = stderr[-3000:]
+        refusal = egress_refusal(opts.runner, stderr)
+        if refusal:
+            report["checks"].append({"check": "egress", "ok": False, "text": refusal[:500]})
+            ok = False
         if proxy is not None:
             proxy.close()
         for folder in fresh:

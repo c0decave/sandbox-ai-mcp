@@ -399,6 +399,25 @@ class BubblewrapEgress(unittest.TestCase):
         self.assertEqual(egress["kind"], "internet")
 
 
+class EgressRefused(unittest.TestCase):
+    """sandbox-ai 0.1.188's mcp_rootfs reads only the first line of bwrap's --info-fd JSON, which bwrap writes over
+    several lines, so it refuses the egress of every Bubblewrap server with network ("sandbox-ai mcp: egress: MCP
+    server refused: Expecting property name ...") - and the server, never given its network, still answered (CI run
+    44946235584): a server whose smoke makes no network call passed. A run sandbox-ai refused is a failed run."""
+
+    LINE = "sandbox-ai mcp: egress: MCP server refused: Expecting property name enclosed in double quotes: line 2"
+
+    def test_a_refusal_of_sandbox_ai_fails_the_run(self):
+        stderr = "INFO start\n" + self.LINE + "\nINFO Processing request\n"
+        self.assertEqual(smoke.egress_refusal("sandbox-ai-bwrap", stderr), self.LINE)
+        self.assertEqual(smoke.egress_refusal("sandbox-ai-podman", stderr), self.LINE)
+
+    def test_nothing_else_is_one(self):
+        self.assertIsNone(smoke.egress_refusal("sandbox-ai-bwrap", "INFO Processing request\n"))
+        self.assertIsNone(smoke.egress_refusal("axross", self.LINE), "axross has its own egress")
+        self.assertIsNone(smoke.egress_refusal("sandbox-ai-bwrap", "a tool said: " + self.LINE))
+
+
 class CatalogOfWhatPassed(unittest.TestCase):
     """The catalog job: ci_results.py picks the servers, make_catalog.py --only writes their entries alone."""
 
