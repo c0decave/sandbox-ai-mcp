@@ -495,5 +495,34 @@ class Catalog(unittest.TestCase):
         self.assertIn("podman build failed (125): no network", report["checks"][-1]["output"])
 
 
+class RustLinker(unittest.TestCase):
+    """libexec/rust-cc, rustc's link line for zig cc. CI run 45046360314: on aarch64 rustc passes
+    -Wl,--fix-cortex-a53-843419, which zig cc refuses ("unsupported linker arg"), so cargo build failed in both
+    sandboxes; the wrapper leaves it out, and the rest of the line as before."""
+
+    def test_the_wrapper_drops_what_zig_cc_refuses_and_keeps_the_rest(self):
+        def writes(node):
+            if isinstance(node, dict):
+                if node.get("write") == "libexec/rust-cc":
+                    yield node
+                for value in node.values():
+                    yield from writes(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from writes(value)
+        recipe = json.loads((ROOT / "toolchains" / "rust" / "toolchain.json").read_text())
+        text = next(writes(recipe))["text"]
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper, cc = Path(tmp) / "rust-cc", Path(tmp) / "cc"
+            wrapper.write_text(text)
+            cc.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+            wrapper.chmod(0o755)
+            cc.chmod(0o755)
+            out = subprocess.run([str(wrapper), "-Wl,--fix-cortex-a53-843419", "-fuse-ld=lld", f"-B{tmp}/gcc-ld",
+                                  "-lgcc_s", "-o", "x", "a b.o"], capture_output=True, text=True, check=True,
+                                 env={**os.environ, "PATH": f"{tmp}:{os.environ['PATH']}"}).stdout
+        self.assertEqual(out.splitlines(), ["-lunwind", "-o", "x", "a b.o"])
+
+
 if __name__ == "__main__":
     unittest.main()

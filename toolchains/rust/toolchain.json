@@ -93,7 +93,7 @@
     {
       "write": "libexec/rust-cc",
       "mode": "755",
-      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain rust: rustc's link line for zig cc (the toolchain cc). zig links with its own lld and brings\n# its own unwinder: -fuse-ld=lld and rustc's gcc-ld folder go, -lgcc_s becomes -lunwind.\nn=$#\nwhile [ \"$n\" -gt 0 ]; do\n  a=$1\n  shift\n  n=$((n - 1))\n  case $a in\n    -fuse-ld=*) ;;\n    -B*/gcc-ld) ;;\n    -lgcc_s) set -- \"$@\" -lunwind ;;\n    *) set -- \"$@\" \"$a\" ;;\n  esac\ndone\nexec cc \"$@\"\n"
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain rust: rustc's link line for zig cc (the toolchain cc). zig links with its own lld and brings\n# its own unwinder: -fuse-ld=lld and rustc's gcc-ld folder go, -lgcc_s becomes -lunwind.\n# -Wl,--fix-cortex-a53-*: rustc asks for these erratum fixes on aarch64; zig cc refuses them (\"unsupported\n# linker arg\"), so they go: only Cortex-A53 cores of the first revisions (r0p0-r0p4) need them.\nn=$#\nwhile [ \"$n\" -gt 0 ]; do\n  a=$1\n  shift\n  n=$((n - 1))\n  case $a in\n    -fuse-ld=*) ;;\n    -B*/gcc-ld) ;;\n    -Wl,--fix-cortex-a53-*) ;;\n    -lgcc_s) set -- \"$@\" -lunwind ;;\n    *) set -- \"$@\" \"$a\" ;;\n  esac\ndone\nexec cc \"$@\"\n"
     }
   ],
   "smoke": [
