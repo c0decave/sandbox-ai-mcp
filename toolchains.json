@@ -1,0 +1,788 @@
+{
+  "schema": "sandbox-ai-toolchains",
+  "version": 1,
+  "toolchains": [
+    {
+      "name": "cc",
+      "version": "0.17.1-1",
+      "title": "C and C++ (zig cc), CMake, Ninja",
+      "description": "cc, c++, gcc, g++, clang, clang++, ar and ranlib as zig cc (Clang with Zig's own libc headers, libc++ and linker: programs are built against the glibc of the sandbox they are built in, or static with -target x86_64-linux-musl), CMake 4.4.4 and Ninja 1.13.2 (CMake's generator here: there is no make). It is Clang: no GNU binutils (nm, objdump), libc++ instead of libstdc++.",
+      "license": "MIT AND Apache-2.0 WITH LLVM-exception AND BSD-3-Clause AND Apache-2.0",
+      "homepage": "https://ziglang.org",
+      "commands": {
+        "cc": "bin/cc",
+        "c++": "bin/c++",
+        "gcc": "bin/gcc",
+        "g++": "bin/g++",
+        "clang": "bin/clang",
+        "clang++": "bin/clang++",
+        "ar": "bin/ar",
+        "ranlib": "bin/ranlib",
+        "ninja": "bin/ninja",
+        "cmake": "cmake/bin/cmake",
+        "ctest": "cmake/bin/ctest",
+        "cpack": "cmake/bin/cpack"
+      },
+      "env": {
+        "CMAKE_GENERATOR": "Ninja"
+      },
+      "caches": {},
+      "hosts": [],
+      "allow": [],
+      "needs": {
+        "glibc": "2.28",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1"
+        ]
+      },
+      "requires": [
+        "zig"
+      ],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-cc-aarch64-46c0548d115a/toolchain-cc-aarch64.tar.xz",
+      "sha256": "46c0548d115a5d07cba2330b312615a36bd4a42a463ddd3b692071a2f0509618",
+      "size": 19693836,
+      "unpacked": 69125425,
+      "sources": [
+        {
+          "url": "https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-linux-aarch64.tar.gz",
+          "sha256": "a1b6cc63636a0e55c63257cf3315a8a5f129e42fade25db1afea4ff8ab06f25e"
+        },
+        {
+          "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux-aarch64.zip",
+          "sha256": "fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
+        }
+      ]
+    },
+    {
+      "name": "cc",
+      "version": "0.17.1-1",
+      "title": "C and C++ (zig cc), CMake, Ninja",
+      "description": "cc, c++, gcc, g++, clang, clang++, ar and ranlib as zig cc (Clang with Zig's own libc headers, libc++ and linker: programs are built against the glibc of the sandbox they are built in, or static with -target x86_64-linux-musl), CMake 4.4.4 and Ninja 1.13.2 (CMake's generator here: there is no make). It is Clang: no GNU binutils (nm, objdump), libc++ instead of libstdc++.",
+      "license": "MIT AND Apache-2.0 WITH LLVM-exception AND BSD-3-Clause AND Apache-2.0",
+      "homepage": "https://ziglang.org",
+      "commands": {
+        "cc": "bin/cc",
+        "c++": "bin/c++",
+        "gcc": "bin/gcc",
+        "g++": "bin/g++",
+        "clang": "bin/clang",
+        "clang++": "bin/clang++",
+        "ar": "bin/ar",
+        "ranlib": "bin/ranlib",
+        "ninja": "bin/ninja",
+        "cmake": "cmake/bin/cmake",
+        "ctest": "cmake/bin/ctest",
+        "cpack": "cmake/bin/cpack"
+      },
+      "env": {
+        "CMAKE_GENERATOR": "Ninja"
+      },
+      "caches": {},
+      "hosts": [],
+      "allow": [],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1"
+        ]
+      },
+      "requires": [
+        "zig"
+      ],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-cc-x86_64-604776c37ff7/toolchain-cc-x86_64.tar.xz",
+      "sha256": "604776c37ff7311e8546ac7374d2d599a8b5bafe9869cd098b08b183653d697e",
+      "size": 21695004,
+      "unpacked": 76857361,
+      "sources": [
+        {
+          "url": "https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-linux-x86_64.tar.gz",
+          "sha256": "e5bb807f7728cb60cd8b27ebc97a2edb469b68655f21e844a600c3575b76f5bb"
+        },
+        {
+          "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip",
+          "sha256": "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+        }
+      ]
+    },
+    {
+      "name": "dotnet",
+      "version": "10.0.403",
+      "title": ".NET SDK 10",
+      "description": "The .NET 10 SDK (LTS): dotnet with the C#, F# and Visual Basic compilers, MSBuild and NuGet. Packages and state go to ~/.nuget and ~/.dotnet. Telemetry is off. Globalization runs in invariant mode unless you set DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0 and the system has ICU. Workloads (dotnet workload install) cannot be added: the toolchain is read-only.",
+      "license": "MIT",
+      "homepage": "https://dotnet.microsoft.com",
+      "commands": {
+        "dotnet": "dotnet"
+      },
+      "env": {
+        "DOTNET_ROOT": "{prefix}",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "DOTNET_NOLOGO": "1",
+        "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT": "1",
+        "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false"
+      },
+      "caches": {},
+      "hosts": [
+        "api.nuget.org",
+        "globalcdn.nuget.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.27",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1",
+          "libssl.so.3"
+        ]
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-dotnet-aarch64-1ded0e150b0f/toolchain-dotnet-aarch64.tar.xz",
+      "sha256": "1ded0e150b0fb2b4eecd067283b5a4d40c334c4bdb6066964b547738606e5faa",
+      "size": 142746492,
+      "unpacked": 672072109,
+      "sources": [
+        {
+          "url": "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.403/dotnet-sdk-10.0.403-linux-arm64.tar.gz",
+          "sha256": "21fe1a0963984206bfaeb19968da07e7a61d30c9bc4621b7372a762a30c88679"
+        }
+      ]
+    },
+    {
+      "name": "dotnet",
+      "version": "10.0.403",
+      "title": ".NET SDK 10",
+      "description": "The .NET 10 SDK (LTS): dotnet with the C#, F# and Visual Basic compilers, MSBuild and NuGet. Packages and state go to ~/.nuget and ~/.dotnet. Telemetry is off. Globalization runs in invariant mode unless you set DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0 and the system has ICU. Workloads (dotnet workload install) cannot be added: the toolchain is read-only.",
+      "license": "MIT",
+      "homepage": "https://dotnet.microsoft.com",
+      "commands": {
+        "dotnet": "dotnet"
+      },
+      "env": {
+        "DOTNET_ROOT": "{prefix}",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "DOTNET_NOLOGO": "1",
+        "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT": "1",
+        "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false"
+      },
+      "caches": {},
+      "hosts": [
+        "api.nuget.org",
+        "globalcdn.nuget.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.27",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1",
+          "libssl.so.3"
+        ]
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-dotnet-x86_64-bd52268a2071/toolchain-dotnet-x86_64.tar.xz",
+      "sha256": "bd52268a20715a4f149333077d1235e7d7b1d849c9937e27d5c115275ab62189",
+      "size": 153252200,
+      "unpacked": 640471685,
+      "sources": [
+        {
+          "url": "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.403/dotnet-sdk-10.0.403-linux-x64.tar.gz",
+          "sha256": "cd7224fe8e8ba57c15f1601439ff8785a1a72b54ae5c89dd5302a32dcfbddf18"
+        }
+      ]
+    },
+    {
+      "name": "go",
+      "version": "1.27.3",
+      "title": "Go",
+      "description": "The Go toolchain (go, gofmt) as go.dev publishes it. Its programs are static: nothing but the kernel is needed. Modules and build caches go to ~/go and ~/.cache/go-build. cgo needs the toolchain cc.",
+      "license": "BSD-3-Clause",
+      "homepage": "https://go.dev",
+      "commands": {
+        "go": "bin/go",
+        "gofmt": "bin/gofmt"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [
+        "proxy.golang.org",
+        "sum.golang.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": null,
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-go-aarch64-dd097b6bb04d/toolchain-go-aarch64.tar.xz",
+      "sha256": "dd097b6bb04d1cfa50f05fda7264c8cdbf7513d4999a72a9cc41ee6fee6d21cf",
+      "size": 44324812,
+      "unpacked": 238670456,
+      "sources": [
+        {
+          "url": "https://dl.google.com/go/go1.27.3.linux-arm64.tar.gz",
+          "sha256": "a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49"
+        }
+      ]
+    },
+    {
+      "name": "go",
+      "version": "1.27.3",
+      "title": "Go",
+      "description": "The Go toolchain (go, gofmt) as go.dev publishes it. Its programs are static: nothing but the kernel is needed. Modules and build caches go to ~/go and ~/.cache/go-build. cgo needs the toolchain cc.",
+      "license": "BSD-3-Clause",
+      "homepage": "https://go.dev",
+      "commands": {
+        "go": "bin/go",
+        "gofmt": "bin/gofmt"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [
+        "proxy.golang.org",
+        "sum.golang.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": null,
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-go-x86_64-3fe9141a0365/toolchain-go-x86_64.tar.xz",
+      "sha256": "3fe9141a03658c3f0f425ba092e81048d33789d1f29990079d36aa0a2cf9e56b",
+      "size": 48296952,
+      "unpacked": 244139206,
+      "sources": [
+        {
+          "url": "https://dl.google.com/go/go1.27.3.linux-amd64.tar.gz",
+          "sha256": "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+        }
+      ]
+    },
+    {
+      "name": "jdk",
+      "version": "21.0.13+9",
+      "title": "Java 21, Maven, Gradle, Kotlin",
+      "description": "Eclipse Temurin JDK 21 (LTS) with Apache Maven 3.9.16, Gradle 9.9.0 and the Kotlin compiler 2.4.21. Repositories and caches go to ~/.m2 and ~/.gradle. The desktop parts of the JDK (AWT on a display, sound) need libraries of the system and are not part of what is vouched for.",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND Apache-2.0",
+      "homepage": "https://adoptium.net",
+      "commands": {
+        "java": "bin/java",
+        "javac": "bin/javac",
+        "jar": "bin/jar",
+        "javadoc": "bin/javadoc",
+        "jshell": "bin/jshell",
+        "jlink": "bin/jlink",
+        "jdeps": "bin/jdeps",
+        "jcmd": "bin/jcmd",
+        "keytool": "bin/keytool",
+        "mvn": "maven/bin/mvn",
+        "gradle": "gradle/bin/gradle",
+        "kotlinc": "kotlinc/bin/kotlinc",
+        "kotlin": "kotlinc/bin/kotlin"
+      },
+      "env": {
+        "JAVA_HOME": "{prefix}"
+      },
+      "caches": {},
+      "hosts": [
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "plugins.gradle.org",
+        "plugins-artifacts.gradle.org",
+        "services.gradle.org",
+        "downloads.gradle.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-jdk-aarch64-93bec09ad279/toolchain-jdk-aarch64.tar.xz",
+      "sha256": "93bec09ad27964a4216854a511ab22e9d3b1fc696c4dde0791bdf2694bed798f",
+      "size": 404817608,
+      "unpacked": 622554026,
+      "sources": [
+        {
+          "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.13_9.tar.gz",
+          "sha256": "e3522e707fc7dbe2a72c30746b1e7068301a0213ecd213d4491f35a14eb55578"
+        },
+        {
+          "url": "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.tar.gz",
+          "sha256": "80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb"
+        },
+        {
+          "url": "https://github.com/gradle/gradle-distributions/releases/download/v9.9.0/gradle-9.9.0-bin.zip",
+          "sha256": "0b00b0ffe07c4d4789c12d4935a44a7057d55774b7540bd4a3f76f336deb177a"
+        },
+        {
+          "url": "https://github.com/JetBrains/kotlin/releases/download/v2.4.21/kotlin-compiler-2.4.21.zip",
+          "sha256": "7cc140e76daf416a0424a5557f99afd7ca89ebd463ea1101261e3e01c33e75cd"
+        }
+      ]
+    },
+    {
+      "name": "jdk",
+      "version": "21.0.13+9",
+      "title": "Java 21, Maven, Gradle, Kotlin",
+      "description": "Eclipse Temurin JDK 21 (LTS) with Apache Maven 3.9.16, Gradle 9.9.0 and the Kotlin compiler 2.4.21. Repositories and caches go to ~/.m2 and ~/.gradle. The desktop parts of the JDK (AWT on a display, sound) need libraries of the system and are not part of what is vouched for.",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND Apache-2.0",
+      "homepage": "https://adoptium.net",
+      "commands": {
+        "java": "bin/java",
+        "javac": "bin/javac",
+        "jar": "bin/jar",
+        "javadoc": "bin/javadoc",
+        "jshell": "bin/jshell",
+        "jlink": "bin/jlink",
+        "jdeps": "bin/jdeps",
+        "jcmd": "bin/jcmd",
+        "keytool": "bin/keytool",
+        "mvn": "maven/bin/mvn",
+        "gradle": "gradle/bin/gradle",
+        "kotlinc": "kotlinc/bin/kotlinc",
+        "kotlin": "kotlinc/bin/kotlin"
+      },
+      "env": {
+        "JAVA_HOME": "{prefix}"
+      },
+      "caches": {},
+      "hosts": [
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "plugins.gradle.org",
+        "plugins-artifacts.gradle.org",
+        "services.gradle.org",
+        "downloads.gradle.org"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-jdk-x86_64-ee973a4ea733/toolchain-jdk-x86_64.tar.xz",
+      "sha256": "ee973a4ea733c3fb11520ad12b56df0104bcacec084e2e8c16bbc50e45c20e68",
+      "size": 407184688,
+      "unpacked": 621976966,
+      "sources": [
+        {
+          "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz",
+          "sha256": "d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c"
+        },
+        {
+          "url": "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.tar.gz",
+          "sha256": "80ffca22aed9e8b9713a232f3394fd81d7f20322df75efdb2b047dbd3e3a23bb"
+        },
+        {
+          "url": "https://github.com/gradle/gradle-distributions/releases/download/v9.9.0/gradle-9.9.0-bin.zip",
+          "sha256": "0b00b0ffe07c4d4789c12d4935a44a7057d55774b7540bd4a3f76f336deb177a"
+        },
+        {
+          "url": "https://github.com/JetBrains/kotlin/releases/download/v2.4.21/kotlin-compiler-2.4.21.zip",
+          "sha256": "7cc140e76daf416a0424a5557f99afd7ca89ebd463ea1101261e3e01c33e75cd"
+        }
+      ]
+    },
+    {
+      "name": "node",
+      "version": "26.13.0",
+      "title": "Node.js, npm, TypeScript",
+      "description": "Node.js 26 (LTS) as nodejs.org publishes it, with npm and npx, and the TypeScript compiler 6.0.3 (tsc). npm's cache goes to ~/.npm, global installs to ~/.local. The node binary needs libstdc++, libgcc_s and libatomic of the system.",
+      "license": "MIT AND Artistic-2.0 AND Apache-2.0",
+      "homepage": "https://nodejs.org",
+      "commands": {
+        "node": "bin/node",
+        "npm": "bin/npm",
+        "npx": "bin/npx",
+        "tsc": "lib/node_modules/typescript/bin/tsc",
+        "tsserver": "lib/node_modules/typescript/bin/tsserver"
+      },
+      "env": {
+        "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+      },
+      "caches": {
+        "NPM_CONFIG_PREFIX": ".local"
+      },
+      "hosts": [],
+      "allow": [
+        "npm",
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.28",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1",
+          "libatomic.so.1"
+        ]
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-node-aarch64-4464c796eefb/toolchain-node-aarch64.tar.xz",
+      "sha256": "4464c796eefb441505b5417cbb03147ddf58ace8f1cdd87d316e0665da056034",
+      "size": 36877104,
+      "unpacked": 248793172,
+      "sources": [
+        {
+          "url": "https://raw.githubusercontent.com/nodejs/release-keys/481637f813e912c4aa3622d7964ab426c97b8e8d/gpg/pubring.kbx",
+          "sha256": "610b8d249da3d5733f5a128def2dd0294dbbf5b5713e6ca2529db8db419dee00"
+        },
+        {
+          "url": "https://nodejs.org/dist/v26.13.0/SHASUMS256.txt",
+          "sha256": "9b0d4aa4d20a4f1afaf2cdcf99175ad90d1856d24c7d31dc46f72369b73e2d35",
+          "signature": "OpenPGP C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C"
+        },
+        {
+          "url": "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-arm64.tar.gz",
+          "sha256": "439e9c438acdf6a6ffe47418da709153d66c4bed812e30a473faacb107dd2791",
+          "signature": "OpenPGP C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C"
+        },
+        {
+          "url": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
+          "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
+        }
+      ]
+    },
+    {
+      "name": "node",
+      "version": "26.13.0",
+      "title": "Node.js, npm, TypeScript",
+      "description": "Node.js 26 (LTS) as nodejs.org publishes it, with npm and npx, and the TypeScript compiler 6.0.3 (tsc). npm's cache goes to ~/.npm, global installs to ~/.local. The node binary needs libstdc++, libgcc_s and libatomic of the system.",
+      "license": "MIT AND Artistic-2.0 AND Apache-2.0",
+      "homepage": "https://nodejs.org",
+      "commands": {
+        "node": "bin/node",
+        "npm": "bin/npm",
+        "npx": "bin/npx",
+        "tsc": "lib/node_modules/typescript/bin/tsc",
+        "tsserver": "lib/node_modules/typescript/bin/tsserver"
+      },
+      "env": {
+        "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+      },
+      "caches": {
+        "NPM_CONFIG_PREFIX": ".local"
+      },
+      "hosts": [],
+      "allow": [
+        "npm",
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.28",
+        "libraries": [
+          "libstdc++.so.6",
+          "libgcc_s.so.1",
+          "libatomic.so.1"
+        ]
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-node-x86_64-e3dbc6b9653e/toolchain-node-x86_64.tar.xz",
+      "sha256": "e3dbc6b9653eaf3a863fc7872771c7f0f3b3175d810ba7cb231be66e8450e704",
+      "size": 37949552,
+      "unpacked": 248784064,
+      "sources": [
+        {
+          "url": "https://raw.githubusercontent.com/nodejs/release-keys/481637f813e912c4aa3622d7964ab426c97b8e8d/gpg/pubring.kbx",
+          "sha256": "610b8d249da3d5733f5a128def2dd0294dbbf5b5713e6ca2529db8db419dee00"
+        },
+        {
+          "url": "https://nodejs.org/dist/v26.13.0/SHASUMS256.txt",
+          "sha256": "9b0d4aa4d20a4f1afaf2cdcf99175ad90d1856d24c7d31dc46f72369b73e2d35",
+          "signature": "OpenPGP C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C"
+        },
+        {
+          "url": "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz",
+          "sha256": "5848553868b402d3fabb5b09270649977780a390f832155721025a08b5104455",
+          "signature": "OpenPGP C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C"
+        },
+        {
+          "url": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
+          "sha256": "33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a"
+        }
+      ]
+    },
+    {
+      "name": "python",
+      "version": "3.14.10",
+      "title": "Python and uv",
+      "description": "CPython 3.14 from python-build-standalone (OpenSSL, SQLite, zlib and libffi inside) with pip, and uv. The interpreter is marked externally managed: install into a virtual environment (python3 -m venv, uv venv); nothing is written into the toolchain.",
+      "license": "PSF-2.0 AND (MIT OR Apache-2.0)",
+      "homepage": "https://github.com/astral-sh/python-build-standalone",
+      "commands": {
+        "python3": "bin/python3",
+        "python": "bin/python3",
+        "python3.14": "bin/python3.14",
+        "pip3": "bin/pip3",
+        "pip": "bin/pip3",
+        "uv": "bin/uv",
+        "uvx": "bin/uvx"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [],
+      "allow": [
+        "pypi"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": [
+          "libgcc_s.so.1"
+        ]
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-python-aarch64-77193ad4b5ce/toolchain-python-aarch64.tar.xz",
+      "sha256": "77193ad4b5ce8ea94a3a477b60ca4e12b07e123b70472b24cf5231ce649c4cc2",
+      "size": 32841276,
+      "unpacked": 116692949,
+      "sources": [
+        {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.14.10+20261026-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "sha256": "90f48337bc3dd4ae6eda81e001e4c981236d403b6b5a07778bbdf94ee423dc00"
+        },
+        {
+          "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "2d3ec076a0c4c0e8250bb6418c44080828b544f1a3be0b6e46adf9fb6923de45"
+        }
+      ]
+    },
+    {
+      "name": "python",
+      "version": "3.14.10",
+      "title": "Python and uv",
+      "description": "CPython 3.14 from python-build-standalone (OpenSSL, SQLite, zlib and libffi inside) with pip, and uv. The interpreter is marked externally managed: install into a virtual environment (python3 -m venv, uv venv); nothing is written into the toolchain.",
+      "license": "PSF-2.0 AND (MIT OR Apache-2.0)",
+      "homepage": "https://github.com/astral-sh/python-build-standalone",
+      "commands": {
+        "python3": "bin/python3",
+        "python": "bin/python3",
+        "python3.14": "bin/python3.14",
+        "pip3": "bin/pip3",
+        "pip": "bin/pip3",
+        "uv": "bin/uv",
+        "uvx": "bin/uvx"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [],
+      "allow": [
+        "pypi"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-python-x86_64-cbc9df310b94/toolchain-python-x86_64.tar.xz",
+      "sha256": "cbc9df310b9495090c8064c0dd21ba4b6d2c5de0bda25afe700ab7fd629c2a42",
+      "size": 39707064,
+      "unpacked": 146001639,
+      "sources": [
+        {
+          "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.14.10+20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+          "sha256": "4d3c16c59ed0802a3d1d34d8bce504b15ceeaff39d62dadecc6a9fa803412aed"
+        },
+        {
+          "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "287491da03f2a785c70fa75b13e1f849918c2f2b5415fe84876b8214eeb792f9"
+        }
+      ]
+    },
+    {
+      "name": "rust",
+      "version": "1.99.1",
+      "title": "Rust",
+      "description": "rustc, cargo, rustfmt and clippy with the standard library, from the standalone installer of static.rust-lang.org (no rustup). It links with the toolchain cc (zig cc), which is attached with it. Crates and build state go to ~/.cargo and ./target. rust-toolchain.toml files are not read (there is no rustup).",
+      "license": "MIT OR Apache-2.0",
+      "homepage": "https://www.rust-lang.org",
+      "commands": {
+        "rustc": "bin/rustc",
+        "cargo": "bin/cargo",
+        "rustdoc": "bin/rustdoc",
+        "rustfmt": "bin/rustfmt",
+        "cargo-fmt": "bin/cargo-fmt",
+        "cargo-clippy": "bin/cargo-clippy",
+        "clippy-driver": "bin/clippy-driver"
+      },
+      "env": {
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "{prefix}/libexec/rust-cc",
+        "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER": "{prefix}/libexec/rust-cc"
+      },
+      "caches": {},
+      "hosts": [
+        "crates.io",
+        "index.crates.io",
+        "static.crates.io"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": [
+          "libgcc_s.so.1",
+          "libz.so.1"
+        ]
+      },
+      "requires": [
+        "cc"
+      ],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-rust-aarch64-87cb8f7b8b78/toolchain-rust-aarch64.tar.xz",
+      "sha256": "87cb8f7b8b78b525ffb53310391efa24ae73f66a86041919e2db3e742bab7445",
+      "size": 121305896,
+      "unpacked": 526239173,
+      "sources": [
+        {
+          "url": "https://static.rust-lang.org/dist/rust-1.99.1-aarch64-unknown-linux-gnu.tar.gz",
+          "sha256": "703b190f0d723ae68985797f3bb5f62f01b1723f138464c6f30f32b766eb0abf",
+          "signature": "OpenPGP 108F66205EAEB0AAA8DD5E1C85AB96E6FA1BE5FE"
+        }
+      ]
+    },
+    {
+      "name": "rust",
+      "version": "1.99.1",
+      "title": "Rust",
+      "description": "rustc, cargo, rustfmt and clippy with the standard library, from the standalone installer of static.rust-lang.org (no rustup). It links with the toolchain cc (zig cc), which is attached with it. Crates and build state go to ~/.cargo and ./target. rust-toolchain.toml files are not read (there is no rustup).",
+      "license": "MIT OR Apache-2.0",
+      "homepage": "https://www.rust-lang.org",
+      "commands": {
+        "rustc": "bin/rustc",
+        "cargo": "bin/cargo",
+        "rustdoc": "bin/rustdoc",
+        "rustfmt": "bin/rustfmt",
+        "cargo-fmt": "bin/cargo-fmt",
+        "cargo-clippy": "bin/cargo-clippy",
+        "clippy-driver": "bin/clippy-driver"
+      },
+      "env": {
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "{prefix}/libexec/rust-cc",
+        "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER": "{prefix}/libexec/rust-cc"
+      },
+      "caches": {},
+      "hosts": [
+        "crates.io",
+        "index.crates.io",
+        "static.crates.io"
+      ],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": "2.17",
+        "libraries": [
+          "libgcc_s.so.1",
+          "libz.so.1"
+        ]
+      },
+      "requires": [
+        "cc"
+      ],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-rust-x86_64-8e4f8a2c0944/toolchain-rust-x86_64.tar.xz",
+      "sha256": "8e4f8a2c094447f7368aa3c81a56c50599ef6c0846f00b2093db46fdfa2e6061",
+      "size": 150935140,
+      "unpacked": 628360426,
+      "sources": [
+        {
+          "url": "https://static.rust-lang.org/dist/rust-1.99.1-x86_64-unknown-linux-gnu.tar.gz",
+          "sha256": "aded4e6c1d580415e7b594a3080d8e23e9cbe06f159f97e300aa6875211f71bf",
+          "signature": "OpenPGP 108F66205EAEB0AAA8DD5E1C85AB96E6FA1BE5FE"
+        }
+      ]
+    },
+    {
+      "name": "zig",
+      "version": "0.17.1",
+      "title": "Zig",
+      "description": "The Zig compiler: one static program with its own C and C++ compiler (zig cc, zig c++), linker and the headers of glibc and musl. Nothing but the kernel is needed. Its caches go to ~/.cache/zig and ./.zig-cache.",
+      "license": "MIT AND Apache-2.0 WITH LLVM-exception",
+      "homepage": "https://ziglang.org",
+      "commands": {
+        "zig": "zig"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": null,
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "aarch64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-zig-aarch64-cf1fb1638897/toolchain-zig-aarch64.tar.xz",
+      "sha256": "cf1fb16388973f3b0992fea19c23b8aadf4a20a9d6e02f6225f163a97171306e",
+      "size": 55105688,
+      "unpacked": 359565423,
+      "sources": [
+        {
+          "url": "https://files.pythonhosted.org/packages/91/72/bb7c4f098ba3e535fa2ebefd9f26327ba63fb0672562959255cb5dd37aff/ziglang-0.17.1-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
+          "sha256": "b7c5f02fccd40f89b999ee16a1f5ddced56e6182370f8affe494bcf8a28cf07e"
+        }
+      ]
+    },
+    {
+      "name": "zig",
+      "version": "0.17.1",
+      "title": "Zig",
+      "description": "The Zig compiler: one static program with its own C and C++ compiler (zig cc, zig c++), linker and the headers of glibc and musl. Nothing but the kernel is needed. Its caches go to ~/.cache/zig and ./.zig-cache.",
+      "license": "MIT AND Apache-2.0 WITH LLVM-exception",
+      "homepage": "https://ziglang.org",
+      "commands": {
+        "zig": "zig"
+      },
+      "env": {},
+      "caches": {},
+      "hosts": [],
+      "allow": [
+        "github"
+      ],
+      "needs": {
+        "glibc": null,
+        "libraries": []
+      },
+      "requires": [],
+      "arch": "x86_64",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/toolchain-zig-x86_64-91b6a8ff3a7f/toolchain-zig-x86_64.tar.xz",
+      "sha256": "91b6a8ff3a7f00a77ceb4477c654f5ebf06e33c368c492ea7c554301ad9e4c0c",
+      "size": 60070980,
+      "unpacked": 373391663,
+      "sources": [
+        {
+          "url": "https://files.pythonhosted.org/packages/59/e3/2a34676370a11c36b7cd04ffb2439c1089c0530cf4b01408c77cf7f8d9c3/ziglang-0.17.1-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.musllinux_1_1_x86_64.whl",
+          "sha256": "ea6cc5d87b033cf0aedfbc8f9549a908cae6c50ac31f1698188fa48a74524b54"
+        }
+      ]
+    }
+  ]
+}
