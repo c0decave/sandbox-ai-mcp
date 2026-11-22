@@ -91,8 +91,12 @@ class Axross(unittest.TestCase):
         self.assertNotIn("digest", entry)
         for word in ("--allow-tcp", "--network full", "never from a prompt", "production"):
             self.assertIn(word, entry["notes"])
+        # Published since the catalog of CI run 45006851694 (the user, 2026-11-22: "axross mcp has been already
+        # audited, add it"): pinned by its digest there, no longer pending.
         catalog = json.loads((ROOT / "catalog.json").read_text())
-        self.assertIn("axross", catalog["pending"])
+        self.assertNotIn("axross", catalog.get("pending", []))
+        published = next(e for e in catalog["entries"] if e["name"] == "axross")
+        self.assertRegex(published["digest"], r"^sha256:[0-9a-f]{64}$")
 
     def test_the_smoke_spec(self):
         spec = json.loads((HERE / "smoke.json").read_text())

@@ -3,8 +3,8 @@ no folder, pipe, empty or oversized file), arguments that would become options, 
 answers in parts (400 lines / 24,000 characters), the command lines of baksmali, smali, apktool, zipalign, keytool and
 apksigner against stand-ins (empty environment, the checked descriptor passed, the DEX entry behind the path, only
 the apktool flags a call may set, the time and output limits, the scratch folder removed, the throwaway keystore gone
-with it) - and, where the tools are at hand (inside the image, or with SANDBOX_AI_MCP_JAVA, _BAKSMALI_JAR,
-_SMALI_JAR, _APKTOOL_JAR, _APKTOOL_AAPT2, _APKTOOL_FRAMEWORK, _APKSIGNER_CLASSPATH, _ZIPALIGN, _KEYTOOL), every tool
+with it) - and, where the tools are at hand (inside the image, or with SANDBOX_AI_MCP_JAVA, _BAKSMALI_CLASSPATH,
+_SMALI_CLASSPATH, _APKTOOL_JAR, _APKTOOL_AAPT2, _APKTOOL_FRAMEWORK, _APKSIGNER_CLASSPATH, _ZIPALIGN, _KEYTOOL), every tool
 on the fixtures demo.apk and demo-res.apk with the real baksmali 3.0.10, smali 3.0.10, apktool 3.0.3, zipalign and
 apksigner. The folders are temporary ones the module's ROOTS point at. CI runs this inside the image too
 (tests/test_own_servers.py test_smali)."""
@@ -51,15 +51,23 @@ def fixtures() -> dict[str, bytes]:
 #: What the image has; the environment points the tests at a checkout's own tools.
 IMAGE = {"JAVA": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
          "KEYTOOL": "/usr/lib/jvm/java-21-openjdk-amd64/bin/keytool",
-         "BAKSMALI_JAR": "/opt/smali/baksmali-3.0.10-fat-release.jar",
-         "SMALI_JAR": "/opt/smali/smali-3.0.10-fat-release.jar",
+         "BAKSMALI_CLASSPATH": ":".join(f"/opt/smali/{jar}.jar" for jar in (
+             "smali-baksmali-3.0.10", "smali-dexlib2-3.0.10", "smali-util-3.0.10", "guava-31.1-android",
+             "jcommander-1.85", "jsr305-3.0.2", "failureaccess-1.0.1",
+             "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava", "checker-qual-3.12.0",
+             "error_prone_annotations-2.11.0", "j2objc-annotations-1.3")),
+         "SMALI_CLASSPATH": ":".join(f"/opt/smali/{jar}.jar" for jar in (
+             "smali-3.0.10", "smali-dexlib2-3.0.10", "antlr-3.5.2", "smali-util-3.0.10", "antlr-runtime-3.5.2",
+             "jcommander-1.85", "stringtemplate-3.2.1", "guava-31.1-android", "jsr305-3.0.2", "ST4-4.0.8",
+             "antlr-2.7.7", "failureaccess-1.0.1", "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava",
+             "checker-qual-3.12.0", "error_prone_annotations-2.11.0", "j2objc-annotations-1.3")),
          "APKTOOL_JAR": "/opt/apktool/apktool_3.0.3.jar",
          "APKTOOL_AAPT2": "/opt/apktool/aapt2",
          "APKTOOL_FRAMEWORK": "/opt/apktool/framework",
          "APKSIGNER_CLASSPATH": "/usr/share/java/apksigner-35.0.2.jar:/usr/share/java/apksig-0.9.jar",
          "ZIPALIGN": "/usr/bin/zipalign"}
 REAL = {name: os.environ.get(f"SANDBOX_AI_MCP_{name}") or value for name, value in IMAGE.items()}
-HAVE_TOOLS = all(os.path.exists(REAL[name].split(":")[0]) for name in REAL)
+HAVE_TOOLS = all(os.path.exists(part) for name in REAL for part in REAL[name].split(":"))
 
 #: A stand-in for a JVM or a tool: records its arguments, environment and working folder, or hangs, or floods stdout.
 FAKE_TOOL = textwrap.dedent("""
@@ -291,9 +299,12 @@ class CommandLines(Base):
                                 debug_info=False, use_locals=True)
         self.assertIn("Lorg/example/Demo;", text)
         arguments = self.last["arguments"]
-        self.assertEqual(arguments[arguments.index("-jar") + 1], self.m.BAKSMALI_JAR)
-        self.assertEqual(arguments[arguments.index("-jar") + 2], "disassemble")
-        subject = arguments[arguments.index("-jar") + 3]
+        # Google's thin jars on a class path, baksmali's main class named (their manifests name none)
+        self.assertNotIn("-jar", arguments)
+        self.assertEqual(arguments[arguments.index("-cp") + 1], self.m.BAKSMALI_CLASSPATH)
+        self.assertEqual(arguments[arguments.index("-cp") + 2], "com.android.tools.smali.baksmali.Main")
+        self.assertEqual(arguments[arguments.index("-cp") + 3], "disassemble")
+        subject = arguments[arguments.index("-cp") + 4]
         self.assertTrue(subject.endswith("/in/demo-res.apk/classes.dex"), subject)
         self.assertEqual(arguments[arguments.index("-a") + 1], "29")
         self.assertEqual(arguments[arguments.index("--debug-info") + 1], "false")
@@ -309,6 +320,20 @@ class CommandLines(Base):
         self.assertEqual(recorded["env"]["PATH"], "/usr/bin:/bin")
         self.assertEqual(recorded["files"], [])
         self.assertTrue(recorded["cwd"].startswith(self.scratch), recorded["cwd"])
+
+    def test_smali_runs_from_its_class_path_with_its_main_class(self):
+        os.makedirs(os.path.join(self.out, "smali"))
+        self.put("smali/A.smali", b".class public LA;\n.super Ljava/lang/Object;\n", where=self.out)
+        self.assertIn("/out/a.dex", self.m.assemble("/out/smali", "a.dex", api_level=28))
+        arguments = self.last["arguments"]
+        self.assertNotIn("-jar", arguments)
+        self.assertEqual(arguments[arguments.index("-cp") + 1:arguments.index("-cp") + 4],
+                         [self.m.SMALI_CLASSPATH, "com.android.tools.smali.smali.Main", "assemble"])
+        self.assertEqual(arguments[arguments.index("-a") + 1], "28")
+
+    def test_the_class_paths_are_the_images(self):
+        self.assertEqual(self.m.BAKSMALI_CLASSPATH, IMAGE["BAKSMALI_CLASSPATH"])
+        self.assertEqual(self.m.SMALI_CLASSPATH, IMAGE["SMALI_CLASSPATH"])
 
     def test_the_scratch_folder_is_removed_after_every_call(self):
         self.m.list_classes("demo-res.apk")
@@ -414,7 +439,8 @@ class ToolsOnly(Base):
             self.assertTrue(tool.description and len(tool.description) > 40, tool.name)
 
 
-@unittest.skipUnless(HAVE_TOOLS, "the real tools are not here (SANDBOX_AI_MCP_JAVA, _BAKSMALI_JAR, _SMALI_JAR, "
+@unittest.skipUnless(HAVE_TOOLS, "the real tools are not here (SANDBOX_AI_MCP_JAVA, _BAKSMALI_CLASSPATH, "
+                                 "_SMALI_CLASSPATH, "
                                  "_APKTOOL_JAR, _APKTOOL_AAPT2, _APKTOOL_FRAMEWORK, _APKSIGNER_CLASSPATH, "
                                  "_ZIPALIGN, _KEYTOOL)")
 class WithTheRealTools(Base):

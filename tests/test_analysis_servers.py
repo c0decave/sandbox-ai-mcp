@@ -4,6 +4,7 @@ with a fixture whose SHA-256 is pinned - and, with SANDBOX_AI_CHECKOUT, that san
 makes of each entry exactly what the catalog says."""
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
 import json
@@ -334,14 +335,63 @@ class JavaDecompilers(unittest.TestCase):
 
 
 class AndroidTools(unittest.TestCase):
-    """smali (servers/smali): our own server code driving pinned upstream releases in a JVM - baksmali/smali 3.0.10
-    and apktool 3.0.3 by the SHA-256 GitHub publishes, apktool's own aapt2 and framework taken out of its jar by
-    SHA-256, Debian's zipalign and apksigner by version; the apps read-only at /work, everything written in /out,
-    no network, no variable, a throwaway signing key per call, the limits the JVM needs where sandbox-ai reads
-    them."""
+    """smali (servers/smali): our own server code driving pinned upstream releases in a JVM - Google's own
+    smali/baksmali 3.0.10 jars from Google's Maven repository and the runtime dependencies their POMs name from Maven
+    Central, each by URL and SHA-256 (the published checksums checked), apktool 3.0.3 by the SHA-256 GitHub
+    publishes, apktool's own aapt2 and framework taken out of its jar by SHA-256, Debian's zipalign and apksigner by
+    version; the apps read-only at /work, everything written in /out, no network, no variable, a throwaway signing
+    key per call, the limits the JVM needs where sandbox-ai reads them."""
 
-    BAKSMALI_JAR = "37ae4a41a8886e15c20b8362fa4250f96bbdb55e1a608199ad8b5dff068b588f"
-    SMALI_JAR = "32fa0e88a6c397b3922201adf5f3e534fbaed5a663c71d0c558c3ddce0af844a"
+    GOOGLE = "https://dl.google.com/dl/android/maven2"
+    CENTRAL = "https://repo1.maven.org/maven2"
+    #: coordinate -> (the Dockerfile's ARG prefix, SHA-256): Google's four jars and exactly the runtime dependencies
+    #: their POMs name (compile and runtime scope, transitively, nearest wins), resolved from the POMs 2026-11-22.
+    SMALI_JARS = {
+        "com.android.tools.smali:smali:3.0.10":
+            ("SMALI", "b54c34f7a1b769b1e637f8a26909c68f399c273f3e5cde3e308e91107c135305"),
+        "com.android.tools.smali:smali-baksmali:3.0.10":
+            ("BAKSMALI", "7d6578dfe5c44f1984b64268e91834432b0942d49e08186a501039dd92b58213"),
+        "com.android.tools.smali:smali-dexlib2:3.0.10":
+            ("DEXLIB2", "688dee6a46962a4dd1774b64be926534b0b6504bfd5d5c9f89c0f5af284f50c1"),
+        "com.android.tools.smali:smali-util:3.0.10":
+            ("SMALI_UTIL", "cc2ef8349765644e4b15371f2c9f77d69b5412a094a38fe5fd992a124b7322fe"),
+        "com.google.guava:guava:31.1-android":
+            ("GUAVA", "32ac2ed709d96d278b5d2e3e5cea178fa4939939c525fb647532f013308db309"),
+        "com.google.guava:failureaccess:1.0.1":
+            ("FAILUREACCESS", "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26"),
+        "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava":
+            ("LISTENABLEFUTURE", "b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99"),
+        "com.google.code.findbugs:jsr305:3.0.2":
+            ("JSR305", "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7"),
+        "org.checkerframework:checker-qual:3.12.0":
+            ("CHECKER_QUAL", "ff10785ac2a357ec5de9c293cb982a2cbb605c0309ea4cc1cb9b9bc6dbe7f3cb"),
+        "com.google.errorprone:error_prone_annotations:2.11.0":
+            ("ERROR_PRONE", "721cb91842b46fa056847d104d5225c8b8e1e8b62263b993051e1e5a0137b7ec"),
+        "com.google.j2objc:j2objc-annotations:1.3":
+            ("J2OBJC", "21af30c92267bd6122c0e0b4d20cccb6641a37eaf956c6540ec471d584e64a7b"),
+        "org.jcommander:jcommander:1.85":
+            ("JCOMMANDER", "fa7552d2831a2b20778d86851d093edca68fbc0a77f792b6223110e4fae67a70"),
+        "org.antlr:antlr:3.5.2":
+            ("ANTLR3", "5ac36c2acfb0a0f3d37dafe20b5b570f2643e2d000c648d44503c2738be643df"),
+        "org.antlr:antlr-runtime:3.5.2":
+            ("ANTLR3_RUNTIME", "ce3fc8ecb10f39e9a3cddcbb2ce350d272d9cd3d0b1e18e6fe73c3b9389c8734"),
+        "org.antlr:ST4:4.0.8":
+            ("ST4", "58caabc40c9f74b0b5993fd868e0f64a50c0759094e6a251aaafad98edfc7a3b"),
+        "org.antlr:stringtemplate:3.2.1":
+            ("STRINGTEMPLATE", "f66ce72e965e5301cb0f020e54d2ba6ad76feb91b3cbfc30dbbf00c06a6df6d7"),
+        "antlr:antlr:2.7.7":
+            ("ANTLR2", "88fbda4b912596b9f56e8e12e580cc954bacfb51776ecfddd3e18fc1cf56dc4c"),
+    }
+    #: The class path of each tool: its jar first, then its POM's runtime closure in Maven's order.
+    BAKSMALI_CLASSPATH = ["smali-baksmali-3.0.10", "smali-dexlib2-3.0.10", "smali-util-3.0.10", "guava-31.1-android",
+                          "jcommander-1.85", "jsr305-3.0.2", "failureaccess-1.0.1",
+                          "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava", "checker-qual-3.12.0",
+                          "error_prone_annotations-2.11.0", "j2objc-annotations-1.3"]
+    SMALI_CLASSPATH = ["smali-3.0.10", "smali-dexlib2-3.0.10", "antlr-3.5.2", "smali-util-3.0.10",
+                       "antlr-runtime-3.5.2", "jcommander-1.85", "stringtemplate-3.2.1", "guava-31.1-android",
+                       "jsr305-3.0.2", "ST4-4.0.8", "antlr-2.7.7", "failureaccess-1.0.1",
+                       "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava", "checker-qual-3.12.0",
+                       "error_prone_annotations-2.11.0", "j2objc-annotations-1.3"]
     APKTOOL_JAR = "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423"
     APKTOOL_AAPT2 = "df312db814c018019b2b79a993b041b738d7b76f4a8f28da25bc874a026368cc"
     APKTOOL_FRAMEWORK = "5dd984016ed5a5eb0eef866e2c6e8cd352e1427828ec23adb18005cf5648f3d7"
@@ -387,15 +437,24 @@ class AndroidTools(unittest.TestCase):
 
     def test_the_releases_are_pinned_by_sha256_and_in_the_provenance(self):
         dockerfile, provenance = self.read("Dockerfile"), self.read("PROVENANCE.md")
-        for url in ("https://github.com/baksmali/smali/releases/download/3.0.10/baksmali-3.0.10-fat-release.jar",
-                    "https://github.com/baksmali/smali/releases/download/3.0.10/smali-3.0.10-fat-release.jar",
-                    "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"):
-            self.assertIn(url, dockerfile)
-        for pin in (self.BAKSMALI_JAR, self.SMALI_JAR, self.APKTOOL_JAR):
-            self.assertIn(f"ARG {'BAKSMALI' if pin == self.BAKSMALI_JAR else 'SMALI' if pin == self.SMALI_JAR else 'APKTOOL'}_SHA256={pin}",
-                          dockerfile)
-            self.assertIn("ADD --checksum=sha256:", dockerfile)
-            self.assertIn(pin, provenance)
+        for coordinate, (prefix, pin) in self.SMALI_JARS.items():
+            with self.subTest(jar=coordinate):
+                group, artifact, version = coordinate.split(":")
+                repository = self.GOOGLE if group == "com.android.tools.smali" else self.CENTRAL
+                url = f"{repository}/{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.jar"
+                self.assertIn(f"ARG {prefix}_URL={url}\n", dockerfile)
+                self.assertIn(f"ARG {prefix}_SHA256={pin}\n", dockerfile)
+                self.assertIn(f"ADD --checksum=sha256:${{{prefix}_SHA256}} ${{{prefix}_URL}} "
+                              f"/build/smali/{artifact}-{version}.jar\n", dockerfile)
+                self.assertIn(pin, provenance)
+                self.assertIn(f"`{coordinate}`", provenance)
+        self.assertIn("https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar", dockerfile)
+        self.assertIn(f"ARG APKTOOL_SHA256={self.APKTOOL_JAR}", dockerfile)
+        self.assertIn(self.APKTOOL_JAR, provenance)
+        # Google's own jars only: nothing of baksmali/smali's fat release jars is left
+        for source in (dockerfile, self.read("src", "server.py"), self.read("maven-central.json")):
+            self.assertNotIn("fat-release", source)
+            self.assertNotIn("github.com/baksmali", source)
         # the two files taken out of apktool's jar are checked where they are unpacked
         for pin in (self.APKTOOL_AAPT2, self.APKTOOL_FRAMEWORK):
             self.assertIn(pin, dockerfile)
@@ -410,6 +469,36 @@ class AndroidTools(unittest.TestCase):
         # nothing is unpacked or downloaded while the server runs
         self.assertIn("--aapt", self.read("src", "server.py"))
         self.assertIn("/opt/apktool/framework", self.read("src", "server.py"))
+
+    def test_baksmali_and_smali_run_from_class_paths_of_the_shipped_jars(self):
+        dockerfile, source = self.read("Dockerfile"), self.read("src", "server.py")
+        for name, jars, main in (("BAKSMALI", self.BAKSMALI_CLASSPATH, "com.android.tools.smali.baksmali.Main"),
+                                 ("SMALI", self.SMALI_CLASSPATH, "com.android.tools.smali.smali.Main")):
+            with self.subTest(tool=name):
+                class_path = ":".join(f"/opt/smali/{jar}.jar" for jar in jars)
+                prefix = re.escape(f'{name}_CLASSPATH = ":".join(f"/opt/smali/{{jar}}.jar" for jar in (')
+                found = re.search(rf"^{prefix}(.*?)\)\)$", source, re.M | re.S)
+                self.assertIsNotNone(found, f"{name}_CLASSPATH")
+                self.assertEqual(list(ast.literal_eval(f"({found.group(1)})")), jars)
+                self.assertIn(f'{name}_MAIN = "{main}"', source)
+                # the image's build-time check runs the very class path and main class the server does
+                self.assertIn(f"ARG {name}_CLASSPATH={class_path}\n", dockerfile)
+                self.assertIn(f'-cp "${{{name}_CLASSPATH}}" {main} --version', dockerfile)
+        shipped = {f"{c.split(':')[1]}-{c.split(':')[2]}" for c in self.SMALI_JARS}
+        self.assertEqual(set(self.BAKSMALI_CLASSPATH) | set(self.SMALI_CLASSPATH), shipped)
+        spec = read_json("servers", "smali", "maven-central.json")
+        self.assertEqual(sorted(jar["coordinate"] for jar in spec["jars"]), sorted(self.SMALI_JARS))
+
+    def test_every_bundled_library_has_its_licence(self):
+        licences = {path.name for path in (ROOT / "servers" / "smali" / "LICENSES").iterdir()}
+        for name in ("smali-baksmali-LICENSE.txt", "guava-failureaccess-listenablefuture-Apache-2.0.txt",
+                     "jsr305-Apache-2.0.txt", "checker-qual-MIT.txt", "error-prone-annotations-Apache-2.0.txt",
+                     "j2objc-annotations-Apache-2.0.txt", "jcommander-Apache-2.0.txt",
+                     "antlr3-antlr-runtime-ST4-stringtemplate-BSD-3-Clause.txt", "antlr2-public-domain.txt"):
+            self.assertIn(name, licences)
+        entry = read_json("servers", "smali", "server.json")
+        for licence in ("BSD-3-Clause", "Apache-2.0", "MIT", "public domain"):
+            self.assertIn(licence, entry["license"])
 
     def test_our_code_only_and_the_shared_lock(self):
         folder = ROOT / "servers" / "smali"

@@ -203,6 +203,25 @@ class Plan(unittest.TestCase):
         self.assertIn("mount the project writable", self.error(lambda: m.do_set_goal("g", False)))
         self.assertIn("No plan yet", m.do_read(m.next_text))
 
+    def test_a_bind_mount_on_the_same_file_system_counts_as_mounted(self):
+        """Catalog CI 45006851694: under Bubblewrap every tool said "no folder is mounted at /work" although /work was
+        bound - os.path.ismount compares device numbers, and a folder bound from the same file system has the
+        parent's. The kernel's mount table names every mount point."""
+        import tempfile
+        m = self.module
+        with tempfile.NamedTemporaryFile("w", delete=False) as table:
+            table.write("1 0 8:1 / / ro,relatime - ext4 /dev/sda1 ro\n"
+                        f"2 1 8:1 /home/runner/x {self.work} rw,nosuid - ext4 /dev/sda1 rw\n"
+                        "3 1 8:1 /x /with\\040space rw - ext4 /dev/sda1 rw\n")
+        try:
+            self.assertTrue(m.is_mount_point(self.work, table.name))
+            self.assertTrue(m.is_mount_point("/with space", table.name), "the table's escapes are read")
+            self.assertFalse(m.is_mount_point(os.path.join(self.work, "sub"), table.name))
+        finally:
+            os.unlink(table.name)
+        # Without a readable table: os.path.ismount, as before.
+        self.assertEqual(m.is_mount_point("/", "/nonexistent/mountinfo"), os.path.ismount("/"))
+
     def test_a_workspace_that_is_not_mounted_is_named(self):
         self.module.MOUNT_REQUIRED = True
         self.assertIn(f"no folder is mounted at {self.work}: add the server with --mount",

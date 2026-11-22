@@ -75,9 +75,28 @@ def empty_plan() -> dict:
     return {"version": 1, "goal": "", "steps": [], "notes": [], "next_id": 1, "dropped_notes": 0, "updated": ""}
 
 
+
+def is_mount_point(path: str, mountinfo: str = "/proc/self/mountinfo") -> bool:
+    """Whether a folder is mounted at PATH: the kernel's mount table names it. os.path.ismount compares device
+    numbers, and a folder bound from the same file system (Bubblewrap's --bind) has its parent's; without a readable
+    table, os.path.ismount all the same."""
+    wanted = os.path.normpath(path)
+    try:
+        with open(mountinfo, encoding="utf-8", errors="replace") as table:
+            for line in table:
+                fields = line.split(" ")
+                if len(fields) < 5:
+                    continue
+                point = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[4])
+                if point == wanted:
+                    return True
+    except OSError:
+        return os.path.ismount(path)
+    return os.path.ismount(path)
+
 def workspace_root() -> str:
     root = os.path.realpath(WORKSPACE)
-    if not os.path.isdir(root) or (MOUNT_REQUIRED and not os.path.ismount(WORKSPACE)):
+    if not os.path.isdir(root) or (MOUNT_REQUIRED and not is_mount_point(WORKSPACE)):
         raise ArgumentError(f"no folder is mounted at {WORKSPACE}: add the server with --mount "
                             f"{WORKSPACE}=PROJECT:rw (the project folder; the plan goes to PROJECT/{FOLDER})")
     return root

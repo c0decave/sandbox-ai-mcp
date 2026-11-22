@@ -1,24 +1,113 @@
 {
   "schema": "sandbox-ai-mcp-maven-central",
-  "version": 1,
-  "about": "The fat jars of baksmali/smali's release 3.0.10 compared in CI with google/smali's own 3.0.10 in Google's Maven repository (maven.google.com; 3.0.10 is not on Maven Central) by scripts/maven_central.py, before the image is built: every file of Google's jars but META-INF/ byte for byte in the fat jar, and nothing else under com/android/tools/smali/.",
-  "repository": "https://dl.google.com/dl/android/maven2",
+  "version": 2,
+  "about": "Every jar of baksmali's and smali's class paths, checked in CI by scripts/maven_central.py before the image is built: Google's own com.android.tools.smali 3.0.10 jars from Google's Maven repository (maven.google.com; 3.0.10 is not on Maven Central) and exactly the runtime dependencies their POMs name from Maven Central, each against every checksum file its repository publishes beside it and byte for byte the jar the Dockerfile pins (the bytes ADD --checksum puts into the image); after the build, /opt/smali holds exactly these jars.",
   "jars": [
     {
-      "url_arg": "BAKSMALI_URL",
-      "sha256_arg": "BAKSMALI_SHA256",
-      "image_path": "/opt/smali/baksmali-3.0.10-fat-release.jar",
-      "built_from": ["com.android.tools.smali:smali-baksmali:3.0.10", "com.android.tools.smali:smali-dexlib2:3.0.10",
-                     "com.android.tools.smali:smali-util:3.0.10"],
-      "own_prefixes": ["com/android/tools/smali/"]
-    },
-    {
+      "coordinate": "com.android.tools.smali:smali:3.0.10",
       "url_arg": "SMALI_URL",
       "sha256_arg": "SMALI_SHA256",
-      "image_path": "/opt/smali/smali-3.0.10-fat-release.jar",
-      "built_from": ["com.android.tools.smali:smali:3.0.10", "com.android.tools.smali:smali-dexlib2:3.0.10",
-                     "com.android.tools.smali:smali-util:3.0.10"],
-      "own_prefixes": ["com/android/tools/smali/"]
+      "image_path": "/opt/smali/smali-3.0.10.jar",
+      "repository": "https://dl.google.com/dl/android/maven2"
+    },
+    {
+      "coordinate": "com.android.tools.smali:smali-baksmali:3.0.10",
+      "url_arg": "BAKSMALI_URL",
+      "sha256_arg": "BAKSMALI_SHA256",
+      "image_path": "/opt/smali/smali-baksmali-3.0.10.jar",
+      "repository": "https://dl.google.com/dl/android/maven2"
+    },
+    {
+      "coordinate": "com.android.tools.smali:smali-dexlib2:3.0.10",
+      "url_arg": "DEXLIB2_URL",
+      "sha256_arg": "DEXLIB2_SHA256",
+      "image_path": "/opt/smali/smali-dexlib2-3.0.10.jar",
+      "repository": "https://dl.google.com/dl/android/maven2"
+    },
+    {
+      "coordinate": "com.android.tools.smali:smali-util:3.0.10",
+      "url_arg": "SMALI_UTIL_URL",
+      "sha256_arg": "SMALI_UTIL_SHA256",
+      "image_path": "/opt/smali/smali-util-3.0.10.jar",
+      "repository": "https://dl.google.com/dl/android/maven2"
+    },
+    {
+      "coordinate": "com.google.guava:guava:31.1-android",
+      "url_arg": "GUAVA_URL",
+      "sha256_arg": "GUAVA_SHA256",
+      "image_path": "/opt/smali/guava-31.1-android.jar"
+    },
+    {
+      "coordinate": "com.google.guava:failureaccess:1.0.1",
+      "url_arg": "FAILUREACCESS_URL",
+      "sha256_arg": "FAILUREACCESS_SHA256",
+      "image_path": "/opt/smali/failureaccess-1.0.1.jar"
+    },
+    {
+      "coordinate": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+      "url_arg": "LISTENABLEFUTURE_URL",
+      "sha256_arg": "LISTENABLEFUTURE_SHA256",
+      "image_path": "/opt/smali/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+    },
+    {
+      "coordinate": "com.google.code.findbugs:jsr305:3.0.2",
+      "url_arg": "JSR305_URL",
+      "sha256_arg": "JSR305_SHA256",
+      "image_path": "/opt/smali/jsr305-3.0.2.jar"
+    },
+    {
+      "coordinate": "org.checkerframework:checker-qual:3.12.0",
+      "url_arg": "CHECKER_QUAL_URL",
+      "sha256_arg": "CHECKER_QUAL_SHA256",
+      "image_path": "/opt/smali/checker-qual-3.12.0.jar"
+    },
+    {
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.11.0",
+      "url_arg": "ERROR_PRONE_URL",
+      "sha256_arg": "ERROR_PRONE_SHA256",
+      "image_path": "/opt/smali/error_prone_annotations-2.11.0.jar"
+    },
+    {
+      "coordinate": "com.google.j2objc:j2objc-annotations:1.3",
+      "url_arg": "J2OBJC_URL",
+      "sha256_arg": "J2OBJC_SHA256",
+      "image_path": "/opt/smali/j2objc-annotations-1.3.jar"
+    },
+    {
+      "coordinate": "org.jcommander:jcommander:1.85",
+      "url_arg": "JCOMMANDER_URL",
+      "sha256_arg": "JCOMMANDER_SHA256",
+      "image_path": "/opt/smali/jcommander-1.85.jar"
+    },
+    {
+      "coordinate": "org.antlr:antlr:3.5.2",
+      "url_arg": "ANTLR3_URL",
+      "sha256_arg": "ANTLR3_SHA256",
+      "image_path": "/opt/smali/antlr-3.5.2.jar"
+    },
+    {
+      "coordinate": "org.antlr:antlr-runtime:3.5.2",
+      "url_arg": "ANTLR3_RUNTIME_URL",
+      "sha256_arg": "ANTLR3_RUNTIME_SHA256",
+      "image_path": "/opt/smali/antlr-runtime-3.5.2.jar"
+    },
+    {
+      "coordinate": "org.antlr:ST4:4.0.8",
+      "url_arg": "ST4_URL",
+      "sha256_arg": "ST4_SHA256",
+      "image_path": "/opt/smali/ST4-4.0.8.jar"
+    },
+    {
+      "coordinate": "org.antlr:stringtemplate:3.2.1",
+      "url_arg": "STRINGTEMPLATE_URL",
+      "sha256_arg": "STRINGTEMPLATE_SHA256",
+      "image_path": "/opt/smali/stringtemplate-3.2.1.jar"
+    },
+    {
+      "coordinate": "antlr:antlr:2.7.7",
+      "url_arg": "ANTLR2_URL",
+      "sha256_arg": "ANTLR2_SHA256",
+      "image_path": "/opt/smali/antlr-2.7.7.jar"
     }
   ]
 }

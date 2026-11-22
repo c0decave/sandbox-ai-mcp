@@ -1,34 +1,32 @@
-"""Compare the jars a server ships with the same release in its publisher's Maven repository (CI, before the build).
+"""Check that every jar a server ships is byte for byte the published one in its Maven repository (CI, before the build).
 
-A server whose jars come from somewhere other than a Maven repository (a GitHub release asset) names, in
-``servers/NAME/maven-central.json``, the Dockerfile ARGs that pin each jar (its URL and SHA-256), where the image
-keeps it, the Maven artifacts it is built from, and the repository they are in (``repository``: Maven Central, the
-default, or Google's Maven, where Google publishes com.android.tools.* - smali 3.0.10 is there, not on Maven Central)::
+A server that ships jars names them in ``servers/NAME/maven-central.json``: per jar its Maven coordinate, the
+Dockerfile ARGs that pin it (its URL and SHA-256, the bytes the image's ``ADD --checksum`` takes), where the image
+keeps it, and the repository it is published in (``repository``, per jar or for the whole spec: Maven Central, the
+default, or Google's Maven, where Google publishes com.android.tools.* - smali 3.0.10 is there, not on Maven
+Central)::
 
-    {"schema": "sandbox-ai-mcp-maven-central", "version": 1,
-     "repository": "https://dl.google.com/dl/android/maven2",
-     "jars": [{"url_arg": "SMALI_URL", "sha256_arg": "SMALI_SHA256",
-               "image_path": "/opt/smali/smali-3.0.10-fat-release.jar",
-               "built_from": ["com.android.tools.smali:smali:3.0.10", ...],
-               "own_prefixes": ["com/android/tools/smali/"]}]}
+    {"schema": "sandbox-ai-mcp-maven-central", "version": 2,
+     "jars": [{"coordinate": "com.android.tools.smali:smali:3.0.10", "url_arg": "SMALI_URL",
+               "sha256_arg": "SMALI_SHA256", "image_path": "/opt/smali/smali-3.0.10.jar",
+               "repository": "https://dl.google.com/dl/android/maven2"}, ...]}
 
-What is compared, per jar:
+The URL is either the jar's own URL in that repository (the image takes it from there: smali) or a GitHub release
+asset that must be the very same bytes (cfr). What is checked, per jar:
 
-1. The shipped jar is downloaded from the URL of its ARG and must hash to the ARG's SHA-256 (the bytes the image's
-   ``ADD --checksum`` takes). Each Maven jar is downloaded from the repository, with every checksum file
-   (``.sha1``, ``.sha256``, ``.sha512``) the repository publishes for it, and must hash to each of them (a missing
-   one is said; with none, the jar is the one the repository serves over HTTPS, its SHA-256 said).
-2. A jar that is byte for byte one of its Maven jars passes as such.
-3. Otherwise the entries: every file of every ``built_from`` jar except its ``META-INF/`` must be in the shipped jar
-   with identical bytes (nothing of the release left out or changed), and every file of the shipped jar under an
-   ``own_prefixes`` folder must be one of those files with identical bytes (nothing added to the release's
-   packages). The rest of a fat jar (its bundled third-party libraries) is not compared here.
+1. The jar is downloaded from the repository with every checksum file (``.sha1``, ``.sha256``, ``.sha512``) the
+   repository publishes beside it, and must hash to each of them; a missing one is said, and a jar for which the
+   repository publishes none fails (nothing to check the bytes against).
+2. Its SHA-256 must be the one the Dockerfile pins: the image's bytes are the published bytes.
+3. A jar the image takes from elsewhere (a GitHub release asset) is downloaded from there too and must hash to the
+   same pin.
 
-Any difference fails (exit 1, an ``::error`` annotation). For differing class files, as a diagnosis only (it never
-passes a jar), ``javap -c -p`` of both sides is compared with constant-pool numbers left out, when javap is there.
+Any difference fails (exit 1, an ``::error`` annotation); the report (``--report``) lists per jar the coordinate, the
+URLs, the SHA-256 and the published checksums that matched. ``--image`` checks a built image: the folders that hold
+the spec's jars contain exactly those jars, each with its pinned SHA-256.
 
-    scripts/maven_central.py --server smali [--report FILE]     # download and compare (no spec: nothing to do)
-    scripts/maven_central.py --server smali --image IMG          # the built image ships exactly the pinned jars
+    scripts/maven_central.py --server smali [--report FILE]     # download and check (no spec: nothing to do)
+    scripts/maven_central.py --server smali --image IMG          # the built image ships exactly the checked jars
 
 Standard library only.
 """
@@ -36,25 +34,21 @@ Standard library only.
 from __future__ import annotations
 
 import argparse
-import difflib
 import hashlib
-import io
 import json
+import posixpath
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from pathlib import Path
 from typing import Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = "sandbox-ai-mcp-maven-central"
-VERSION = 1
+VERSION = 2
 REPOSITORY = "https://repo1.maven.org/maven2"
 #: The Maven repositories a spec may name ("repository", default Maven Central): Maven Central, and Google's Maven
 #: (maven.google.com), where Google publishes com.android.tools.* - smali 3.0.10 is there, not on Maven Central.
@@ -62,15 +56,13 @@ REPOSITORIES = (REPOSITORY, "https://dl.google.com/dl/android/maven2")
 #: The checksum files a repository may publish next to a jar; every one that is there must match.
 CHECKSUMS = ("sha1", "sha256", "sha512")
 MAX_SIZE = 64 << 20
-#: Where a shipped jar may come from (its Dockerfile ARG) - nothing else is fetched.
+#: Where a jar may come from besides its repository (a Dockerfile ARG) - nothing else is fetched.
 SHIPPED_HOSTS = ("https://github.com/",)
 _COORDINATE = re.compile(r"^([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+):([A-Za-z0-9_.-]+)$")
 _ARG = re.compile(r"^ARG\s+([A-Z0-9_]+)=(\S+)\s*$", re.M)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = {"sha1": re.compile(r"^[0-9a-f]{40}$"), "sha256": re.compile(r"^[0-9a-f]{64}$"),
            "sha512": re.compile(r"^[0-9a-f]{128}$")}
-DIAGNOSE_MAX = 20
-DIFF_LINES = 150
 
 Fetch = Callable[[str], "bytes | None"]
 
@@ -100,6 +92,11 @@ def fetch(url: str) -> bytes | None:
     raise Problem(f"{url}: {last}")
 
 
+def maven_url(coordinate: str, repository: str = REPOSITORY) -> str:
+    group, artifact, version = _COORDINATE.match(coordinate).groups()
+    return f"{repository}/{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.jar"
+
+
 def load_spec(folder: Path) -> dict | None:
     """The checked spec of the server in *folder*, with each jar's URL and SHA-256 from its Dockerfile; ``None``
     when the server has no maven-central.json."""
@@ -110,225 +107,133 @@ def load_spec(folder: Path) -> dict | None:
     if not isinstance(spec, dict) or spec.get("schema") != SCHEMA or spec.get("version") != VERSION \
             or not isinstance(spec.get("jars"), list) or not spec["jars"]:
         raise Problem(f"{path}: expected {{\"schema\": \"{SCHEMA}\", \"version\": {VERSION}, \"jars\": [...]}}")
-    repository = spec.get("repository", REPOSITORY)
-    if repository not in REPOSITORIES:
-        raise Problem(f"{path}: repository {repository!r} is none of {', '.join(REPOSITORIES)}")
+    default = spec.get("repository", REPOSITORY)
     args = dict(_ARG.findall((folder / "Dockerfile").read_text(encoding="utf-8")))
-    jars = []
+    jars, seen = [], set()
     for jar in spec["jars"]:
         if not isinstance(jar, dict):
             raise Problem(f"{path}: a jar must be an object")
+        coordinate = jar.get("coordinate")
+        if not isinstance(coordinate, str) or not _COORDINATE.match(coordinate):
+            raise Problem(f"{path}: every jar needs a coordinate group:artifact:version ({jar.get('url_arg')})")
+        repository = jar.get("repository", default)
+        if repository not in REPOSITORIES:
+            raise Problem(f"{path}: repository {repository!r} is none of {', '.join(REPOSITORIES)}")
         url, sha256 = args.get(jar.get("url_arg")), args.get(jar.get("sha256_arg"))
         if not url or not sha256:
             raise Problem(f"{path}: the Dockerfile has no ARG {jar.get('url_arg')} / {jar.get('sha256_arg')}")
-        if not url.startswith(SHIPPED_HOSTS) or not _SHA256.match(sha256):
-            raise Problem(f"{path}: {jar['url_arg']}={url} is not an https URL of {SHIPPED_HOSTS} with a SHA-256")
+        if not _SHA256.match(sha256):
+            raise Problem(f"{path}: {jar['sha256_arg']}={sha256} is not a SHA-256")
+        published = maven_url(coordinate, repository)
+        if url.startswith(tuple(f"{r}/" for r in REPOSITORIES)):
+            if url != published:
+                raise Problem(f"{path}: {jar['url_arg']}={url} is not the jar of {coordinate} ({published})")
+        elif not url.startswith(SHIPPED_HOSTS):
+            raise Problem(f"{path}: {jar['url_arg']}={url} is not an https URL of {repository} or of "
+                          f"{', '.join(SHIPPED_HOSTS)}")
         image_path = jar.get("image_path")
-        if not isinstance(image_path, str) or not image_path.startswith("/opt/") or ".." in image_path:
-            raise Problem(f"{path}: image_path {image_path!r} is not a file below /opt")
-        built_from = jar.get("built_from")
-        if not isinstance(built_from, list) or not built_from \
-                or not all(isinstance(c, str) and _COORDINATE.match(c) for c in built_from):
-            raise Problem(f"{path}: built_from must list group:artifact:version coordinates")
-        prefixes = jar.get("own_prefixes")
-        if not isinstance(prefixes, list) or not prefixes \
-                or not all(isinstance(p, str) and p.endswith("/") and not p.startswith("/") for p in prefixes):
-            raise Problem(f"{path}: own_prefixes must list package folders such as \"org/example/\"")
-        jars.append({"name": url.rsplit("/", 1)[1], "url": url, "sha256": sha256, "image_path": image_path,
-                     "built_from": built_from, "own_prefixes": prefixes})
-    return {"jars": jars, "repository": repository}
+        if not isinstance(image_path, str) or not image_path.startswith("/opt/") or ".." in image_path \
+                or not image_path.endswith(".jar"):
+            raise Problem(f"{path}: image_path {image_path!r} is not a jar below /opt")
+        for key in (coordinate, image_path):
+            if key in seen:
+                raise Problem(f"{path}: {key} is named twice")
+            seen.add(key)
+        jars.append({"coordinate": coordinate, "name": url.rsplit("/", 1)[1], "url": url, "maven_url": published,
+                     "sha256": sha256, "image_path": image_path, "repository": repository})
+    return {"jars": jars}
 
 
-def maven_url(coordinate: str, repository: str = REPOSITORY) -> str:
-    group, artifact, version = _COORDINATE.match(coordinate).groups()
-    return f"{repository}/{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.jar"
-
-
-def maven_jar(coordinate: str, get: Fetch, notes: list[str], repository: str = REPOSITORY) -> bytes:
-    """The jar of *coordinate* in *repository*, checked against every checksum file (.sha1, .sha256, .sha512) the
-    repository publishes for it."""
+def maven_jar(coordinate: str, get: Fetch, notes: list[str], repository: str = REPOSITORY) -> tuple[bytes, dict]:
+    """The jar of *coordinate* in *repository* and {kind: value} of every checksum file (.sha1, .sha256, .sha512)
+    the repository publishes for it, each checked against the jar; at least one must be there."""
     url = maven_url(coordinate, repository)
     data = get(url)
     if data is None:
         raise Problem(f"{coordinate}: not in {repository} ({url})")
     sums = {}
     for kind in CHECKSUMS:
-        pattern = _DIGEST[kind]
         text = get(f"{url}.{kind}")
         if text is None:
-            if kind != "sha512":
-                notes.append(f"{coordinate}: {repository} publishes no .{kind}")
+            notes.append(f"{coordinate}: {repository} publishes no .{kind}")
             continue
         value = text.decode("ascii", "replace").split()[0].strip().lower() if text.strip() else ""
-        if not pattern.match(value):
+        if not _DIGEST[kind].match(value):
             raise Problem(f"{coordinate}: {url}.{kind} holds no {kind} ({value[:80]!r})")
         actual = hashlib.new(kind, data).hexdigest()
         if actual != value:
             raise Problem(f"{coordinate}: the jar's {kind} is {actual}, {url}.{kind} says {value}")
         sums[kind] = value
     if not sums:
-        notes.append(f"{coordinate}: {repository} publishes no checksum for it: the jar is the one served over HTTPS "
-                     f"there, sha256 {hashlib.sha256(data).hexdigest()}")
-    else:
-        notes.append(f"{coordinate}: {len(data)} bytes, " + ", ".join(f"{k} {v}" for k, v in sums.items())
-                     + f" (as {repository} publishes them)")
-    return data
+        raise Problem(f"{coordinate}: {repository} publishes no checksum for {url} (none of "
+                      f"{', '.join('.' + k for k in CHECKSUMS)}): nothing to check its bytes against")
+    return data, sums
 
 
-def _files(data: bytes) -> dict[str, bytes]:
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        out = {}
-        for info in archive.infolist():
-            if info.is_dir():
-                continue
-            if info.filename in out and archive.read(info) != out[info.filename]:
-                raise Problem(f"{info.filename} is in the jar twice with different bytes")
-            out[info.filename] = archive.read(info)
-        return out
-
-
-def _normalized_javap(data: bytes, javap: str) -> str | None:
-    with tempfile.TemporaryDirectory() as folder:
-        path = Path(folder) / "C.class"
-        path.write_bytes(data)
-        result = subprocess.run([javap, "-c", "-p", str(path)], capture_output=True, text=True, timeout=60,
-                                check=False)
-    if result.returncode != 0:
-        return None
-    lines = [line for line in result.stdout.splitlines() if not line.startswith(("Compiled from", "Classfile"))]
-    return re.sub(r"#\d+(?:[.,:]\d+)?", "#", "\n".join(lines))
-
-
-def compare(shipped_name: str, shipped: bytes, built_from: dict[str, bytes], own_prefixes: list[str],
-            javap: str | None = None) -> dict:
-    """What *shipped* is compared with the Maven jars *built_from* (coordinate -> bytes)."""
-    for coordinate, data in built_from.items():
-        if data == shipped:
-            return {"jar": shipped_name, "passed": True, "identical_to": coordinate,
-                    "compared": "the whole jar, byte for byte"}
-    files = _files(shipped)
-    release: dict[str, tuple[str, bytes]] = {}
-    for coordinate, data in built_from.items():
-        for name, content in _files(data).items():
-            if name.startswith("META-INF/"):
-                continue
-            if name in release and release[name][1] != content:
-                raise Problem(f"{name} differs between {release[name][0]} and {coordinate}")
-            release.setdefault(name, (coordinate, content))
-    missing = sorted(name for name in release if name not in files)
-    differing = sorted(name for name, (_, content) in release.items() if name in files and files[name] != content)
-    own = [name for name in files if name.startswith(tuple(own_prefixes))]
-    added = sorted(name for name in own if name not in release)
-    report = {
-        "jar": shipped_name, "passed": not (missing or differing or added),
-        "compared": (f"every file of {', '.join(built_from)} but META-INF/ against the jar's file of that name, byte "
-                     f"for byte; every file of the jar under {', '.join(own_prefixes)} must be one of them"),
-        "release_files": len(release), "identical": len(release) - len(missing) - len(differing),
-        "own_files": len(own), "missing": missing[:50], "differing": differing[:50], "added": added[:50],
-        "counts": {"missing": len(missing), "differing": len(differing), "added": len(added)},
-        "not_compared": len(files) - len([n for n in files if n in release or n.startswith(tuple(own_prefixes))]),
-    }
-    if differing and javap:
-        sample = [name for name in differing if name.endswith(".class")][:DIAGNOSE_MAX]
-        same = [name for name in sample
-                if (left := _normalized_javap(files[name], javap)) is not None
-                and left == _normalized_javap(release[name][1], javap)]
-        report["diagnosis"] = (f"javap -c -p without constant-pool numbers: {len(same)} of the first {len(sample)} "
-                               "differing classes disassemble the same (a diagnosis only, the jar still fails)")
-        # what differs, for whoever decides about it: the first differing class's disassembly, shipped against the
-        # release's, as a unified diff (at most DIFF_LINES lines)
-        for name in sample:
-            if name in same:
-                continue
-            left, right = _normalized_javap(files[name], javap), _normalized_javap(release[name][1], javap)
-            if left is None or right is None:
-                continue
-            diff = list(difflib.unified_diff(right.splitlines(), left.splitlines(), f"{release[name][0]}: {name}",
-                                             f"{shipped_name}: {name}", n=1, lineterm=""))
-            report["diagnosis_diff"] = {"class": name, "changed_lines": sum(
-                1 for line in diff if line[:1] in "+-" and not line.startswith(("+++", "---"))),
-                "diff": diff[:DIFF_LINES]}
-            break
-    for name in differing[:DIAGNOSE_MAX]:
-        report.setdefault("differing_files", []).append(
-            {"name": name, "shipped": {"size": len(files[name]), "sha256": hashlib.sha256(files[name]).hexdigest()},
-             "release": {"size": len(release[name][1]), "sha256": hashlib.sha256(release[name][1]).hexdigest()}})
-    return report
-
-
-def check(folder: Path, get: Fetch = fetch, javap: str | None = None) -> dict:
-    """Download and compare every jar of the server in *folder* (see the module's text)."""
+def check(folder: Path, get: Fetch = fetch) -> dict:
+    """Download and check every jar of the server in *folder* (see the module's text)."""
     spec = load_spec(folder)
     if spec is None:
         return {"server": folder.name, "passed": True, "jars": [], "notes": ["no maven-central.json: nothing to do"]}
     notes: list[str] = []
-    cache: dict[str, bytes] = {}
     reports = []
     for jar in spec["jars"]:
-        shipped = get(jar["url"])
-        if shipped is None:
-            raise Problem(f"{jar['url']}: not found")
-        actual = hashlib.sha256(shipped).hexdigest()
-        if actual != jar["sha256"]:
-            raise Problem(f"{jar['name']}: SHA-256 {actual}, the Dockerfile pins {jar['sha256']}")
-        built_from = {}
-        for coordinate in jar["built_from"]:
-            if coordinate not in cache:
-                cache[coordinate] = maven_jar(coordinate, get, notes, spec["repository"])
-            built_from[coordinate] = cache[coordinate]
-        report = compare(jar["name"], shipped, built_from, jar["own_prefixes"], javap)
-        report["sha256"] = jar["sha256"]
-        report["image_path"] = jar["image_path"]
+        data, sums = maven_jar(jar["coordinate"], get, notes, jar["repository"])
+        published = hashlib.sha256(data).hexdigest()
+        report = {"jar": jar["name"], "coordinate": jar["coordinate"], "repository": jar["repository"],
+                  "maven_url": jar["maven_url"], "url": jar["url"], "sha256": jar["sha256"],
+                  "image_path": jar["image_path"], "size": len(data), "checksums": sums,
+                  "repository_sha256": published, "passed": published == jar["sha256"],
+                  "compared": "the whole jar, byte for byte: its SHA-256 against the Dockerfile's pin, the jar "
+                              f"against {', '.join('.' + k for k in sums)} as {jar['repository']} publishes them"}
+        if jar["url"] == jar["maven_url"]:
+            report["shipped_from"] = "the repository"
+        else:
+            shipped = get(jar["url"])
+            if shipped is None:
+                raise Problem(f"{jar['url']}: not found")
+            actual = hashlib.sha256(shipped).hexdigest()
+            if actual != jar["sha256"]:
+                raise Problem(f"{jar['name']}: SHA-256 {actual}, the Dockerfile pins {jar['sha256']}")
+            report["shipped_from"] = jar["url"]
         reports.append(report)
     return {"server": folder.name, "passed": all(r["passed"] for r in reports), "jars": reports, "notes": notes}
 
 
 def check_image(folder: Path, image: str, engine: str = "docker") -> list[str]:
-    """The problems of *image*: each pinned jar at its image_path must hash to the Dockerfile's SHA-256."""
+    """The problems of *image*: the folders that hold the spec's jars contain exactly those jars, each hashing to
+    the Dockerfile's SHA-256."""
     spec = load_spec(folder)
     if spec is None:
         return []
-    paths = [jar["image_path"] for jar in spec["jars"]]
-    result = subprocess.run([engine, "run", "--rm", "--network=none", "--entrypoint", "sha256sum", image, *paths],
+    expected = {jar["image_path"]: jar["sha256"] for jar in spec["jars"]}
+    folders = sorted({posixpath.dirname(path) for path in expected})
+    result = subprocess.run([engine, "run", "--rm", "--network=none", "--entrypoint", "find", image, *folders,
+                             "!", "-type", "d", "-exec", "sha256sum", "{}", "+"],
                             capture_output=True, text=True, timeout=300, check=False)
     found = dict(reversed(line.split(None, 1)) for line in result.stdout.splitlines() if line.strip())
     problems = []
-    for jar in spec["jars"]:
-        actual = found.get(jar["image_path"])
-        if actual != jar["sha256"]:
-            problems.append(f"{jar['image_path']} in the image: SHA-256 {actual or 'missing'}, compared with Maven "
-                            f"Central was {jar['sha256']}")
+    for path, sha256 in expected.items():
+        actual = found.get(path)
+        if actual != sha256:
+            problems.append(f"{path} in the image: SHA-256 {actual or 'missing'}, the published jar checked was "
+                            f"{sha256}")
+    for path in sorted(set(found) - set(expected)):
+        problems.append(f"{path} in the image is no jar of maven-central.json (SHA-256 {found[path]})")
     if result.returncode != 0 and not problems:
-        problems.append(f"sha256sum in the image failed: {result.stderr.strip()[-300:]}")
+        problems.append(f"find/sha256sum in the image failed: {result.stderr.strip()[-300:]}")
     return problems
 
 
 def _summary(report: dict) -> list[str]:
     lines = [f"maven-central {report['server']}: {'passed' if report['passed'] else 'FAILED'}"]
     for jar in report["jars"]:
-        lines.append(f"  {jar['jar']} (sha256 {jar['sha256']}): {'passed' if jar['passed'] else 'FAILED'} - "
-                     f"{jar['compared']}")
-        if "identical_to" in jar:
-            lines.append(f"    byte for byte {jar['identical_to']}")
-        else:
-            lines.append(f"    {jar['identical']} of {jar['release_files']} release files identical, "
-                         f"{jar['own_files']} files under the release's packages, {jar['not_compared']} others "
-                         f"(bundled libraries) not compared; missing {jar['counts']['missing']}, differing "
-                         f"{jar['counts']['differing']}, added {jar['counts']['added']}")
-            for kind in ("missing", "differing", "added"):
-                for name in jar[kind][:10]:
-                    lines.append(f"    {kind}: {name}")
-            for entry in jar.get("differing_files", [])[:10]:
-                lines.append(f"    {entry['name']}: shipped {entry['shipped']['size']} bytes sha256 "
-                             f"{entry['shipped']['sha256']}, release {entry['release']['size']} bytes sha256 "
-                             f"{entry['release']['sha256']}")
-            if "diagnosis" in jar:
-                lines.append(f"    {jar['diagnosis']}")
-            if "diagnosis_diff" in jar:
-                found = jar["diagnosis_diff"]
-                lines.append(f"    javap diff of {found['class']} ({found['changed_lines']} lines changed; "
-                             f"the first {len(found['diff'])} lines of the diff):")
-                lines.extend(f"      {line}" for line in found["diff"])
+        lines.append(f"  {jar['coordinate']} {jar['jar']} (sha256 {jar['sha256']}): "
+                     f"{'passed' if jar['passed'] else 'FAILED'} - from {jar['shipped_from']}, "
+                     f"{jar['size']} bytes, checked against the published {', '.join(jar['checksums'])}")
+        if not jar["passed"]:
+            lines.append(f"    {jar['maven_url']} has SHA-256 {jar['repository_sha256']}, the Dockerfile pins "
+                         f"{jar['sha256']}")
     lines.extend(f"  {note}" for note in report["notes"])
     return lines
 
@@ -340,9 +245,9 @@ def _escape(text: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--server", required=True, help="the folder name below servers/")
-    parser.add_argument("--image", help="check that this built image ships exactly the compared jars")
+    parser.add_argument("--image", help="check that this built image ships exactly the checked jars")
     parser.add_argument("--engine", default="docker")
-    parser.add_argument("--report", help="write the comparison as JSON here")
+    parser.add_argument("--report", help="write the check as JSON here")
     args = parser.parse_args(argv)
     folder = ROOT / "servers" / args.server
     if not (folder / "server.json").is_file():
@@ -356,10 +261,10 @@ def main(argv: list[str] | None = None) -> int:
             if problems:
                 print(f"::error title=maven-central {args.server}::{_escape(chr(10).join(problems))}")
                 return 1
-            print(f"maven-central {args.server}: the image ships the compared jars" if load_spec(folder)
+            print(f"maven-central {args.server}: the image ships exactly the checked jars" if load_spec(folder)
                   else f"{args.server}: no maven-central.json, nothing to check")
             return 0
-        report = check(folder, javap=shutil.which("javap"))
+        report = check(folder)
     except Problem as problem:
         print(f"::error title=maven-central {args.server}::{_escape(str(problem))}")
         return 1

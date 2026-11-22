@@ -107,11 +107,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # A server whose jars are a GitHub release asset (servers/NAME/maven-central.json: smali, cfr) has them compared
-      # with the same release in its publisher's Maven repository (cfr: Maven Central; smali: Google's Maven), its
-      # .sha1/.sha256 checked where published, before anything is built:
-      # the whole jar byte for byte, or every file of the Maven jars in the fat jar byte for byte and nothing
-      # added under their packages. A difference stops the job here. Other servers: nothing to do.
+      # A server that ships jars (servers/NAME/maven-central.json: smali, cfr) has every one checked against its
+      # Maven repository before anything is built (smali: Google's own jars from Google's Maven and their POMs'
+      # runtime dependencies from Maven Central, taken from there; cfr: its GitHub release asset against Maven
+      # Central): the published jar against every .sha1/.sha256/.sha512 published beside it, then byte for byte
+      # the bytes the Dockerfile pins (ADD --checksum). A difference stops the job here. Other servers: nothing to do.
       - name: Maven repository - the shipped jars against the release there
         env:
           SERVER: ${{ matrix.server }}
@@ -129,8 +129,9 @@ jobs:
           tags: local/sandbox-ai-mcp-${{ matrix.server }}:ci
           labels: ${{ env.SOURCE_LABEL }}
 
-      # The jars at their image paths hash to the SHA-256 compared above (ADD --checksum took the same bytes).
-      - name: The image ships the jars compared with Maven Central
+      # The image's folders of jars hold exactly the jars checked above, each with its SHA-256 (ADD --checksum took
+      # the same bytes).
+      - name: The image ships the jars compared with their Maven repository
         env:
           SERVER: ${{ matrix.server }}
         run: python3 scripts/maven_central.py --server "${SERVER}" --image "local/sandbox-ai-mcp-${SERVER}:ci"

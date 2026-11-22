@@ -12,6 +12,7 @@ working folder below /tmp, a time limit and a cap on what it prints:
 
 * baksmali 3.0.10 - ``list dex``, ``list classes``, ``disassemble``
 * smali 3.0.10 - ``assemble``
+  (both Google's own jars, com.android.tools.smali, on a class path with the runtime dependencies their POMs name)
 * apktool 3.0.3 - ``decode`` (resources and smali) and ``build`` (an **unsigned** APK), with apktool's own aapt2 and
   its framework installed in the image (never fetched, never written at run time)
 * apksigner 35.0.2 with Android's zipalign - signing with a **throwaway debug key**, generated for that one call and
@@ -56,8 +57,20 @@ OUT = "/out"
 ROOTS: dict[str, str] = {WORK: WORK, OUT: OUT}
 JAVA = "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
 KEYTOOL = "/usr/lib/jvm/java-21-openjdk-amd64/bin/keytool"
-BAKSMALI_JAR = "/opt/smali/baksmali-3.0.10-fat-release.jar"
-SMALI_JAR = "/opt/smali/smali-3.0.10-fat-release.jar"
+#: baksmali and smali 3.0.10 as Google publishes them (com.android.tools.smali in Google's Maven repository): the
+#: tool's own jar, then exactly the runtime dependencies its POM names, in Maven's order (the Dockerfile's ARGs of
+#: the same name hold the same class paths; PROVENANCE.md lists every jar). Their manifests name no Main-Class.
+BAKSMALI_CLASSPATH = ":".join(f"/opt/smali/{jar}.jar" for jar in (
+    "smali-baksmali-3.0.10", "smali-dexlib2-3.0.10", "smali-util-3.0.10", "guava-31.1-android", "jcommander-1.85",
+    "jsr305-3.0.2", "failureaccess-1.0.1", "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava",
+    "checker-qual-3.12.0", "error_prone_annotations-2.11.0", "j2objc-annotations-1.3"))
+BAKSMALI_MAIN = "com.android.tools.smali.baksmali.Main"
+SMALI_CLASSPATH = ":".join(f"/opt/smali/{jar}.jar" for jar in (
+    "smali-3.0.10", "smali-dexlib2-3.0.10", "antlr-3.5.2", "smali-util-3.0.10", "antlr-runtime-3.5.2",
+    "jcommander-1.85", "stringtemplate-3.2.1", "guava-31.1-android", "jsr305-3.0.2", "ST4-4.0.8", "antlr-2.7.7",
+    "failureaccess-1.0.1", "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava", "checker-qual-3.12.0",
+    "error_prone_annotations-2.11.0", "j2objc-annotations-1.3"))
+SMALI_MAIN = "com.android.tools.smali.smali.Main"
 APKTOOL_JAR = "/opt/apktool/apktool_3.0.3.jar"
 APKTOOL_AAPT2 = "/opt/apktool/aapt2"            # apktool's own prebuilt aapt2, unpacked from its jar when built
 APKTOOL_FRAMEWORK = "/opt/apktool/framework"    # holds 1.apk, apktool's bundled android-framework.jar
@@ -460,9 +473,20 @@ def jvm_command(folder: str, jar: str, arguments: list[str]) -> list[str]:
 
 
 def class_path_command(folder: str, class_path: str, main: str, arguments: list[str]) -> list[str]:
-    """The JVM's command line for a tool that comes as classes, not as a runnable jar (apksigner)."""
+    """The JVM's command line for a tool that comes as classes on a class path, not as a runnable jar (baksmali,
+    smali, apksigner)."""
     flags = jvm_command(folder, "", [])[:-2]      # the fixed flags, without "-jar" and its (empty) jar
     return flags + ["-cp", class_path, main] + arguments
+
+
+def baksmali_command(folder: str, arguments: list[str]) -> list[str]:
+    """baksmali from Google's jars: its class path and main class, then ARGUMENTS."""
+    return class_path_command(folder, BAKSMALI_CLASSPATH, BAKSMALI_MAIN, arguments)
+
+
+def smali_command(folder: str, arguments: list[str]) -> list[str]:
+    """smali from Google's jars: its class path and main class, then ARGUMENTS."""
+    return class_path_command(folder, SMALI_CLASSPATH, SMALI_MAIN, arguments)
 
 
 class Scratch:
@@ -661,9 +685,9 @@ def one_class(fd: int, display: str, name: str, entry: str, api: int, debug_info
     try:
         link = scratch.link(fd, link_name(display))
         output = scratch.folder("out")
-        run(jvm_command(scratch.path, BAKSMALI_JAR,
-                        baksmali_arguments(link, output, api, entry, [descriptor(name)], debug_info,
-                                           locals_directive)),
+        run(baksmali_command(scratch.path,
+                             baksmali_arguments(link, output, api, entry, [descriptor(name)], debug_info,
+                                                locals_directive)),
             scratch, BAKSMALI_SECONDS, keep_fds=(fd,), what="baksmali")
         path = os.path.join(output, *f"{name}.smali".split("/"))
         if not os.path.isfile(path):
@@ -692,8 +716,7 @@ def all_classes(fd: int, display: str, entry: str, api: int) -> dict[str, str]:
     try:
         link = scratch.link(fd, link_name(display))
         output = scratch.folder("out")
-        run(jvm_command(scratch.path, BAKSMALI_JAR,
-                        baksmali_arguments(link, output, api, entry, [], True, False)),
+        run(baksmali_command(scratch.path, baksmali_arguments(link, output, api, entry, [], True, False)),
             scratch, BAKSMALI_SECONDS, keep_fds=(fd,), what="baksmali")
         found: dict[str, str] = {}
         for folder, _, files in os.walk(output):
@@ -815,7 +838,7 @@ def class_list(fd: int, display: str, info: os.stat_result, entry: str) -> list[
         try:
             link = scratch.link(fd, link_name(display))
             arguments = ["list", "classes", baksmali_input(link, entry)]
-            text = run(jvm_command(scratch.path, BAKSMALI_JAR, arguments), scratch, BAKSMALI_SECONDS,
+            text = run(baksmali_command(scratch.path, arguments), scratch, BAKSMALI_SECONDS,
                        keep_fds=(fd,), what="baksmali")
         finally:
             scratch.close()
@@ -971,8 +994,8 @@ def disassemble(path: str, out_name: str, dex_file: str = "", classes: str = "",
         try:
             link = scratch.link(fd, link_name(display))
             output = scratch.folder("out")
-            run(jvm_command(scratch.path, BAKSMALI_JAR,
-                            baksmali_arguments(link, output, api, entry, wanted, info_flag, False)),
+            run(baksmali_command(scratch.path,
+                                 baksmali_arguments(link, output, api, entry, wanted, info_flag, False)),
                 scratch, BAKSMALI_SECONDS, keep_fds=(fd,), what="baksmali")
             files, total = counted(output)
             if not files:
@@ -1008,8 +1031,8 @@ def assemble(folder: str, out_name: str, api_level: int = 21) -> str:
                 raise Refused(f"{shown(display)} holds no files")
             link = scratch.link(dir_fd, "smali")
             output = os.path.join(scratch.folder("out"), "out.dex")
-            run(jvm_command(scratch.path, SMALI_JAR,
-                            ["assemble", link, "-o", output, "-a", str(api), "-j", "1", "--verbose"]),
+            run(smali_command(scratch.path,
+                              ["assemble", link, "-o", output, "-a", str(api), "-j", "1", "--verbose"]),
                 scratch, SMALI_SECONDS, keep_fds=(dir_fd,), what="smali")
             if not os.path.isfile(output) or not os.path.getsize(output):
                 raise Refused("smali wrote no DEX file (are there .smali files in that folder?)")

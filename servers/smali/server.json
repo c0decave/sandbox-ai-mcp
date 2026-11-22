@@ -15,7 +15,7 @@
   ],
   "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/smali",
   "page": "https://github.com/google/smali",
-  "license": "MIT (MCP server, sandbox-ai-mcp); BSD-3-Clause (smali/baksmali); Apache-2.0 (apktool, apksig/apksigner, zipalign)",
+  "license": "MIT (MCP server, checker-qual); BSD-3-Clause (smali/baksmali, ANTLR 3, StringTemplate); Apache-2.0 (apktool, apksigner, zipalign, Guava, jcommander, annotations); public domain (ANTLR 2)",
   "kind": "oci",
   "image": "ghcr.io/c0decave/sandbox-ai-mcp-smali",
   "tag": "latest",

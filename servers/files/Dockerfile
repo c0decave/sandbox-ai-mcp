@@ -24,6 +24,9 @@ COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-files/
 RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp
 ENV HOME=/tmp
+# The folders sandbox-ai mounts here (/work /ref1 /ref2 /ref3): Bubblewrap binds a folder only onto one that is there - it cannot
+# make one in the read-only root file system it runs the server in (Podman makes them itself).
+RUN mkdir -p /work /ref1 /ref2 /ref3
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]
