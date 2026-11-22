@@ -27,6 +27,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
  && binwalk --help | head -2
 ENV HOME=/tmp \
     BINWALK_OUTPUT_DIR=/tmp/binwalk-mcp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

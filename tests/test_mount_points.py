@@ -35,6 +35,18 @@ class MountPoints(unittest.TestCase):
                 missing[entry.parent.name] = lacking
         self.assertEqual(missing, {}, "a mount target its image does not make: Bubblewrap cannot mount there")
 
+    def test_every_image_makes_the_usual_mount_targets(self):
+        """The user (2026-11-22): /work, /work_ro, /work_rw, /app and /srv exist in every server's image, so any of
+        them can be mounted under Bubblewrap whatever the entry declares."""
+        usual = {"/work", "/work_ro", "/work_rw", "/app", "/srv"}
+        lacking = {}
+        for folder in sorted([*(ROOT / "servers").iterdir(), *(ROOT / "candidates").iterdir()]):
+            dockerfile = next((folder / name for name in ("Dockerfile", "Containerfile") if (folder / name).is_file()),
+                              None)
+            if dockerfile is not None and usual - made_folders(dockerfile.read_text()):
+                lacking[f"{folder.parent.name}/{folder.name}"] = sorted(usual - made_folders(dockerfile.read_text()))
+        self.assertEqual(lacking, {})
+
     def test_the_folder_parser(self):
         self.assertEqual(made_folders("RUN useradd x \\\n && mkdir -p /work /out\n"), {"/work", "/out"})
         self.assertEqual(made_folders("RUN install -d -o 10001 -g 10001 -m 0700 /data \\\n && install -d /send"),

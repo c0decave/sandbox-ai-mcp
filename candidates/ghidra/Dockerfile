@@ -35,6 +35,8 @@ RUN python3 -m venv /opt/venv \
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-ghidra/
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp
 ENV HOME=/tmp GHIDRA_INSTALL_DIR=/opt/ghidra JAVA_TOOL_OPTIONS="-Xmx2g -Djava.awt.headless=true"
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # The project (analysis database) lives in /out when it is mounted writable, else in /tmp.

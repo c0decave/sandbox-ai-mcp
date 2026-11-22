@@ -40,6 +40,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
  && /usr/local/bin/node --version
 # MEMORY_FILE_PATH is fixed here and not offered as a variable: the graph is always /data/memory.jsonl.
 ENV HOME=/tmp NODE_ENV=production MEMORY_FILE_PATH=/data/memory.jsonl
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # --disallow-code-generation-from-strings: no eval/new Function at all (zod then validates without its JIT).

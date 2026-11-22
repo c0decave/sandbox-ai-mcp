@@ -43,6 +43,8 @@ ENV HOME=/tmp \
     CAPA_RULES_DIR=/opt/capa/rules \
     CAPA_SIGS_DIR=/opt/capa/sigs \
     CAPA_OUTPUT_DIR=/tmp/capa-mcp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

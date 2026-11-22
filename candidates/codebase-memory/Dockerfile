@@ -35,6 +35,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # (CBM_ALLOWED_ROOT). --ui=false: without a config file the binary turns its embedded web UI on
 # (an HTTP listener on 127.0.0.1:9749); the flag is persisted in its config under $HOME.
 ENV HOME=/tmp CBM_ALLOWED_ROOT=/work CBM_CACHE_DIR=/out/codebase-memory
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /work
 ENTRYPOINT ["/usr/local/bin/codebase-memory-mcp", "--ui=false"]

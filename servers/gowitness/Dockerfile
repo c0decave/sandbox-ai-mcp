@@ -77,6 +77,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && /usr/local/bin/gowitness version >/dev/null
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # Chromium's own sandbox needs user namespaces the container does not grant: gowitness starts it with --no-sandbox and

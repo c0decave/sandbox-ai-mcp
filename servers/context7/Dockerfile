@@ -41,6 +41,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # OTEL_SDK_DISABLED=true: the server loads no telemetry at all (its telemetry modules are not even in the image, so
 # the server refuses to start without it). CONTEXT7_API_KEY (optional) comes from sandbox-ai's secret store.
 ENV HOME=/tmp NODE_ENV=production OTEL_SDK_DISABLED=true
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # --disallow-code-generation-from-strings: no eval/new Function at all (zod then validates without its JIT).

@@ -35,6 +35,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp /opt/venv/lib/python3.13/site
 # ~/.cache) lives in memory: one container per connection, nothing written to disk.
 ENV HOME=/tmp \
     OSINT_MCP_CACHE_PATH=:memory:
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

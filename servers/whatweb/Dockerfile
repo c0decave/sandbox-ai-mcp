@@ -57,6 +57,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && grep -qxF 'Total: 1831 Plugins' /tmp/plugins.txt && ! grep -qi 'error' /tmp/plugins.err \
  && rm /tmp/plugins.txt /tmp/plugins.err
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

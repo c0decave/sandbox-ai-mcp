@@ -10,8 +10,11 @@ from a catalog of this run (the SHA-256 checked, the archive unpacked without tr
 test), the start's plan (start_plan: what the toolchain needs against this runner - under Bubblewrap this machine,
 under Podman what sandbox-ai's images have), the session folder (write_session: the wrappers, env.sh) and the mounts
 (start_mounts), read-only as the launcher mounts them. --with: the toolchains this one requires, built in the same
-job. Then the "smoke" steps of the toolchain run in that sandbox, without network, HOME and the working folder
-writable: each step's files are written, its command runs with sh, and its output must contain "expect".
+job. Then the "smoke" steps of the toolchain run in that sandbox, without network, HOME (/root, as in every
+sandbox: also the passwd home of Podman's root, which Java takes for user.home) and the working folder writable: each
+step's files are written, its command runs with sh, and its output must contain "expect". Under Podman the image is
+sandbox-ai's agent images' base with what they add that a toolchain may need (openssl: libssl.so.3, which .NET
+loads at run time), built once per run unless --image names one.
 
 The report says which archive (sha256) passed with which sandbox-ai; scripts/sign_toolchains.py signs only entries
 with both reports. Standard library only (podman or bwrap).
@@ -31,8 +34,14 @@ import tempfile
 from pathlib import Path
 
 RUNNERS = ("sandbox-ai-podman", "sandbox-ai-bwrap")
-# What sandbox-ai's agent images are built on (sandbox/Containerfile.*: NODE_IMAGE).
+# What sandbox-ai's agent images are built on (sandbox/Containerfile.*: NODE_IMAGE), and what they install on it that
+# sandbox-ai's toolchains.OWN_IMAGE says a toolchain may need: openssl (libssl.so.3, libcrypto.so.3; the bare image
+# has none - CI run 45032125924: .NET aborted with "No usable version of libssl was found").
 IMAGE = "docker.io/library/node:lts-bookworm-slim"
+SMOKE_IMAGE = "localhost/sandbox-ai-toolchain-smoke:latest"
+CONTAINERFILE = (f"FROM {IMAGE}\n"
+                 "RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \\\n"
+                 "    && rm -rf /var/lib/apt/lists/*\n")
 PATH = "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
 STEP_SECONDS = 900
 
@@ -52,13 +61,17 @@ def sandbox_command(runner: str, t, entries, session: Path, work: Path, image: s
     """The sandbox as the launcher mounts toolchains: /opt/toolchains (the session's folder) and each tree on it,
     read-only; no network; the wrappers first on PATH, the toolchains' variables as a start sets them."""
     mounts = [(session, t.MOUNT), *((str(source), target) for source, target in t.start_mounts(entries))]
-    env = {"PATH": f"{t.BIN}:{PATH}", "HOME": "/work/.home", "LANG": "C.UTF-8", "BASH_ENV": t.ENV_FILE,
+    # HOME is sandbox-ai's (/root), writable: WORK/.home. Programs that take their home from passwd rather than
+    # $HOME (Java's user.home: Gradle's ~/.gradle) find it there too - CI run 45032125924: under Podman's read-only
+    # root Gradle could not unpack its native library into /root/.gradle.
+    env = {"PATH": f"{t.BIN}:{PATH}", "HOME": t.SANDBOX_HOME, "LANG": "C.UTF-8", "BASH_ENV": t.ENV_FILE,
            **t.environment(entries)}
-    env = {key: value.replace(t.SANDBOX_HOME + "/", "/work/.home/") for key, value in env.items()}
+    home = work / ".home"
     if runner == "sandbox-ai-podman":
         command = ["podman", "run", "--rm", "--network=none", "--read-only", "--cap-drop=ALL",
                    "--security-opt=no-new-privileges", "--user=0:0", "--tmpfs=/tmp:rw,nosuid,nodev",
-                   "--workdir=/work", "--mount", f"type=bind,src={work},dst=/work,rw,nodev,nosuid"]
+                   "--workdir=/work", "--mount", f"type=bind,src={work},dst=/work,rw,nodev,nosuid",
+                   "--mount", f"type=bind,src={home},dst={t.SANDBOX_HOME},rw,nodev,nosuid"]
         for source, target in mounts:
             command += ["--mount", f"type=bind,src={source},dst={target},ro,nodev,nosuid"]
         for key, value in env.items():
@@ -76,7 +89,7 @@ def sandbox_command(runner: str, t, entries, session: Path, work: Path, image: s
             command += ["--ro-bind", path, path]
     for source, target in mounts:
         command += ["--ro-bind", str(source), target]
-    command += ["--bind", str(work), "/work", "--chdir", "/work"]
+    command += ["--bind", str(work), "/work", "--bind", str(home), t.SANDBOX_HOME, "--chdir", "/work"]
     for key, value in env.items():
         command += ["--setenv", key, value]
     return [*command, "/bin/sh", "-c", script]
@@ -111,10 +124,19 @@ def run_smoke(opts, run=subprocess.run) -> dict:
             report["checks"].append({"check": "mounted as sandbox-ai mounts it", "ok": True,
                                      "toolchains": [f"{e['name']} {e['version']}" for e in plan["entries"]],
                                      "notes": notes})
+            image = opts.image
+            if opts.runner == "sandbox-ai-podman" and not image:
+                image, problem = smoke_image(tmp / "image", run)
+                report["image"] = image
+                if problem:
+                    report["checks"].append({"check": "the image (agent images' base with openssl)", "ok": False,
+                                             "output": problem})
+                    print(f"FAILED: the image\n{problem}", flush=True)
+                    return report
             for step in meta.get("smoke") or []:
                 for name, text in (step.get("files") or {}).items():
                     (work / name).write_text(text, encoding="utf-8")
-                command = sandbox_command(opts.runner, t, plan["entries"], session, work, opts.image, step["run"])
+                command = sandbox_command(opts.runner, t, plan["entries"], session, work, image, step["run"])
                 try:
                     result = run(command, capture_output=True, text=True, timeout=STEP_SECONDS,
                                  stdin=subprocess.DEVNULL)
@@ -136,6 +158,21 @@ def run_smoke(opts, run=subprocess.run) -> dict:
         with contextlib.suppress(OSError):
             holder.cleanup()
     return report
+
+
+def smoke_image(folder: Path, run=subprocess.run) -> tuple[str, str | None]:
+    """(SMOKE_IMAGE built from CONTAINERFILE in FOLDER - outside the sandbox, with network -, None) or (it, why the
+    build failed)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "Containerfile").write_text(CONTAINERFILE, encoding="utf-8")
+    try:
+        result = run(["podman", "build", "--pull=missing", "-t", SMOKE_IMAGE, "-f", str(folder / "Containerfile"),
+                      str(folder)], capture_output=True, text=True, timeout=STEP_SECONDS, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return SMOKE_IMAGE, f"podman build: no answer within {STEP_SECONDS} s"
+    if result.returncode != 0:
+        return SMOKE_IMAGE, f"podman build failed ({result.returncode}): {(result.stdout + result.stderr)[-1500:]}"
+    return SMOKE_IMAGE, None
 
 
 def cleanup(tmp: Path) -> None:
@@ -164,7 +201,8 @@ def main(argv=None) -> int:
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--with", dest="requires", type=Path, action="append", default=[],
                         help="the meta file of a toolchain this one requires (its archive beside it)")
-    parser.add_argument("--image", default=IMAGE, help="Podman: the image the sandbox runs (the agent images' base)")
+    parser.add_argument("--image", help="Podman: the image the sandbox runs (default: the agent images' base with "
+                        "openssl, built here)")
     parser.add_argument("--report", type=Path, required=True)
     opts = parser.parse_args(argv)
     if not shutil.which("podman" if opts.runner == "sandbox-ai-podman" else "bwrap"):

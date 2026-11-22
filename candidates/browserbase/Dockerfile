@@ -45,6 +45,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID and GEMINI_API_KEY (the default model) are passed
 # with --env by sandbox-ai.
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["node", "/opt/browserbase-mcp/cli.js"]

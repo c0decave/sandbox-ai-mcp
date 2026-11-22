@@ -27,6 +27,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
 # Zones: Python's zoneinfo reads /usr/share/zoneinfo if the base image has one, else the pinned tzdata wheel.
 # The local zone named in the tool descriptions: LOCAL_TIMEZONE (sandbox-ai can pass the host's), else UTC.
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

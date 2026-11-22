@@ -75,6 +75,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # sends files from (patch 0002). Few threads: the run line allows 128 pids.
 ENV HOME=/tmp WA_DATA_DIR=/data WA_BRIDGE=/usr/local/bin/wa-bridge WA_SEND_DIR=/send \
     GOMAXPROCS=2 TOKIO_WORKER_THREADS=2
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/usr/local/bin/wa-mcp"]

@@ -70,6 +70,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work /out
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 # what the server's own user sees: all 12 binaries (4 Android and 2 Linux ABIs, server and gadget each); a folder
 # without its x bit hid them all

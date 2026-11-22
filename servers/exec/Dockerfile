@@ -35,6 +35,8 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && git config --system --add safe.directory '*' \
  && /usr/bin/python3 -I -c 'import pytest, pyflakes, yaml' && shellcheck --version >/dev/null && node --version
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

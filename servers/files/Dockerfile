@@ -27,6 +27,8 @@ ENV HOME=/tmp
 # The folders sandbox-ai mounts here (/work /ref1 /ref2 /ref3): Bubblewrap binds a folder only onto one that is there - it cannot
 # make one in the read-only root file system it runs the server in (Podman makes them itself).
 RUN mkdir -p /work /ref1 /ref2 /ref3
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

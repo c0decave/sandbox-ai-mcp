@@ -44,6 +44,8 @@ COPY --from=build /opt/playwright-mcp /opt/playwright-mcp
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-playwright/
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # Chromium's own sandbox needs user namespaces the container does not grant: the container is the

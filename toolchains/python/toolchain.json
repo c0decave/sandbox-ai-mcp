@@ -26,7 +26,12 @@
   ],
   "needs": {
     "glibc": "2.17",
-    "libraries": []
+    "libraries": {
+      "x86_64": [],
+      "aarch64": [
+        "libgcc_s.so.1"
+      ]
+    }
   },
   "requires": [],
   "optional": [

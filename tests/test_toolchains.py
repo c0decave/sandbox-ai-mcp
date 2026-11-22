@@ -262,6 +262,30 @@ class Build(unittest.TestCase):
         self.assertEqual(tc.elf_facts(elf()[:64 + 56] .replace(b"\x02\x00\x00\x00\x06", b"\x06\x00\x00\x00\x06"), 62),
                          None)  # a cut-off file is no program of ours
 
+    def test_what_a_tree_needs_may_differ_by_architecture(self):
+        # CI run 45032125924: Kitware's aarch64 CMake needs glibc 2.28, its x86_64 one 2.17; python-build-standalone's
+        # aarch64 interpreter needs libgcc_s.so.1, its x86_64 one nothing.
+        data = tar_bytes({"d/bin/demo": elf(["libgcc_s.so.1"], "GLIBC_2.28", machine=183)})
+        self.steps[0]["sha256"] = {"x86_64": self.sha,
+                                   "aarch64": self.repo.serve("https://example.org/demo-1.2.3-aarch64.tar.gz", data)}
+        needs = {"glibc": {"x86_64": "2.17", "aarch64": "2.28"},
+                 "libraries": {"x86_64": [], "aarch64": ["libgcc_s.so.1"]}}
+        recipe = self.repo.recipe(build=self.steps, arches=["x86_64", "aarch64"], needs=needs)
+        self.assertEqual(tc.problems_of(recipe, TODAY), [])
+        self.assertEqual(tc.manifest(recipe, "x86_64")["needs"], {"glibc": "2.17", "libraries": []})
+        self.assertEqual(tc.manifest(recipe, "aarch64")["needs"], {"glibc": "2.28", "libraries": ["libgcc_s.so.1"]})
+        meta = tc.build("demo", "aarch64", self.repo.root / "out", today=TODAY, root=self.repo.root,
+                        opener=self.repo.opener)
+        self.assertEqual(meta["entry"]["needs"], {"glibc": "2.28", "libraries": ["libgcc_s.so.1"]})
+        self.repo.recipe(build=self.steps, arches=["x86_64", "aarch64"],
+                         needs={"glibc": {"x86_64": "2.28", "aarch64": "2.17"}, "libraries": ["libgcc_s.so.1"]})
+        with self.assertRaisesRegex(tc.Refused, r"need glibc 2\.28 \(bin/demo\), needs.glibc says 2\.17"):
+            tc.build("demo", "aarch64", self.repo.root / "out", today=TODAY, root=self.repo.root,
+                     opener=self.repo.opener)
+        broken = self.repo.recipe(build=self.steps, arches=["x86_64", "aarch64"],
+                                  needs={"glibc": {"x86_64": "2.17"}, "libraries": []})
+        self.assertIn("demo: needs.glibc: nothing for aarch64", tc.problems_of(broken, TODAY))
+
     def test_a_command_the_tree_lacks_refuses_the_build(self):
         self.repo.recipe(build=self.steps, commands={"demo": "bin/demo", "gone": "bin/gone"})
         with self.assertRaisesRegex(tc.Refused, "has no bin/gone"):
@@ -317,6 +341,15 @@ class Build(unittest.TestCase):
         with self.assertRaisesRegex(tc.Refused, "signed by BEEF, not by one of"):
             tc.gpg_verify(top / "data", top / "data.asc", top / "key.asc", ["CAFE"], gpg)
         self.assertEqual(tc.gpg_fingerprints(top / "key.asc", gpg), ["BEEF"])  # the primary key's, not a subkey's
+        calls = []
+
+        def silent(command, **options):  # CI run 45032125924: no key listed, and nothing said why
+            calls.append(command)
+            return types.SimpleNamespace(returncode=2, stdout="", stderr="gpg: no valid OpenPGP data found.\n")
+        with self.assertRaisesRegex(tc.Refused, r"key.asc: gpg lists no key in it \(exit 2: gpg: no valid OpenPGP"):
+            tc.gpg_fingerprints(top / "key.asc", silent)
+        home = calls[0][calls[0].index("--homedir") + 1]  # a home of its own, gone afterwards
+        self.assertFalse(Path(home).exists())
 
 
 class Catalog(unittest.TestCase):
@@ -429,6 +462,37 @@ class Catalog(unittest.TestCase):
             self.assertIn("PATH=/opt/toolchains/bin:" if runner.endswith("podman") else "/opt/toolchains/bin:", joined)
             self.assertIn("--network=none" if runner.endswith("podman") else "--unshare-all", command)
             self.assertTrue(all(",ro," in value for value in command if "dst=/opt/toolchains" in value))
+            # CI run 45032125924: HOME is sandbox-ai's /root and writable, also where passwd puts root's home (Java's
+            # user.home: Gradle's ~/.gradle under Podman's read-only root)
+            self.assertIn("HOME=/root" if runner.endswith("podman") else "HOME /root", joined)
+            self.assertTrue(any(value.startswith("type=bind,") and value.endswith(",dst=/root,rw,nodev,nosuid")
+                                for value in command) if runner.endswith("podman")
+                            else command[command.index(t.SANDBOX_HOME) - 2] == "--bind")
+        # no image named: the agent images' base with openssl is built first (.NET loads libssl.so.3), then used
+        seen.clear()
+        opts = types.SimpleNamespace(sandbox_ai=Path(CHECKOUT), runner="sandbox-ai-podman", image=None,
+                                     meta=self.ci / "toolchain-demo-x86_64.json", requires=[],
+                                     archive=self.ci / "toolchain-demo-x86_64.tar.xz")
+        old = os.environ.get("XDG_DATA_HOME")
+        try:
+            report = smoke.run_smoke(opts, run)
+        finally:
+            os.environ.pop("XDG_DATA_HOME", None) if old is None else os.environ.update(XDG_DATA_HOME=old)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(seen[0][:2], ["podman", "build"])
+        self.assertIn(smoke.SMOKE_IMAGE, seen[0])
+        self.assertIn(smoke.SMOKE_IMAGE, seen[-1])
+        self.assertIn("openssl", smoke.CONTAINERFILE)
+        self.assertTrue(smoke.CONTAINERFILE.startswith(f"FROM {smoke.IMAGE}\n"))
+
+        def failing(command, **options):
+            return types.SimpleNamespace(returncode=125, stdout="", stderr="no network\n")
+        try:
+            report = smoke.run_smoke(opts, failing)
+        finally:
+            os.environ.pop("XDG_DATA_HOME", None) if old is None else os.environ.update(XDG_DATA_HOME=old)
+        self.assertFalse(report["ok"])
+        self.assertIn("podman build failed (125): no network", report["checks"][-1]["output"])
 
 
 if __name__ == "__main__":

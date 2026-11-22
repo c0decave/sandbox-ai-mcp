@@ -60,6 +60,8 @@ RUN printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"prot
  && rm /tmp/initialize.json
 ENV HOME=/tmp \
     PATH=/opt/radare2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /work
 # -s /work : open_file only accepts files under /work (the folder the user mounts), no URI (patch 0001)

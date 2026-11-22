@@ -52,6 +52,8 @@ COPY --from=build /opt/rea /opt/rea
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-rea/
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp
 ENV HOME=/tmp PATH=/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/usr/bin/tini", "--", "node", "/opt/rea/scripts/rea.mjs", "mcp"]

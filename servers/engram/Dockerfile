@@ -67,6 +67,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # No git in the image and PATH without a writable folder: Engram's project detection finds no git to run.
 # SQLITE_TMPDIR: SQLite's temporary files in the tmpfs, never in the working directory.
 ENV HOME=/tmp PATH=/usr/local/bin:/usr/bin:/bin GOMAXPROCS=2 SQLITE_TMPDIR=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 ENTRYPOINT ["/usr/local/bin/engram-mcp"]

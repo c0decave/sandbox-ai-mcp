@@ -62,6 +62,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # --env by sandbox-ai; without them only browse_subreddit (RSS) and reddit_explain work.
 # REDDIT_USERNAME/REDDIT_PASSWORD (a full-scope password grant) are not passed.
 ENV HOME=/tmp
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # dist/index.js, not dist/cli.js: no CLI flags (--auth, --http), stdio unless

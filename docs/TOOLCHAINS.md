@@ -8,10 +8,10 @@ them, tests them and publishes `toolchains.json`, signed with the key that signs
 | toolchain | what | from | needs of the system |
 |---|---|---|---|
 | `go` | Go 1.27.3 | dl.google.com (`.sha256`) | nothing but the kernel |
-| `python` | CPython 3.14.10 with pip, uv 0.13.7 | python-build-standalone 20261026, astral-sh/uv (GitHub, `SHA256SUMS`) | glibc 2.17 |
+| `python` | CPython 3.14.10 with pip, uv 0.13.7 | python-build-standalone 20261026, astral-sh/uv (GitHub, `SHA256SUMS`) | glibc 2.17 (aarch64: also libgcc_s) |
 | `jdk` | Temurin 21.0.13+9, Maven 3.9.16, Gradle 9.9.0, Kotlin 2.4.21 | adoptium (GitHub), Maven Central, gradle-distributions, JetBrains/kotlin | glibc 2.17 |
 | `zig` | Zig 0.17.1 | the Zig project's wheel on PyPI | nothing but the kernel |
-| `cc` | cc, c++, gcc, g++, clang as `zig cc`; CMake 4.4.4, Ninja 1.13.2 | Kitware, ninja-build (GitHub); requires `zig` | glibc 2.17, libstdc++, libgcc_s (Ninja) |
+| `cc` | cc, c++, gcc, g++, clang as `zig cc`; CMake 4.4.4, Ninja 1.13.2 | Kitware, ninja-build (GitHub); requires `zig` | glibc 2.17 (aarch64: 2.28, CMake), libstdc++, libgcc_s (Ninja) |
 | `node` | Node.js 26.13.0 with npm, TypeScript 6.0.3 | nodejs.org (`SHASUMS256.txt`, signed), npm | glibc 2.28, libstdc++, libgcc_s, libatomic |
 | `dotnet` | .NET SDK 10.0.403 | builds.dotnet.microsoft.com (SHA-512 of dotnet/core) | glibc 2.27, libstdc++, libgcc_s, libssl 3 |
 | `rust` | Rust 1.99.1: rustc, cargo, rustfmt, clippy | static.rust-lang.org (OpenPGP signature); requires `cc` | glibc 2.17, libgcc_s |
@@ -32,7 +32,8 @@ verified it against pinned keys), `unpack` (tar or zip, without trusting it), `w
 days is refused. The manifest keys (`commands`, `env`, `caches`, `hosts`, `allow`, `needs`, `requires`) are what
 sandbox-ai reads; `needs` is a claim the build checks against every ELF file of the tree (its `NEEDED` libraries
 must be in the tree, glibc's own or named; its `GLIBC_x.y` versions not above the floor), files matching `optional`
-(a JDK's desktop libraries, test data) aside. `smoke` compiles and runs a hello world.
+(a JDK's desktop libraries, test data) aside. `needs.glibc` and `needs.libraries` may each be a map by
+architecture (`{"x86_64": "2.17", "aarch64": "2.28"}`): upstream often builds aarch64 on a newer system. `smoke` compiles and runs a hello world.
 
 ```bash
 python3 scripts/toolchain.py check                        # every recipe: keys, pins, release dates (no download)
@@ -44,8 +45,10 @@ python3 scripts/toolchain_smoke.py --sandbox-ai ../sandbox-ai --runner sandbox-a
 ## What the CI run produces
 
 `.github/workflows/toolchains.yml`, per toolchain and architecture (x86_64, aarch64 on its own runner): the build;
-the smoke test under Podman (the image sandbox-ai's agent images are built on) and under Bubblewrap, both through
-sandbox-ai's own store, plan, session folder and mounts (`SANDBOX_AI_REF`), without network; on `main` the archive
+the smoke test under Podman (the image sandbox-ai's agent images are built on, with the `openssl` they add: .NET
+loads libssl at run time) and under Bubblewrap, both through sandbox-ai's own store, plan, session folder and
+mounts (`SANDBOX_AI_REF`), without network, HOME a writable `/root` as in every sandbox (Java takes root's home
+from passwd, not from `$HOME`: Gradle's `~/.gradle`); on `main` the archive
 as the release `toolchain-NAME-ARCH-<first 12 hex digits of its SHA-256>`; the artifact `tc-NAME-ARCH` (the entry,
 both reports). The `catalog` job makes `toolchains.json` of the toolchains whose two reports passed for exactly
 their archive (and whose required toolchains passed too); every other is named in a warning and left out. The

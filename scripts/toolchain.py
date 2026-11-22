@@ -32,7 +32,8 @@ In every text of a step "{prefix}" is /opt/toolchains/NAME, "{arch}" the archite
 
 Then the checks. Every command of the manifest is a file of the tree. Every ELF program and library of this
 architecture is read: its NEEDED libraries must be in the tree, glibc's own, or named in "needs.libraries"; the
-newest GLIBC_x.y version it asks for must not be above "needs.glibc" (null: none at all). Files matching "optional"
+newest GLIBC_x.y version it asks for must not be above "needs.glibc" (null: none at all). Both may be a map by
+architecture (upstream builds aarch64 on a newer system than x86_64): the entry of each holds its own. Files matching "optional"
 (GUI parts, test data) are measured but only noted. A release younger than 14 days on DATE is refused.
 
 `check` validates every toolchain.json without downloading: the keys, the pins of each architecture, the release
@@ -120,6 +121,23 @@ def substituted(text: str, recipe: dict, arch: str) -> str:
     return re.sub(r"\{([a-z][a-z0-9_]*)\}", replace, text)
 
 
+def needs_of(recipe: dict, arch: str) -> dict:
+    """RECIPE's "needs" for ARCH: {"glibc": "X.Y" or None, "libraries": [names]}; either may be a map by
+    architecture."""
+    needs = recipe.get("needs")
+    if needs is None:
+        return {"glibc": None, "libraries": []}
+    if not isinstance(needs, dict) or set(needs) - {"glibc", "libraries"}:
+        raise Refused("needs is {glibc, libraries}")
+    floor = for_arch(needs.get("glibc"), arch, "needs.glibc")
+    libraries = for_arch(needs.get("libraries", []), arch, "needs.libraries")
+    if floor is not None and glibc_tuple(floor) is None:
+        raise Refused(f"needs.glibc for {arch} must be a version such as 2.28 or null")
+    if not isinstance(libraries, list) or not all(isinstance(value, str) and value for value in libraries):
+        raise Refused(f"needs.libraries for {arch} must be a list of library names")
+    return {"glibc": floor, "libraries": list(libraries)}
+
+
 def problems_of(recipe: dict, today: datetime.date) -> list[str]:
     """What is wrong with a toolchain.json, without a download: keys, pins of each architecture, release dates."""
     found, name = [], recipe.get("name")
@@ -130,6 +148,11 @@ def problems_of(recipe: dict, today: datetime.date) -> list[str]:
     if not isinstance(arches, list) or not arches or set(arches) - set(ARCHES):
         found.append(f"arches must be a list of {', '.join(ARCHES)}")
         arches = []
+    for arch in arches:
+        try:
+            needs_of(recipe, arch)
+        except Refused as exc:
+            found.append(str(exc))
     if not isinstance(recipe.get("commands"), dict) or not recipe["commands"]:
         found.append("commands must map command names to files below the prefix")
     steps = recipe.get("build")
@@ -242,16 +265,26 @@ def listed_hash(listing: Path, name: str) -> str:
 
 
 def gpg_fingerprints(key_file: Path, run=subprocess.run) -> list[str]:
-    result = run(["gpg", "--batch", "--no-options", "--show-keys", "--with-colons", str(key_file)],
-                 capture_output=True, text=True)
+    """The primary fingerprints of the keys KEY_FILE holds; Refused, with what gpg said, when it lists none. In a
+    home of its own, as gpg_verify: never the user's keyring, and no first start of a home (gpg 2.4 makes a new
+    ~/.gnupg use keyboxd; CI run 45032125924 listed no key of the Rust release key file there)."""
+    with tempfile.TemporaryDirectory() as home:
+        os.chmod(home, 0o700)
+        result = run(["gpg", "--batch", "--no-options", "--homedir", home, "--show-keys", "--with-colons",
+                      str(key_file)], capture_output=True, text=True)
     primary, found = False, []
     for line in result.stdout.splitlines():
         fields = line.split(":")
         if fields[0] == "pub":
             primary = True
-        elif fields[0] == "fpr" and primary:
+        elif fields[0] == "fpr" and primary and len(fields) > 9:
             found.append(fields[9])
             primary = False
+    if not found:
+        said = " | ".join(line.strip() for line in (result.stderr or "").splitlines()[-4:] if line.strip())
+        raise Refused(f"{key_file.name}: gpg lists no key in it (exit {result.returncode}"
+                      f"{': ' + said[:300] if said else ''}; {key_file.stat().st_size} bytes, "
+                      f"begins {key_file.read_bytes()[:40]!r})")
     return found
 
 
@@ -613,9 +646,9 @@ def measured(tree: Path, arch: str, optional=()) -> dict:
     return result
 
 
-def needs_problems(recipe: dict, found: dict) -> list[str]:
-    """Where the tree needs more than its manifest says (needs: glibc floor, libraries)."""
-    needs = recipe.get("needs") or {}
+def needs_problems(recipe: dict, found: dict, arch: str) -> list[str]:
+    """Where the tree of ARCH needs more than its manifest says (needs: glibc floor, libraries)."""
+    needs = needs_of(recipe, arch)
     problems = []
     floor, have = glibc_tuple(needs.get("glibc")), glibc_tuple(found["glibc"])
     if have and (floor is None or have > floor):
@@ -667,7 +700,7 @@ def manifest(recipe: dict, arch: str) -> dict:
     entry = {key: recipe[key] for key in MANIFEST_KEYS if key in recipe}
     entry["arch"] = arch
     # (env keeps its "{prefix}": sandbox-ai puts the mount point in)
-    entry.setdefault("needs", {"glibc": None, "libraries": []})
+    entry["needs"] = needs_of(recipe, arch)
     return entry
 
 
@@ -692,7 +725,7 @@ def build(name: str, arch: str, out: Path, downloads: Path | None = None, today:
     if not_runnable:
         raise Refused(f"{name}: {not_runnable[0]} is not executable")
     found = measured(tree, arch, recipe.get("optional") or [])
-    problems = needs_problems(recipe, found)
+    problems = needs_problems(recipe, found, arch)
     if problems:
         raise Refused(f"{name}: " + "; ".join(problems))
     archive = out / f"toolchain-{name}-{arch}.tar.xz"

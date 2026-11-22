@@ -55,6 +55,8 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
  && mkdir -m 0755 /work /ref1 /ref2 /ref3 \
  && /usr/local/bin/node --version
 ENV HOME=/tmp NODE_ENV=production
+# The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
+RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # --disallow-code-generation-from-strings: no eval/new Function at all (zod then validates without its JIT).
