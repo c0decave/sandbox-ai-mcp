@@ -224,6 +224,7 @@ class WithFakeGoogle(unittest.TestCase):
             self.sleeps.append(seconds)
 
         for name, value in (("_transport", self.google.transport()), ("UPLOAD_ROOT", str(self.root)),
+                            ("MOUNT_REQUIRED", False),
                             ("AUTH", m.Auth()), ("_upload_running", asyncio.Lock()), ("_sleep", no_sleep),
                             ("CHUNK", 256 << 10)):
             patcher = mock.patch.object(m, name, value)
@@ -701,6 +702,23 @@ class Paths(WithFakeGoogle):
             with self.assertRaises(self.module.ArgumentError) as caught:
                 self.module._open_upload(["null"], "path", 1 << 20)
         self.assertIn("a device, pipe or socket", str(caught.exception))
+
+    def test_the_images_own_empty_folder_is_no_mount(self):
+        """Catalog CI 45011158325: the image makes /upload (Bubblewrap mounts only onto a folder that is there), so a
+        folder being there no longer says that the user mounted one: the kernel's mount table does."""
+        import tempfile
+        m = self.module
+        with mock.patch.object(m, "MOUNT_REQUIRED", True), mock.patch.object(m, "is_mount_point", lambda path: False):
+            with self.assertRaises(m.ArgumentError) as caught:
+                m._open_upload(["a.png"], "path", 1 << 20)
+        self.assertIn("no folder is mounted at", str(caught.exception))
+        with tempfile.NamedTemporaryFile("w", delete=False) as table:
+            table.write(f"1 0 8:1 / / ro - ext4 /dev/sda1 ro\n2 1 8:1 /x {self.root} ro - ext4 /dev/sda1 ro\n")
+        try:
+            self.assertTrue(m.is_mount_point(str(self.root), table.name))
+            self.assertFalse(m.is_mount_point(str(self.root / "sub"), table.name))
+        finally:
+            os.unlink(table.name)
 
     def test_no_folder_mounted(self):
         with mock.patch.object(self.module, "UPLOAD_ROOT", str(self.root / "nothing")):

@@ -17,6 +17,7 @@ from pathlib import Path
 import shutil
 import stat
 import sys
+import subprocess
 import tempfile
 import textwrap
 import unittest
@@ -159,11 +160,25 @@ class Base(unittest.TestCase):
         return path
 
     def use_fakes(self) -> None:
-        """Every tool replaced by the stand-in (one script, it sees its own arguments)."""
+        """Every tool replaced by the stand-in (one script, it sees its own arguments). A stand-in is started by this
+        Python (`python -I SCRIPT ARGS`, as test_jadx's are): inside the image CI's /tmp is noexec, where a script of
+        its own cannot be executed ("Permission denied") - the command line the server builds stays as it is."""
+        fakes = set()
         for name in ("JAVA", "KEYTOOL", "ZIPALIGN"):
-            patcher = mock.patch.object(self.m, name, self.fake(name.lower()))
+            path = self.fake(name.lower())
+            fakes.add(path)
+            patcher = mock.patch.object(self.m, name, path)
             patcher.start()
             self.addCleanup(patcher.stop)
+        real = subprocess.Popen
+
+        def popen(args, *more, **options):
+            if isinstance(args, (list, tuple)) and args and args[0] in fakes:
+                args = [sys.executable, "-I", *args]
+            return real(args, *more, **options)
+        patcher = mock.patch.object(self.m.subprocess, "Popen", popen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def recorded(self, text: str) -> dict:
         """What the stand-in printed (the last JSON line)."""

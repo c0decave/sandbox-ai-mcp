@@ -47,6 +47,7 @@ UPLOAD_API = "https://www.googleapis.com/upload/youtube/v3/"
 #: The only hosts a request goes to (checked before each one, the upload session's address included).
 HOSTS = frozenset({"oauth2.googleapis.com", "www.googleapis.com"})
 UPLOAD_ROOT = "/upload"
+MOUNT_REQUIRED = True  # /upload must be a folder the user mounted (tests: a folder of their own)
 
 SCOPE = "https://www.googleapis.com/auth/"
 UPLOAD = SCOPE + "youtube.upload"
@@ -371,6 +372,25 @@ def max_upload() -> int:
 
 # --- files: only below /upload -----------------------------------------------------------------------------------
 
+
+def is_mount_point(path: str, mountinfo: str = "/proc/self/mountinfo") -> bool:
+    """Whether a folder is mounted at PATH: the kernel's mount table names it. The image makes the folder (Bubblewrap
+    mounts only onto one that is there), so its being there says nothing; os.path.ismount misses a folder bound from
+    the same file system. Without a readable table, os.path.ismount all the same."""
+    wanted = os.path.normpath(path)
+    try:
+        with open(mountinfo, encoding="utf-8", errors="replace") as table:
+            for line in table:
+                fields = line.split(" ")
+                if len(fields) < 5:
+                    continue
+                point = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[4])
+                if point == wanted:
+                    return True
+    except OSError:
+        return os.path.ismount(path)
+    return os.path.ismount(path)
+
 def _upload_parts(value, name: str, types: dict) -> list[str]:
     """The path's parts below /upload, checked without touching the file system."""
     root = UPLOAD_ROOT.rstrip("/")
@@ -403,6 +423,10 @@ def _open_upload(parts: list[str], name: str, limit: int) -> tuple[int, int]:
     except OSError:
         raise ArgumentError(f"{name}: no folder is mounted at {root} (the user adds it with "
                             f"--mount {root}=DIR:ro; a link there is not followed)") from None
+    if MOUNT_REQUIRED and not is_mount_point(root):  # the image's own empty folder: nothing the user mounted
+        os.close(folder)
+        raise ArgumentError(f"{name}: no folder is mounted at {root} (the user adds it with "
+                            f"--mount {root}=DIR:ro; a link there is not followed)")
     try:
         for part in parts[:-1]:
             try:
