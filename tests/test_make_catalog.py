@@ -238,6 +238,19 @@ class MakeCatalogTest(unittest.TestCase):
                 self.assertEqual(code, 1, text)
                 self.assertIn('pid1 must be "server"', text)
 
+    def test_tmp_exec_is_true_or_left_out(self):
+        """smali's /tmp may run programs ("tmp_exec": true, sandbox/mcp.py: Podman mounts its /tmp without noexec);
+        it is the only server that asks, and any other value is refused here as sandbox-ai would refuse it."""
+        self.assertIs(self.hub.server("smali")["tmp_exec"], True)
+        self.assertEqual([name for name in self.hub.names if "tmp_exec" in self.hub.server(name)], ["smali"])
+        data = self.hub.server("smali")
+        for value in (False, "true", 1, None):
+            with self.subTest(tmp_exec=value):
+                self.hub.set_server("smali", {**data, "tmp_exec": value})
+                code, text = self.hub.run()
+                self.assertEqual(code, 1, text)
+                self.assertIn("tmp_exec must be true", text)
+
     # -- edge cases --------------------------------------------------------------------
 
     def test_upper_case_and_short_digests_are_refused(self):

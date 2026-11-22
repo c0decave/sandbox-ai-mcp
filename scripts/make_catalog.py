@@ -91,7 +91,7 @@ _HOST = re.compile(r"^[A-Za-z0-9.-]{1,253}:[0-9]{1,5}$")
 
 ENTRY_KEYS = ("id", "name", "title", "description", "category", "tags", "repository", "page",
               "license", "kind", "image", "tag", "digest", "args", "env", "mounts", "network",
-              "hosts", "notes", "pid1", "tor")
+              "hosts", "notes", "pid1", "tmp_exec", "tor")
 REQUIRED_KEYS = ("id", "name", "title", "description", "category", "repository", "license",
                  "kind", "image", "tag", "network")
 #: Keys of a mount and of an environment variable. sandbox-ai reads "target" and "required" of a
@@ -101,7 +101,8 @@ MOUNT_KEYS = ("target", "description", "required")
 ENV_KEYS = ("name", "description", "secret", "required")
 #: sandbox-ai's own keys of an entry (axross reads the keys it knows and leaves the others): "pid1" (sandbox/mcp.py
 #: checked_pid1: "server", the server runs as PID 1 of its container - Podman without --init, bwrap --as-pid-1) and
-#: "tor" (sandbox/mcp.py tor_support: how the server fares behind a Tor profile, {"support": "yes" | "limited" |
+#: "tmp_exec" (true: the server's /tmp may run programs - sandbox-ai's Podman run line mounts it without noexec;
+#: smali's apktool needs it for aapt2) and "tor" (sandbox/mcp.py tor_support: how the server fares behind a Tor profile, {"support": "yes" | "limited" |
 #: "no", "note": TEXT}; "limited" is said when the server is added and when it starts, "no" refuses it behind Tor
 #: with the note as the reason). Every server.json names "tor"; sandbox-ai cuts a note at 600 characters.
 PID1_VALUES = ("server",)
@@ -222,6 +223,9 @@ def validate_entry(entry, *, where: str = "entry") -> None:
     if "pid1" in entry and (not isinstance(entry["pid1"], str) or entry["pid1"] not in PID1_VALUES):
         raise CatalogProblem(f'{where}: pid1 must be "server" (the server runs as PID 1 of its container and '
                              f"reaps its children) or left out, not {entry['pid1']!r}")
+    if "tmp_exec" in entry and entry["tmp_exec"] is not True:
+        raise CatalogProblem(f"{where}: tmp_exec must be true (the server's /tmp may run programs: sandbox-ai mounts it "
+                             f"without noexec) or left out, not {entry['tmp_exec']!r}")
     if "tor" in entry:
         _tor(entry, where)
 
@@ -534,6 +538,9 @@ def sandbox_ai_check(catalog_path: Path, catalog: dict, rootfs: dict, sandbox_ai
             if hasattr(mcp, "server_is_pid1") and definition.get("pid1") != entry.get("pid1"):
                 problems.append(f"sandbox-ai read the pid1 of {name} as {definition.get('pid1')!r}, not "
                                 f"{entry.get('pid1')!r}")
+            if "tmp_exec" in getattr(mcp, "IMAGE_KEYS", ()) and definition.get("tmp_exec") != entry.get("tmp_exec"):
+                problems.append(f"sandbox-ai read the tmp_exec of {name} as {definition.get('tmp_exec')!r}, not "
+                                f"{entry.get('tmp_exec')!r}")
             if entry["network"] == "none" and definition["network"] != "none":
                 problems.append(f"{name}: the catalog says network none, sandbox-ai would give it "
                                 f"{definition['network']}")

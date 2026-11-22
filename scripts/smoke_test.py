@@ -170,6 +170,23 @@ def upstream_limits(spec: dict) -> None:
             raise ValueError(f"{call.get('tool')}: a call with expect_error cannot be upstream_limited")
 
 
+RUNNERS = ("axross", "sandbox-ai-podman", "sandbox-ai-bwrap")
+
+
+def call_runners(spec: dict) -> None:
+    """ValueError unless every call's ``runners`` (the runners that make it; the others skip it, saying
+    ``runners_why``) is a non-empty list of known runners with a reason - for a call that needs what only some run
+    lines give (smali's apktool_build: a /tmp that runs programs, "tmp_exec", which axross's run line has not)."""
+    for call in spec.get("calls", []):
+        runners = call.get("runners")
+        if runners is None:
+            continue
+        if not isinstance(runners, list) or not runners or not all(r in RUNNERS for r in runners):
+            raise ValueError(f"{call.get('tool')}: runners must be a list of {', '.join(RUNNERS)}")
+        if not isinstance(call.get("runners_why"), str) or not call["runners_why"].strip():
+            raise ValueError(f"{call.get('tool')}: a call with runners says why (runners_why)")
+
+
 def size_mib(text: str) -> int:
     return int(text[:-1]) * (1024 if text.endswith("g") else 1)
 
@@ -310,7 +327,8 @@ def annotation(report: dict) -> str:
 
 def server_options(spec_path: str) -> dict:
     """What of the catalog entry (servers/NAME/server.json beside the spec) sandbox-ai's run line takes besides the
-    limits: ``{"pid1": "server"}`` for a server that runs as PID 1 of its container (exec), else ``{}`` (also
+    limits: ``{"pid1": "server"}`` for a server that runs as PID 1 of its container (exec), ``{"tmp_exec": true}`` for
+    one whose /tmp may run programs (smali), else ``{}`` (also
     without a server.json beside the spec). The sandbox-ai runners put it into the definition, as ``mcp add`` does
     from the entry; axross has no such field and always starts its init."""
     path = os.path.join(os.path.dirname(os.path.abspath(spec_path)), "server.json")
@@ -318,11 +336,16 @@ def server_options(spec_path: str) -> dict:
         return {}
     with open(path, encoding="utf-8") as handle:
         entry = json.load(handle)
-    if "pid1" not in entry:
-        return {}
-    if entry["pid1"] != "server":
-        raise ValueError(f'{path}: pid1 must be "server" or left out, not {entry["pid1"]!r}')
-    return {"pid1": "server"}
+    options = {}
+    if "pid1" in entry:
+        if entry["pid1"] != "server":
+            raise ValueError(f'{path}: pid1 must be "server" or left out, not {entry["pid1"]!r}')
+        options["pid1"] = "server"
+    if "tmp_exec" in entry:  # its /tmp may run programs (smali's apktool and aapt2), as mcp add takes it
+        if entry["tmp_exec"] is not True:
+            raise ValueError(f"{path}: tmp_exec must be true or left out, not {entry['tmp_exec']!r}")
+        options["tmp_exec"] = True
+    return options
 
 
 def image_command(mcp, definition, name="smoke"):
@@ -453,7 +476,7 @@ def main(argv=None) -> int:
     parser.add_argument("--list-only", action="store_true",
                         help="initialize and tools/list only (no calls, no folders)")
     parser.add_argument("--print-argv", action="store_true")
-    parser.add_argument("--runner", choices=["axross", "sandbox-ai-podman", "sandbox-ai-bwrap"], default="axross",
+    parser.add_argument("--runner", choices=list(RUNNERS), default="axross",
                         help="whose run line starts the server (default: axross's)")
     parser.add_argument("--sandbox-ai", help="a sandbox-ai checkout, for the sandbox-ai runners")
     parser.add_argument("--rootfs", help="the rootfs archive (sandbox-ai-bwrap)")
@@ -474,6 +497,7 @@ def main(argv=None) -> int:
     with open(opts.spec, encoding="utf-8") as handle:
         spec = json.load(handle)
     upstream_limits(spec)
+    call_runners(spec)
     resources = limits(spec)
     name = spec["name"]
     network = spec.get("network", "none")
@@ -539,6 +563,11 @@ def main(argv=None) -> int:
         if opts.tools_file:
             ok &= check_tools_file(report, names, opts.tools_file)
         for call in [] if opts.list_only else spec.get("calls", []):
+            if call.get("runners") and opts.runner not in call["runners"]:
+                why = f"not for runner {opts.runner}: {call['runners_why']}"
+                report["checks"].append({"check": f"tools/call {call['tool']}", "ok": True, "skipped": why})
+                report["skipped"].append(f"tools/call {call['tool']}")
+                continue
             arguments = substitute(call.get("arguments", {}), variables)
             expect = substitute(call.get("expect", ""), variables)
             markers = call.get("upstream_limited") or []

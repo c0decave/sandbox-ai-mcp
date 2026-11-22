@@ -102,7 +102,12 @@
         "out_name": "rebuilt.apk"
       },
       "expect": "unsigned",
-      "timeout": 300
+      "timeout": 300,
+      "runners": [
+        "sandbox-ai-podman",
+        "sandbox-ai-bwrap"
+      ],
+      "runners_why": "apktool runs its aapt2 from /tmp, which only sandbox-ai's run lines let run programs (the entry's tmp_exec); axross's run line mounts /tmp noexec"
     },
     {
       "tool": "sign_apk",
@@ -111,7 +116,12 @@
         "out_name": "signed.apk"
       },
       "expect": "throwaway",
-      "timeout": 180
+      "timeout": 180,
+      "runners": [
+        "sandbox-ai-podman",
+        "sandbox-ai-bwrap"
+      ],
+      "runners_why": "apktool runs its aapt2 from /tmp, which only sandbox-ai's run lines let run programs (the entry's tmp_exec); axross's run line mounts /tmp noexec"
     },
     {
       "tool": "get_smali",

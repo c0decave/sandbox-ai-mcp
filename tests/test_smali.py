@@ -164,6 +164,12 @@ class Base(unittest.TestCase):
         Python (`python -I SCRIPT ARGS`, as test_jadx's are): inside the image CI's /tmp is noexec, where a script of
         its own cannot be executed ("Permission denied") - the command line the server builds stays as it is."""
         fakes = set()
+        aapt2 = os.path.join(self.folder, "aapt2")  # (the image's /opt/apktool/aapt2 stands in: copied per build)
+        with open(aapt2, "wb") as handle:
+            handle.write(b"\x7fELF stand-in")
+        patcher = mock.patch.object(self.m, "APKTOOL_AAPT2", aapt2)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         for name in ("JAVA", "KEYTOOL", "ZIPALIGN"):
             path = self.fake(name.lower())
             fakes.add(path)
@@ -373,7 +379,11 @@ class CommandLines(Base):
         self.assertIn("**unsigned**", text)
         self.assertIn("sign_apk", text)
         arguments = self.last["arguments"]
-        self.assertEqual(arguments[arguments.index("--aapt") + 1], self.m.APKTOOL_AAPT2)
+        # its own copy of the image's aapt2 in the call's scratch folder: apktool chmods the aapt2 it is given, which
+        # the read-only image refuses (CI 45014379428: "Could not set aapt binary as executable")
+        aapt = arguments[arguments.index("--aapt") + 1]
+        self.assertTrue(aapt.startswith(self.scratch) and aapt.endswith("/bin/aapt2"), aapt)
+        self.assertEqual(os.listdir(self.scratch), [], "the copy goes with the scratch folder")
         self.assertEqual(arguments[arguments.index("--frame-path") + 1], self.m.APKTOOL_FRAMEWORK)
         self.assertTrue(arguments[-1].startswith(self.out), arguments[-1])  # the folder itself: aapt2 is a child
 

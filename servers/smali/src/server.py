@@ -452,6 +452,22 @@ def dex_entries(fd: int, display: str) -> list[str]:
 
 # --- children (the JVM, zipalign) ------------------------------------------------------------------------------------
 
+def own_aapt2(scratch) -> str:
+    """A copy of the image's aapt2 in the call's scratch folder, this server's own file, for apktool's --aapt.
+    apktool chmods the aapt2 it is given before every run (Java's setExecutable: a chmod even when nothing changes),
+    which the read-only image refuses even to its owner ("Could not set aapt binary as executable"); the copy is on
+    /tmp, which this server's catalog entry lets run programs ("tmp_exec": true). Removed with the scratch folder."""
+    path = os.path.join(scratch.folder("bin"), "aapt2")
+    source = os.open(APKTOOL_AAPT2, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        target = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW, 0o700)
+        with os.fdopen(source, "rb", closefd=False) as reading, os.fdopen(target, "wb") as writing:
+            shutil.copyfileobj(reading, writing)
+    finally:
+        os.close(source)
+    return path
+
+
 def heap_mb() -> int:
     """A tool's heap: 70 % of the container's memory limit (minus room for this process), else DEFAULT_HEAP_MB."""
     try:
@@ -1136,7 +1152,7 @@ def apktool_build(folder: str, out_name: str, debuggable: bool = False, network_
             subject = real_path(dir_fd, display, real)
             output = os.path.join(scratch.folder("out"), "built.apk")
             printed = run(jvm_command(scratch.path, APKTOOL_JAR,
-                                      ["build", "--aapt", APKTOOL_AAPT2, "--frame-path", APKTOOL_FRAMEWORK,
+                                      ["build", "--aapt", own_aapt2(scratch), "--frame-path", APKTOOL_FRAMEWORK,
                                        "--jobs", "1", "--force", "--output", output] + flags + [subject]),
                           scratch, APKTOOL_SECONDS, keep_fds=(dir_fd,), what="apktool")
             if not os.path.isfile(output) or not os.path.getsize(output):

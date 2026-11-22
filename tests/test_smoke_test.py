@@ -132,6 +132,17 @@ class SmokeTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             smoke.server_options(str(bad / "smoke.json"))
 
+    def test_the_sandbox_ai_runners_take_tmp_exec_from_the_server_json_beside_the_spec(self):
+        """smali's /tmp may run programs ("tmp_exec": true, for apktool's aapt2): its smoke runs with sandbox-ai's
+        Podman run line must mount /tmp so, as mcp add takes it from the entry; anything but true is refused."""
+        self.assertEqual(smoke.server_options(str(ROOT / "servers/smali/smoke.json")), {"tmp_exec": True})
+        self.assertNotIn("tmp_exec", smoke.server_options(str(ROOT / "servers/exec/smoke.json")))
+        bad = self.tmp / "bad-tmp"
+        bad.mkdir()
+        (bad / "server.json").write_text(json.dumps({"tmp_exec": "yes"}))
+        with self.assertRaises(ValueError):
+            smoke.server_options(str(bad / "smoke.json"))
+
     def test_a_spec_raises_the_limits_of_the_run_line(self):
         argv = smoke.run_command("x", "image", memory="2g", pids=512)
         self.assertIn("--memory=2g", argv)
@@ -217,6 +228,35 @@ class SmokeTest(unittest.TestCase):
         spec.write_text(json.dumps(data))
         with self.assertRaises(ValueError):
             self.run_smoke(spec)
+
+    def test_a_call_for_some_runners_is_skipped_by_the_others_saying_why(self):
+        """smali's apktool_build needs a /tmp that runs programs, which only sandbox-ai's run lines give (its entry's
+        tmp_exec): under the axross runner it is skipped with its reason, never failed and never silently dropped."""
+        spec = self.spec()
+        data = json.loads(spec.read_text())
+        data["calls"][0]["runners"] = ["sandbox-ai-podman", "sandbox-ai-bwrap"]
+        data["calls"][0]["runners_why"] = "needs tmp_exec"
+        spec.write_text(json.dumps(data))
+        status, report = self.run_smoke(spec)
+        self.assertEqual(status, 0, report)
+        first = report["checks"][1]  # (after tools/list)
+        self.assertEqual(first["skipped"], "not for runner axross: needs tmp_exec")
+        self.assertIn(first["check"], report["skipped"])
+        self.assertNotIn("arguments", first, "it was not called")
+        for bad, why in ((["podman"], None), ([], "x"), (["sandbox-ai-bwrap"], None), ("axross", "x")):
+            with self.subTest(runners=bad, why=why):
+                data["calls"][0]["runners"] = bad
+                data["calls"][0]["runners_why"] = why
+                spec.write_text(json.dumps(data))
+                with self.assertRaises(ValueError):
+                    self.run_smoke(spec)
+
+    def test_smalis_build_and_signing_run_only_with_sandbox_ais_run_lines(self):
+        spec = json.loads((ROOT / "servers/smali/smoke.json").read_text())
+        limited = [(c["tool"], c["runners"]) for c in spec["calls"] if "runners" in c]
+        self.assertEqual(limited, [("apktool_build", ["sandbox-ai-podman", "sandbox-ai-bwrap"]),
+                                   ("sign_apk", ["sandbox-ai-podman", "sandbox-ai-bwrap"])])
+        smoke.call_runners(spec)
 
     def test_annotations_on_github_actions(self):
         import contextlib

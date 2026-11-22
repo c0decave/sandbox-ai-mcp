@@ -159,7 +159,11 @@ jobs:
           if ! grep -q "^    def ${test}(" tests/test_own_servers.py; then
             echo "tests/test_own_servers.py has no ${test}"; exit 0
           fi
-          docker run --rm --network=none --read-only --tmpfs=/tmp:rw,nosuid,nodev,noexec,size=64m \
+          # /tmp as sandbox-ai mounts it for this server: noexec, unless its catalog entry says "tmp_exec": true
+          exec_flag=noexec
+          if python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("tmp_exec") is True else 1)' \
+               "servers/${SERVER}/server.json"; then exec_flag=exec; fi
+          docker run --rm --network=none --read-only --tmpfs=/tmp:rw,nosuid,nodev,${exec_flag},size=64m \
             --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=128 --memory=512m \
             -e PYTHONDONTWRITEBYTECODE=1 -v "${GITHUB_WORKSPACE}:/repo:ro" -w /repo \
             --entrypoint /opt/venv/bin/python "local/sandbox-ai-mcp-${SERVER}:ci" \
