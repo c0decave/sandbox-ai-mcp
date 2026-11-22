@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import contextlib
 import json
 import os
 import shutil
@@ -87,8 +88,9 @@ def run_smoke(opts, run=subprocess.run) -> dict:
     entry = meta["entry"]
     report = {"name": entry["name"], "version": entry["version"], "arch": entry["arch"], "runner": opts.runner,
               "sha256": entry["sha256"], "ok": False, "checks": []}
-    with tempfile.TemporaryDirectory(prefix="toolchain-smoke-") as tmp:
-        tmp = Path(tmp)
+    holder = tempfile.TemporaryDirectory(prefix="toolchain-smoke-")
+    try:
+        tmp = Path(holder.name)
         os.environ["XDG_DATA_HOME"] = str(tmp / "data")
         try:
             # A catalog of this run: the entries with their archives as local files (the SHA-256 still decides).
@@ -129,11 +131,29 @@ def run_smoke(opts, run=subprocess.run) -> dict:
             report["checks"].append({"check": "mounted as sandbox-ai mounts it", "ok": False, "output": str(exc)})
             print(f"FAILED: {exc}", flush=True)
         finally:
-            for directory, dirs, _ in os.walk(tmp):  # the store's trees are read-only
-                for name in dirs:
-                    if not os.path.islink(os.path.join(directory, name)):
-                        os.chmod(os.path.join(directory, name), 0o700)
+            cleanup(tmp)
+    finally:
+        with contextlib.suppress(OSError):
+            holder.cleanup()
     return report
+
+
+def cleanup(tmp: Path) -> None:
+    """TMP made removable: rootless Podman's storage below it (XDG_DATA_HOME) holds files of the user's sub-uids,
+    which only `podman unshare` (inside Podman's user namespace) can remove - CI run 45029881003 lost every report to
+    "Operation not permitted" here; then the store's read-only trees made writable. Never raises: the report is
+    what counts, a leftover is the runner's to throw away."""
+    storage = tmp / "data" / "containers"
+    if storage.exists() and shutil.which("podman"):
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            subprocess.run(["podman", "unshare", "rm", "-rf", str(storage)], stdin=subprocess.DEVNULL,
+                           capture_output=True, timeout=300)
+    for directory, dirs, _ in os.walk(tmp):  # the store's trees are read-only
+        for name in dirs:
+            path = os.path.join(directory, name)
+            if not os.path.islink(path):
+                with contextlib.suppress(OSError):
+                    os.chmod(path, 0o700)
 
 
 def main(argv=None) -> int:
