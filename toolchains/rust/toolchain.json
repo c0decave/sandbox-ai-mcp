@@ -40,7 +40,8 @@
   "needs": {
     "glibc": "2.17",
     "libraries": [
-      "libgcc_s.so.1"
+      "libgcc_s.so.1",
+      "libz.so.1"
     ]
   },
   "requires": [
