@@ -626,6 +626,19 @@ server passed both smoke runs (Podman and Bubblewrap, `tools/list` matching
 `mcp add` takes an entry only from a catalog whose signature verifies against
 `sandbox/mcp-signers` (`--unsigned` for a catalog of your own).
 
+## Build toolchains
+
+Beside the MCP servers this repository builds the **toolchains** sandbox-ai mounts read-only into a sandbox
+(`sandbox-ai claude --toolchain go`, `sandbox-ai toolchain attach RUN jdk`): Go, Python with uv, a JDK with Maven,
+Gradle and Kotlin, Zig, C and C++ (zig cc, CMake, Ninja), Node.js with npm and TypeScript, the .NET SDK and Rust.
+Each is a recipe (`toolchains/NAME/toolchain.json`): the upstream release by its pinned URL and hash or its verified
+signature, at least 14 days old, unpacked into one tree whose programs are checked against what the recipe says they
+need from the system. CI (`.github/workflows/toolchains.yml`) builds it, compiles and runs a hello world with it as
+sandbox-ai mounts it under Podman and under Bubblewrap, and publishes the archive as a release named after its hash;
+`toolchains.json`, signed with the key that signs `catalog.json`, lists what passed.
+[docs/TOOLCHAINS.md](docs/TOOLCHAINS.md) has the recipes' format, the table of what each needs, what is not here
+yet and why, and the signing steps.
+
 ## Repository layout
 
 ```

@@ -1,0 +1,77 @@
+{
+  "name": "dotnet",
+  "version": "10.0.403",
+  "title": ".NET SDK 10",
+  "description": "The .NET 10 SDK (LTS): dotnet with the C#, F# and Visual Basic compilers, MSBuild and NuGet. Packages and state go to ~/.nuget and ~/.dotnet. Telemetry is off. Globalization runs in invariant mode unless you set DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0 and the system has ICU. Workloads (dotnet workload install) cannot be added: the toolchain is read-only.",
+  "license": "MIT",
+  "homepage": "https://dotnet.microsoft.com",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "vars": {
+    "netarch": {
+      "x86_64": "x64",
+      "aarch64": "arm64"
+    }
+  },
+  "commands": {
+    "dotnet": "dotnet"
+  },
+  "env": {
+    "DOTNET_ROOT": "{prefix}",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT": "1",
+    "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false"
+  },
+  "caches": {},
+  "hosts": [
+    "api.nuget.org",
+    "globalcdn.nuget.org"
+  ],
+  "allow": [
+    "github"
+  ],
+  "needs": {
+    "glibc": "2.27",
+    "libraries": [
+      "libstdc++.so.6",
+      "libgcc_s.so.1",
+      "libssl.so.3"
+    ]
+  },
+  "requires": [],
+  "optional": [
+    "shared/Microsoft.NETCore.App/*/libcoreclrtraceptprovider.so"
+  ],
+  "build": [
+    {
+      "fetch": "dotnet.tar.gz",
+      "url": "https://builds.dotnet.microsoft.com/dotnet/Sdk/{version}/dotnet-sdk-{version}-linux-{netarch}.tar.gz",
+      "sha512": {
+        "x86_64": "b7b3d8461cf98b07d2552ce9199702fa3ad010ac2671a5f8cd5136f7534e50f6855ba7bbb02b11494563f1d04156276a31cda1103b900e5eecd0d9473dc7b9c5",
+        "aarch64": "0966aa2b70f4677b8319be9df447a78a0dcd6164836425b55a68fd714f4023feb87b4cac21b9a996b79472ad54487cd0adcd2a9dfd570e2b2a1d26423a2baa9b"
+      },
+      "released": "2026-10-25"
+    },
+    {
+      "unpack": "dotnet.tar.gz"
+    },
+    {
+      "chmod": "dotnet",
+      "mode": "755"
+    }
+  ],
+  "smoke": [
+    {
+      "run": "dotnet --version",
+      "expect": "10.0.403"
+    },
+    {
+      "run": "dotnet new console -n hello >/dev/null && dotnet build hello -v q >/dev/null && dotnet hello/bin/Debug/net10.0/hello.dll",
+      "expect": "Hello, World!"
+    }
+  ],
+  "notes": "The SHA-512 of dotnet/core's release-notes/10.0/releases.json (Microsoft publishes no signature for the archives). libssl.so.3 is loaded when a program uses TLS (NuGet): named in needs so that a host without it is refused. The glibc floor is the one .NET 10 documents; the build measures it."
+}

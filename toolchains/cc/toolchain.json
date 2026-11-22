@@ -1,0 +1,162 @@
+{
+  "name": "cc",
+  "version": "0.17.1-1",
+  "title": "C and C++ (zig cc), CMake, Ninja",
+  "description": "cc, c++, gcc, g++, clang, clang++, ar and ranlib as zig cc (Clang with Zig's own libc headers, libc++ and linker: programs are built against the glibc of the sandbox they are built in, or static with -target x86_64-linux-musl), CMake 4.4.4 and Ninja 1.13.2 (CMake's generator here: there is no make). It is Clang: no GNU binutils (nm, objdump), libc++ instead of libstdc++.",
+  "license": "MIT AND Apache-2.0 WITH LLVM-exception AND BSD-3-Clause AND Apache-2.0",
+  "homepage": "https://ziglang.org",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "vars": {
+    "ninja": {
+      "x86_64": "ninja-linux.zip",
+      "aarch64": "ninja-linux-aarch64.zip"
+    }
+  },
+  "commands": {
+    "cc": "bin/cc",
+    "c++": "bin/c++",
+    "gcc": "bin/gcc",
+    "g++": "bin/g++",
+    "clang": "bin/clang",
+    "clang++": "bin/clang++",
+    "ar": "bin/ar",
+    "ranlib": "bin/ranlib",
+    "ninja": "bin/ninja",
+    "cmake": "cmake/bin/cmake",
+    "ctest": "cmake/bin/ctest",
+    "cpack": "cmake/bin/cpack"
+  },
+  "env": {
+    "CMAKE_GENERATOR": "Ninja"
+  },
+  "caches": {},
+  "hosts": [],
+  "allow": [],
+  "needs": {
+    "glibc": "2.17",
+    "libraries": [
+      "libstdc++.so.6",
+      "libgcc_s.so.1"
+    ]
+  },
+  "requires": [
+    "zig"
+  ],
+  "build": [
+    {
+      "write": "bin/cc",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: cc is zig cc\nexec /opt/toolchains/zig/zig cc \"$@\"\n"
+    },
+    {
+      "write": "bin/gcc",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: gcc is zig cc\nexec /opt/toolchains/zig/zig cc \"$@\"\n"
+    },
+    {
+      "write": "bin/clang",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: clang is zig cc\nexec /opt/toolchains/zig/zig cc \"$@\"\n"
+    },
+    {
+      "write": "bin/c++",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: c++ is zig c++\nexec /opt/toolchains/zig/zig c++ \"$@\"\n"
+    },
+    {
+      "write": "bin/g++",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: g++ is zig c++\nexec /opt/toolchains/zig/zig c++ \"$@\"\n"
+    },
+    {
+      "write": "bin/clang++",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: clang++ is zig c++\nexec /opt/toolchains/zig/zig c++ \"$@\"\n"
+    },
+    {
+      "write": "bin/ar",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: ar is zig ar\nexec /opt/toolchains/zig/zig ar \"$@\"\n"
+    },
+    {
+      "write": "bin/ranlib",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain cc: ranlib is zig ranlib\nexec /opt/toolchains/zig/zig ranlib \"$@\"\n"
+    },
+    {
+      "fetch": "cmake.tar.gz",
+      "url": "https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-linux-{arch}.tar.gz",
+      "sha256": {
+        "x86_64": "e5bb807f7728cb60cd8b27ebc97a2edb469b68655f21e844a600c3575b76f5bb",
+        "aarch64": "a1b6cc63636a0e55c63257cf3315a8a5f129e42fade25db1afea4ff8ab06f25e"
+      },
+      "released": "2026-10-04"
+    },
+    {
+      "unpack": "cmake.tar.gz",
+      "strip": 1,
+      "to": "cmake",
+      "only": [
+        "bin",
+        "share"
+      ]
+    },
+    {
+      "remove": [
+        "cmake/bin/cmake-gui",
+        "cmake/bin/ccmake",
+        "cmake/share/applications",
+        "cmake/share/icons",
+        "cmake/share/mime"
+      ]
+    },
+    {
+      "fetch": "ninja.zip",
+      "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/{ninja}",
+      "sha256": {
+        "x86_64": "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6",
+        "aarch64": "fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
+      },
+      "released": "2025-11-20"
+    },
+    {
+      "unpack": "ninja.zip",
+      "to": "bin"
+    },
+    {
+      "chmod": "bin/ninja",
+      "mode": "755"
+    }
+  ],
+  "smoke": [
+    {
+      "files": {
+        "hello.c": "#include <stdio.h>\nint main(void) { puts(\"hello from c\"); return 0; }\n"
+      },
+      "run": "cc -O2 -Wall hello.c -o hello && ./hello",
+      "expect": "hello from c"
+    },
+    {
+      "files": {
+        "hello.cpp": "#include <iostream>\n#include <vector>\nint main() {\n    std::vector<int> v{1, 2, 3};\n    std::cout << \"hello from c++ \" << v.size() << std::endl;\n}\n"
+      },
+      "run": "c++ -std=c++20 hello.cpp -o hellopp && ./hellopp",
+      "expect": "hello from c++ 3"
+    },
+    {
+      "files": {
+        "CMakeLists.txt": "cmake_minimum_required(VERSION 3.20)\nproject(hello C)\nadd_executable(hello_cmake hello.c)\n"
+      },
+      "run": "cmake -S . -B build >/dev/null && cmake --build build >/dev/null && ./build/hello_cmake",
+      "expect": "hello from c"
+    },
+    {
+      "run": "ar rcs libx.a hello && ninja --version",
+      "expect": "1.13.2"
+    }
+  ],
+  "notes": "The compiler is the toolchain zig (required: attached with it); this tree holds the wrappers, Kitware's CMake (cmake-4.4.4-SHA-256.txt) and Ninja's release binary (GitHub's digest), which needs libstdc++ and libgcc_s of the system."
+}

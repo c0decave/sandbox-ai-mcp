@@ -1,0 +1,232 @@
+name: toolchains
+
+# Builds every toolchain of toolchains/ (scripts/toolchain.py: the upstream release by its pinned URL and hash, or
+# its verified signature; the tree's ELF files held to what the manifest says they need), then compiles and runs a
+# hello world with it as sandbox-ai mounts it - sandbox-ai's own store, plan, session folder and mounts
+# (scripts/toolchain_smoke.py) - under Podman and under Bubblewrap, without network. The archive of a toolchain
+# that passed both is published as a release named after its hash; the catalog job turns those into
+# toolchains.json (an artifact, with the reports). Sign it on your machine with scripts/sign_toolchains.py, which
+# refuses unless both reports of every entry passed for exactly its archive, then commit toolchains.json and
+# toolchains.json.sig (docs/TOOLCHAINS.md). One toolchain failing does not stop the others.
+# The smoke runs need a sandbox-ai with toolchains (sandbox/toolchains.py): the repository variable
+# SANDBOX_AI_REF picks its branch, tag or commit (default main).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - toolchains/**
+      - scripts/toolchain.py
+      - scripts/toolchain_smoke.py
+      - scripts/make_toolchains.py
+      - .github/workflows/toolchains.yml
+  pull_request:
+    paths:
+      - toolchains/**
+      - scripts/toolchain*.py
+      - scripts/make_toolchains.py
+      - .github/workflows/toolchains.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write   # the archives are release assets
+
+concurrency:
+  group: toolchains-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SANDBOX_AI_REPOSITORY: c0decave/sandbox-ai
+  SANDBOX_AI_REF: ${{ vars.SANDBOX_AI_REF || 'main' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: every recipe is pinned and its releases are 14 days old
+        run: python3 scripts/toolchain.py check
+      - name: the builder, the catalog and the signing rules
+        run: python3 -m unittest -v tests.test_toolchains
+      - name: sandbox-ai (its toolchain reader)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SANDBOX_AI_REPOSITORY }}
+          ref: ${{ env.SANDBOX_AI_REF }}
+          path: sandbox-ai
+          persist-credentials: false
+      - name: every manifest as sandbox-ai reads it
+        run: |
+          if [ ! -f sandbox-ai/sandbox/toolchains.py ]; then
+            echo "::error::${SANDBOX_AI_REPOSITORY}@${SANDBOX_AI_REF} has no sandbox/toolchains.py: publish a sandbox-ai with toolchains first, or set the repository variable SANDBOX_AI_REF"
+            exit 1
+          fi
+          SANDBOX_AI_CHECKOUT="${GITHUB_WORKSPACE}/sandbox-ai" python3 -m unittest -v tests.test_toolchains
+
+  toolchain:
+    needs: check
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [go, python, jdk, zig, cc, node, dotnet, rust]
+        arch: [x86_64, aarch64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      NAME: ${{ matrix.toolchain }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: sandbox-ai (its store and mounts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.SANDBOX_AI_REPOSITORY }}
+          ref: ${{ env.SANDBOX_AI_REF }}
+          path: sandbox-ai
+          persist-credentials: false
+      - name: Bubblewrap, xz, gpg
+        run: |
+          ok=0
+          for attempt in 1 2 3; do
+            if sudo apt-get update -q >apt.log 2>&1 && \
+               sudo apt-get install -y -q bubblewrap xz-utils gnupg >>apt.log 2>&1; then ok=1; break; fi
+            sleep 30
+          done
+          if [ "$ok" != 1 ]; then
+            text=$(grep -E '^(E|W|Err):' apt.log | tail -n 15 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=apt failed::$text"
+            exit 1
+          fi
+          # Ubuntu 24.04 keeps unprivileged user namespaces from bwrap unless this is off.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version && podman --version
+
+      # The toolchains this one requires are built here too (rust: cc, zig; cc: zig): the smoke test mounts them
+      # with it, as sandbox-ai attaches them with it. Their own jobs publish them.
+      - name: Build (pinned downloads, the tree's needs checked)
+        run: |
+          set -o pipefail
+          required=$(python3 - <<'PY'
+          import json, os
+          def needed(name, seen):
+              for other in json.load(open(f"toolchains/{name}/toolchain.json")).get("requires", []):
+                  if other not in seen:
+                      needed(other, seen)
+                      seen.append(other)
+              return seen
+          print(" ".join(needed(os.environ["NAME"], [])))
+          PY
+          )
+          echo "REQUIRED=${required}" >> "$GITHUB_ENV"
+          for name in ${required} "${NAME}"; do
+            python3 scripts/toolchain.py build "${name}" --arch "${ARCH}" --out out 2>&1 | tee -a build.log \
+              || { text=$(tail -n 6 build.log | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g'); echo "::error title=${name} ${ARCH} was not built::$text"; exit 1; }
+            rm -rf "out/tree-${name}-${ARCH}"
+          done
+          rm -rf out/downloads
+
+      - name: Smoke with sandbox-ai under Podman
+        run: |
+          with=""; for name in ${REQUIRED}; do with="${with} --with out/toolchain-${name}-${ARCH}.json"; done
+          # shellcheck disable=SC2086 # one --with per required toolchain
+          python3 scripts/toolchain_smoke.py --sandbox-ai sandbox-ai --runner sandbox-ai-podman \
+            --meta "out/toolchain-${NAME}-${ARCH}.json" --archive "out/toolchain-${NAME}-${ARCH}.tar.xz" ${with} \
+            --report "smoke-${NAME}-${ARCH}-sandbox-ai-podman.json"
+
+      - name: Smoke with sandbox-ai under Bubblewrap
+        if: always()
+        run: |
+          test -f "out/toolchain-${NAME}-${ARCH}.json" || exit 1
+          with=""; for name in ${REQUIRED}; do with="${with} --with out/toolchain-${name}-${ARCH}.json"; done
+          # shellcheck disable=SC2086
+          python3 scripts/toolchain_smoke.py --sandbox-ai sandbox-ai --runner sandbox-ai-bwrap \
+            --meta "out/toolchain-${NAME}-${ARCH}.json" --archive "out/toolchain-${NAME}-${ARCH}.tar.xz" ${with} \
+            --report "smoke-${NAME}-${ARCH}-sandbox-ai-bwrap.json"
+
+      - name: Publish the archive (a release named after its hash)
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['entry']['sha256'][:12])" \
+                "out/toolchain-${NAME}-${ARCH}.json")
+          tag="toolchain-${NAME}-${ARCH}-${sha}"
+          asset="toolchain-${NAME}-${ARCH}.tar.xz"
+          # Named after its hash: a release that has the archive already holds these very bytes.
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -qxF "$asset"; then
+            echo "$tag has $asset already"
+            exit 0
+          fi
+          if ! out=$( { gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
+                 --notes "The toolchain ${NAME} for ${ARCH}, mounted read-only by sandbox-ai (sandbox-ai toolchain add ${NAME}). Its upstream sources: toolchains.json." \
+                 --target "${GITHUB_SHA}"; } 2>&1 && gh release upload "$tag" "out/$asset" --clobber 2>&1 ); then
+            text=$(printf '%s' "$out" | tail -n 8 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=${NAME} ${ARCH} not published::$text"
+            exit 1
+          fi
+
+      # Also when a step failed: the reports say why, and the catalog job sees which toolchains passed.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: tc-${{ matrix.toolchain }}-${{ matrix.arch }}
+          path: |
+            out/toolchain-${{ matrix.toolchain }}-${{ matrix.arch }}.json
+            smoke-${{ matrix.toolchain }}-${{ matrix.arch }}-sandbox-ai-podman.json
+            smoke-${{ matrix.toolchain }}-${{ matrix.arch }}-sandbox-ai-bwrap.json
+          if-no-files-found: warn
+          overwrite: true
+
+  catalog:
+    needs: [check, toolchain]
+    if: >-
+      !cancelled() && needs.check.result == 'success'
+      && github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: tc-*
+          path: ci-toolchains
+          merge-multiple: true
+      - name: toolchains.json of the toolchains that passed under Podman and Bubblewrap
+        run: |
+          python3 scripts/make_toolchains.py --ci ci-toolchains
+          python3 scripts/make_toolchains.py --check
+          { echo '### toolchains.json'; python3 -c "import json;[print('-', e['name'], e['version'], e['arch'], e['sha256'][:12]) for e in json.load(open('toolchains.json'))['toolchains']]"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: toolchains
+          path: |
+            toolchains.json
+            ci-toolchains/**/smoke-*.json
+          if-no-files-found: error
+      # The same files as a pre-release (kept only for the newest run): reachable from where the catalog is signed
+      # when the artifact's storage is not. Nothing in them is secret.
+      - name: The catalog as a pre-release for signing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          tar -czf ci-toolchains.tar.gz ci-toolchains
+          tag="ci-toolchains-$RUN_ID"
+          gh release create "$tag" --prerelease --title "$tag" --target "$GITHUB_SHA" \
+            --notes "Unsigned toolchains.json of CI run $RUN_ID, for scripts/sign_toolchains.py (docs/TOOLCHAINS.md)." \
+            toolchains.json ci-toolchains.tar.gz
+          gh release list --limit 100 --json tagName -q '.[].tagName' | grep '^ci-toolchains-' | grep -vx "$tag" \
+            | while read -r old; do gh release delete "$old" --yes --cleanup-tag || true; done

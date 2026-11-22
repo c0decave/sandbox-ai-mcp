@@ -32,6 +32,16 @@ on:
       - digests.json
       - docs/**
       - "*.md"
+      # The build toolchains have a workflow of their own (toolchains.yml): a change of theirs rebuilds no server.
+      - toolchains/**
+      - toolchains.json
+      - toolchains.json.sig
+      - scripts/toolchain.py
+      - scripts/toolchain_smoke.py
+      - scripts/make_toolchains.py
+      - scripts/sign_toolchains.py
+      - tests/test_toolchains.py
+      - .github/workflows/toolchains.yml
   pull_request:
   workflow_dispatch:
 

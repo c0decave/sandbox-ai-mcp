@@ -1,0 +1,72 @@
+{
+  "name": "go",
+  "version": "1.27.3",
+  "title": "Go",
+  "description": "The Go toolchain (go, gofmt) as go.dev publishes it. Its programs are static: nothing but the kernel is needed. Modules and build caches go to ~/go and ~/.cache/go-build. cgo needs the toolchain cc.",
+  "license": "BSD-3-Clause",
+  "homepage": "https://go.dev",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "vars": {
+    "goarch": {
+      "x86_64": "amd64",
+      "aarch64": "arm64"
+    }
+  },
+  "commands": {
+    "go": "bin/go",
+    "gofmt": "bin/gofmt"
+  },
+  "env": {},
+  "caches": {},
+  "hosts": [
+    "proxy.golang.org",
+    "sum.golang.org"
+  ],
+  "allow": [
+    "github"
+  ],
+  "needs": {
+    "glibc": null,
+    "libraries": []
+  },
+  "requires": [],
+  "optional": [
+    "*/testdata/*"
+  ],
+  "build": [
+    {
+      "fetch": "go.tar.gz",
+      "url": "https://dl.google.com/go/go{version}.linux-{goarch}.tar.gz",
+      "sha256": {
+        "x86_64": "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40",
+        "aarch64": "a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49"
+      },
+      "released": "2026-10-19"
+    },
+    {
+      "unpack": "go.tar.gz",
+      "strip": 1
+    }
+  ],
+  "smoke": [
+    {
+      "run": "go version",
+      "expect": "go1.27.3"
+    },
+    {
+      "files": {
+        "hello.go": "package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello from go\") }\n"
+      },
+      "run": "go run hello.go",
+      "expect": "hello from go"
+    },
+    {
+      "run": "go build -o hello hello.go && ./hello && gofmt -l hello.go",
+      "expect": "hello from go"
+    }
+  ],
+  "notes": "The hashes are the .sha256 files beside the archives on dl.google.com (go.dev/dl serves the same files)."
+}
