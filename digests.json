@@ -1,54 +1,54 @@
 {
   "images": {
-    "agentql": "sha256:375495fe3f4de1b7b9ccf28db74242167fcd964efad2084a1292d39737f2c2c4",
-    "arxiv": "sha256:b52d9f66502985e828a9dd4a97df01781b807cb967f179b315481a37e5e9d2a9",
-    "axross": "sha256:00f6476b8b356d7dbe554e7f39754df118fdfeaa83cc9d85158769165a155128",
-    "binwalk": "sha256:87dc0e3eb565b0705c0c0ed03b2cee1acc87956e451aa97569f27880be2a7cb3",
-    "bluesky": "sha256:959b115363f0acebdc3b7fc3b59e28062cb275d9a1bc6cad8792cbe471fba757",
-    "brave-search": "sha256:d94c4d803bcf43cbf707c711c8f0227ab9b9887615e8e6491a916fc82056588c",
-    "calculator": "sha256:524ed3e1923339c550e93d3e572899e992f8500369a3f3f3da1ee8b1129e5f6e",
-    "capa": "sha256:81e1fecb7d157f09b2b22160ac9b0f6efd48382854742c2454a5ac2a34fdcab9",
-    "cfr": "sha256:edecff3095c5277482481d589fe8661518d43d69b600984d5e2211250aa7e56e",
-    "chrome-devtools": "sha256:fb1e8a27cc6ad6864f4f1a9dfd5f2aa7d7383e4864d70400f4ee490b7d3462c3",
-    "code-search": "sha256:b5b139ebec12b7dd869670485eb86b752c53b2bff1f5a1b0caa63783b2fdca39",
-    "context7": "sha256:365150392540d7eb4b2f7559c77343e7966ffee5137e01fd732d1c4cdab6acd3",
-    "duckduckgo": "sha256:ac361b6cfdbc92366626e283587d4b5dcd36dae6daa05cba3b20a8e244181764",
-    "engram": "sha256:e200b3b7bde1d336792422082c31347a59b48ac661321ad19f562ea212933495",
-    "exec": "sha256:e046147969617034ac1275eef626571ee063bd0fef7c389b8ae5e93f3b734f18",
-    "files": "sha256:f5c088ada51d6a685f3d5d1e1067a264b7c5c62eccf7e48bdea5a6cb1c981a2d",
-    "filesystem": "sha256:0f5b4745a29d9a3228974bb198c24847b23cca02dba4cb7619a7ed35d2b64925",
-    "frida": "sha256:6046c086a6c96ac4b3442a3f5a1b59e14ad7a4435fda01b61d07cbb4b5ce7c45",
-    "gowitness": "sha256:8f11ad2f1ad1a09fa478516472f0124440975149cc1ea96ba9c7fe0bc69402fd",
-    "jadx": "sha256:cc88811aebaa93fabee74e677dab39b5c91774d0dd6fd85530e0be5db7f2d8f9",
-    "memory": "sha256:bb35bb7c7156e4f507336fa6db9f6c1d7b6d71b62082947f6d592cfcd3f56675",
-    "openosint": "sha256:fd4090cfb2c601ea805360214ecf19e2372610880da7f5bd3944bcbc5e887cdb",
-    "osint-mcp": "sha256:0ba53df75caa2a2d40ceb1ff37e6ad6bb30520d5cfd65b0680495cfbe9c3fc6a",
-    "osv": "sha256:5692dfb1476942c0eddc9212ba869c53daf1a44a040e77d684dd102ddf8d92b8",
-    "playwright": "sha256:19e52742d5a87a3eb5d806296223ce899a9b0fc6c408dd04abedba55d1ea914d",
-    "radare2": "sha256:69406d783d733504cb5c5dfe4e7669ae91d0f8b7ce07afc6b037c23fd540c3d4",
-    "searxng": "sha256:96812fe89a29b4dbc431e3c6f87b356fbf3cb2b3fc96c6cee2b3123c197e2fe1",
-    "sequential-thinking": "sha256:d7683fa1ec2e6f4881260b6f238886166e86a595c69236e4dff2256077cb64e0",
-    "shodan": "sha256:e8ccb38f0f627a3f0870757a7f9ec2ca25ccfd8b0057bd49607efbdffbc1fe4f",
-    "signal": "sha256:2261c99e3e353942eab39c252a5bbbbc3133ef43988742629c99e8a32a5b2df6",
+    "agentql": "sha256:dae88ea6947bd04a43c7374658d572dcf0c3b33b350ff59dae9e9b4149407783",
+    "arxiv": "sha256:c4601031516fa144810c414c0854d8e0667d4091b6fc64f93a74e7f346854a0f",
+    "axross": "sha256:ee579e701e1c41adb5ec31493e3cc12413808c56b15d5dc3218ba54c5a094aa2",
+    "binwalk": "sha256:aa5771fa8436a6ed86c37f420374186263402a7152f508343c559ee9526dca58",
+    "bluesky": "sha256:c47752351e1d065909717ac1841865a20fccb3f5404009cd32f658577571f1ad",
+    "brave-search": "sha256:e2953b29b2b5679126d67e01d21650d4dd513248db0b9641cdc5e5087f51766e",
+    "calculator": "sha256:9937bf05828a0dee44165a11020a719f4d00c9653f4bc48948dace902961227f",
+    "capa": "sha256:7b181824b024e386b455b4f2ce0e57a4f39027686c938586e6013ad5ab7b39d7",
+    "cfr": "sha256:00a1f0aa1807d03fa310c95d601204a37f924ae84fee5b984b3a1899316cef10",
+    "chrome-devtools": "sha256:f6f73fa2f027c5cee7887a41869975e28884e3b80ec7e0e6f16d37742f77fedc",
+    "code-search": "sha256:7576637cdc12ddf7df3c7428370ef0f14050208e94fdc89bc515a6a55c8d0268",
+    "context7": "sha256:bdb33982124ca2ecb3953b2a08652567a1a424cbc726953d58317810993c7136",
+    "duckduckgo": "sha256:38cf25c045f90be771cecc19a5329008342e310e2d2ee9934f9d06e6355afde3",
+    "engram": "sha256:624666ceb1919d8c462b4764ef4937d901a04d117df58da13b59dcc757b5ba56",
+    "exec": "sha256:ca2484450b0cf3cc7dc4d23d81679110608549f73cf0db4626d18dd2b40f23b9",
+    "files": "sha256:b6134f4923970ab93722a987454a100176c560dce3cccdb81723242367305b03",
+    "filesystem": "sha256:bd57eea794196834cb1cd811e835d8ee380ac0f0ce12d9cf541374d746421a9f",
+    "frida": "sha256:0d952fed3e612159d89cc54236dea3baf5207b8165f370599ef79d634572e414",
+    "gowitness": "sha256:ed1cc15d3af077ee9f8fbd5206c4a50822e093fe15a054228fdbbf71688384e6",
+    "jadx": "sha256:31daed9f57a6808a52ae3cbfad18b4b9f5eb49b1dea55392d50cd8b9b359f01d",
+    "memory": "sha256:644a5648d10395b3083a00291e978e5615cd00d96a7ed16190632c25ea057d82",
+    "openosint": "sha256:f96729278280933648a7922b2bf0c8635b468df33d352082bf376d2504b9d902",
+    "osint-mcp": "sha256:103bd0e2867e4369abdfbe4e01479e0c861d4fb5429a07ffc739cb4c14bd43b7",
+    "osv": "sha256:424ecd0d4bc60173f2ba8ad5ec529e7bee7436bbe0768f281ce1408eda99bc8e",
+    "playwright": "sha256:36ae360dff83026270656bac3c9333f372b8dd577bf6157c807b5bf0f3399460",
+    "radare2": "sha256:a3c4c9f833333ded189a66e4e1a59d8ff8511ef552fb900f2450f1aaa96deb4d",
+    "searxng": "sha256:2ac6e5bb3a6e656a417a49a0ad92174e17d26807e33457554a1e017a8b617dfa",
+    "sequential-thinking": "sha256:41d777816aac0abc52108808b2e0f1aca348054c2179bec09b31326412449ba5",
+    "shodan": "sha256:bd72c53fc6f8091efca7d430b06e92b8e0ace30f69789174017fefd8032da1c4",
+    "signal": "sha256:3355f23129b5219f6e317bdd79402a9ce930217b12cb1deeb6df93161b68e3a2",
     "smali": null,
-    "tasks": "sha256:4975f1dae872ed707416f93410f64876d0bca76b59a02f612e6f69015de54d85",
-    "telegram": "sha256:5b943410d5ac4bb5e973d53851cd2c5079644c4488cf95fd8ccfb72670d688dd",
-    "telegram-user": "sha256:d9dcee4d29f74f1355f3ec0db8489157821e64381fd35d40f18a7011c84cfa64",
-    "time": "sha256:e207566a72ad4b9a991bd14f453f9c7f48276d856e19fca46eb050844fbf3a13",
-    "web-fetch": "sha256:fdcd7ccea2e5e345eb084a81170982360db697784888ee9c85f505004a410630",
-    "whatsapp": "sha256:663153d2d5fd3f68564a1aed59c0ae74b8da0a76e00e6dd398216712c5dd7e0c",
-    "whatweb": "sha256:e341fdeb2abdffc861558f55336ec3de4c6e4b4bce76f1170af80ddff55b621e",
-    "wikipedia": "sha256:59a05503d1494e46d6a3fd7b85d3fc2f6a6ba6b4b9e13eddcf9822287975fcd7",
-    "youtube": "sha256:de9dc5acdd0b9f75366703470abe7772b7d5fd67ebd0c329e1c864b02467f572",
-    "youtube-transcript": "sha256:cf04537d7affc16d7689018d90f1ce730547e5450e9278957e2c3b55be621989"
+    "tasks": "sha256:f36ea1cae78389c40d0b8c55b2a73e79523a6d0a3a90e1539f3ccbd0fdc85719",
+    "telegram": "sha256:8c6d3efa976a0cb81cda13f960549ad31eb1ba3179890167cc74c6ea91c82754",
+    "telegram-user": "sha256:7e14f39ba6dddad24537e103dcda60e028f9b5aed11ddd1d4f35e5d9df358791",
+    "time": "sha256:4e4b58094a84345e72325cbe513ef7ec76fd2f8e97d5a1fac2d7c328a10a3836",
+    "web-fetch": "sha256:0071951455ca7e960d6e148a9d09432ffbacffba689a8142cf3da3ebc008f1a9",
+    "whatsapp": "sha256:405d3c1ab3997dd733e74dbd74d9bd0a41f6bc951ba578b931fd5963521a4f9e",
+    "whatweb": "sha256:12a5d705b25ce63b63f33c07c17727d4f34186e8aa56f0fa3115d15b60a35fbc",
+    "wikipedia": "sha256:f16b31099ab4aa70613f1f8e42c512f1f9d42e0f18ea86be1dbdf45ea6d429b8",
+    "youtube": "sha256:24c58a04501e4fdc60dc35c66fce02a6bbb97a5a2135faac429082ca25fedeb5",
+    "youtube-transcript": "sha256:a9c71dc8067dbbed9c69e2d62f55a5b1dae3e06ab5652054d72d36c8a6560acc"
   },
   "rootfs": {
     "axross": {
       "name": "axross",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-axross@sha256:00f6476b8b356d7dbe554e7f39754df118fdfeaa83cc9d85158769165a155128",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-axross-301ff757ec8d/rootfs-axross.tar.gz",
-      "sha256": "301ff757ec8d5d7926353bd071818ed0db0b4a3d44a25c31986f4211733644f0",
-      "size": 52395361,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-axross@sha256:ee579e701e1c41adb5ec31493e3cc12413808c56b15d5dc3218ba54c5a094aa2",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-axross-9d48e2ff0649/rootfs-axross.tar.gz",
+      "sha256": "9d48e2ff0649e33eff1fbb27c24bb7e583ac76f22109c5579ab1132b3b0bd533",
+      "size": 52395426,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -64,10 +64,10 @@
     },
     "binwalk": {
       "name": "binwalk",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk@sha256:87dc0e3eb565b0705c0c0ed03b2cee1acc87956e451aa97569f27880be2a7cb3",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-binwalk-d4f7b3e99cd1/rootfs-binwalk.tar.gz",
-      "sha256": "d4f7b3e99cd1c5aede5622edf5ed795a41ff841722f72ae670bf9752fafed56d",
-      "size": 58881139,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-binwalk@sha256:aa5771fa8436a6ed86c37f420374186263402a7152f508343c559ee9526dca58",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-binwalk-b73db22a4885/rootfs-binwalk.tar.gz",
+      "sha256": "b73db22a4885102463919f7298fc3096821bdadbb227d8ffd788a69d53ae3324",
+      "size": 58880521,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -82,12 +82,31 @@
         "BINWALK_OUTPUT_DIR": "/tmp/binwalk-mcp"
       }
     },
+    "brave-search": {
+      "name": "brave-search",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-brave-search@sha256:e2953b29b2b5679126d67e01d21650d4dd513248db0b9641cdc5e5087f51766e",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-brave-search-b5f2680095f8/rootfs-brave-search.tar.gz",
+      "sha256": "b5f2680095f885bb34bd88d8321beb8b375c74cbd174ce02953d68e42934c83a",
+      "size": 54838864,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
     "calculator": {
       "name": "calculator",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-calculator@sha256:524ed3e1923339c550e93d3e572899e992f8500369a3f3f3da1ee8b1129e5f6e",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-calculator-f7149a61febd/rootfs-calculator.tar.gz",
-      "sha256": "f7149a61febd5afe3e4298cd0de61558b278027848695d6768b630e180cf0846",
-      "size": 54860021,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-calculator@sha256:9937bf05828a0dee44165a11020a719f4d00c9653f4bc48948dace902961227f",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-calculator-b662f4336e66/rootfs-calculator.tar.gz",
+      "sha256": "b662f4336e66b0866e1a0986296148aeb5113e24373294dae4e1bacff11addf4",
+      "size": 54860287,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -103,10 +122,10 @@
     },
     "capa": {
       "name": "capa",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa@sha256:81e1fecb7d157f09b2b22160ac9b0f6efd48382854742c2454a5ac2a34fdcab9",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-capa-57d8367451e5/rootfs-capa.tar.gz",
-      "sha256": "57d8367451e56c0e433175b570301fba7230b4bbd1b4c572027fd0b8b936d1ad",
-      "size": 102866530,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-capa@sha256:7b181824b024e386b455b4f2ce0e57a4f39027686c938586e6013ad5ab7b39d7",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-capa-0821de859bb7/rootfs-capa.tar.gz",
+      "sha256": "0821de859bb701b336e03f569dfb70f3724a6a7117fe925c7761583e0906b0b5",
+      "size": 102865821,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -125,10 +144,65 @@
     },
     "cfr": {
       "name": "cfr",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-cfr@sha256:edecff3095c5277482481d589fe8661518d43d69b600984d5e2211250aa7e56e",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-cfr-ef59e5731dfb/rootfs-cfr.tar.gz",
-      "sha256": "ef59e5731dfbb2aed1cf2e6a404467681461c96ea1370e93a61b71b946c18352",
-      "size": 125930696,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-cfr@sha256:00a1f0aa1807d03fa310c95d601204a37f924ae84fee5b984b3a1899316cef10",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-cfr-12c0a6473dab/rootfs-cfr.tar.gz",
+      "sha256": "12c0a6473dab8941573f6ec3a6d1c181c53046261ca27bd2145af5c7f25ad008",
+      "size": 125930951,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "chrome-devtools": {
+      "name": "chrome-devtools",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-chrome-devtools@sha256:f6f73fa2f027c5cee7887a41869975e28884e3b80ec7e0e6f16d37742f77fedc",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-chrome-devtools-14c4604c6ce2/rootfs-chrome-devtools.tar.gz",
+      "sha256": "14c4604c6ce20e708d04ad03401f47d2acabe55abe0cec189393835fd7464bbd",
+      "size": 350564319,
+      "entrypoint": [
+        "/usr/bin/tini",
+        "-s",
+        "--",
+        "/usr/local/bin/node",
+        "/opt/chrome-devtools/node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js",
+        "--headless",
+        "--isolated",
+        "--executable-path",
+        "/usr/bin/chromium",
+        "--chrome-arg=--no-sandbox",
+        "--no-usage-statistics",
+        "--no-performance-crux",
+        "--no-file-navigations",
+        "--no-category-experimental-third-party",
+        "--no-category-experimental-webmcp",
+        "--no-category-extensions",
+        "--no-category-pwa"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp",
+        "NODE_ENV": "production",
+        "CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS": "1",
+        "CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS": "1",
+        "CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY": "1"
+      }
+    },
+    "code-search": {
+      "name": "code-search",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-code-search@sha256:7576637cdc12ddf7df3c7428370ef0f14050208e94fdc89bc515a6a55c8d0268",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-code-search-5add48de3d49/rootfs-code-search.tar.gz",
+      "sha256": "5add48de3d492196fc2c9b0f4e703513501207bcc3a099a8cf110ca624ad5f60",
+      "size": 54930770,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -144,10 +218,10 @@
     },
     "engram": {
       "name": "engram",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram@sha256:e200b3b7bde1d336792422082c31347a59b48ac661321ad19f562ea212933495",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-engram-9343fb5d009a/rootfs-engram.tar.gz",
-      "sha256": "9343fb5d009a3775f421eb52897573dda46063c013425b3e3f915da4f76a1c43",
-      "size": 34284630,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-engram@sha256:624666ceb1919d8c462b4764ef4937d901a04d117df58da13b59dcc757b5ba56",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-engram-7d5702693b13/rootfs-engram.tar.gz",
+      "sha256": "7d5702693b136aa9a37390a7a8cf8aa837aa602b1ce1e2c0afa937c7a75aefc5",
+      "size": 34284627,
       "entrypoint": [
         "/usr/local/bin/engram-mcp"
       ],
@@ -160,12 +234,50 @@
         "SQLITE_TMPDIR": "/tmp"
       }
     },
+    "exec": {
+      "name": "exec",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-exec@sha256:ca2484450b0cf3cc7dc4d23d81679110608549f73cf0db4626d18dd2b40f23b9",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-exec-f6d4334607c3/rootfs-exec.tar.gz",
+      "sha256": "f6d4334607c3f00368e90770ad4bbf72afeeef67ce568ef959822b57a7f1fd62",
+      "size": 132598455,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "files": {
+      "name": "files",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-files@sha256:b6134f4923970ab93722a987454a100176c560dce3cccdb81723242367305b03",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-files-60afe1d62119/rootfs-files.tar.gz",
+      "sha256": "60afe1d621193b65ed50b181fe3b99f12d16b29fb72449dce2face4be2cd8c9f",
+      "size": 54936249,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
     "filesystem": {
       "name": "filesystem",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-filesystem@sha256:0f5b4745a29d9a3228974bb198c24847b23cca02dba4cb7619a7ed35d2b64925",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-filesystem-28bedeabc373/rootfs-filesystem.tar.gz",
-      "sha256": "28bedeabc373f0db81527c8d72acf9d6548e635cd81cac5a35d734abc4116d94",
-      "size": 77530558,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-filesystem@sha256:bd57eea794196834cb1cd811e835d8ee380ac0f0ce12d9cf541374d746421a9f",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-filesystem-97dcb74069e0/rootfs-filesystem.tar.gz",
+      "sha256": "97dcb74069e073e0f905a0afe4da3b477de2ba838283bab7cd8b558258a86479",
+      "size": 77531501,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -185,10 +297,10 @@
     },
     "frida": {
       "name": "frida",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-frida@sha256:6046c086a6c96ac4b3442a3f5a1b59e14ad7a4435fda01b61d07cbb4b5ce7c45",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-frida-54593907dd7d/rootfs-frida.tar.gz",
-      "sha256": "54593907dd7d8db9ef59d7c2946e5bfd1c629829626b8781ef2929cba79ccd27",
-      "size": 317511385,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-frida@sha256:0d952fed3e612159d89cc54236dea3baf5207b8165f370599ef79d634572e414",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-frida-65dc15e7b7bd/rootfs-frida.tar.gz",
+      "sha256": "65dc15e7b7bd93f7754e214a126ea6a3c64534e6b60dd853b590168b5e460a71",
+      "size": 317510670,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -204,10 +316,10 @@
     },
     "jadx": {
       "name": "jadx",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-jadx@sha256:cc88811aebaa93fabee74e677dab39b5c91774d0dd6fd85530e0be5db7f2d8f9",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-jadx-dd97e6c428df/rootfs-jadx.tar.gz",
-      "sha256": "dd97e6c428dfc38e1279abb4cd32e5b6a95226f82882ddc49e98a2e9bef538c9",
-      "size": 196618410,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-jadx@sha256:31daed9f57a6808a52ae3cbfad18b4b9f5eb49b1dea55392d50cd8b9b359f01d",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-jadx-790cd5880e3c/rootfs-jadx.tar.gz",
+      "sha256": "790cd5880e3c118e45014d714176ad8085ba1103796c7d5189d3a1bc76953005",
+      "size": 196618632,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -223,10 +335,10 @@
     },
     "memory": {
       "name": "memory",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory@sha256:bb35bb7c7156e4f507336fa6db9f6c1d7b6d71b62082947f6d592cfcd3f56675",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-memory-631d7a4155af/rootfs-memory.tar.gz",
-      "sha256": "631d7a4155afb96d436986e1b358654e52532f9c8d569b27b32f87e1ee119a1a",
-      "size": 77244521,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-memory@sha256:644a5648d10395b3083a00291e978e5615cd00d96a7ed16190632c25ea057d82",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-memory-bd64ee345273/rootfs-memory.tar.gz",
+      "sha256": "bd64ee34527324cd91997ecf1e7eef090205ee2683ae1650cb70590e90d7b18b",
+      "size": 77244579,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -243,10 +355,10 @@
     },
     "searxng": {
       "name": "searxng",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng@sha256:96812fe89a29b4dbc431e3c6f87b356fbf3cb2b3fc96c6cee2b3123c197e2fe1",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-searxng-8267867f1286/rootfs-searxng.tar.gz",
-      "sha256": "8267867f12865e3a354fd4666d029e9cb9d3d0096230cfb378721a19480104d1",
-      "size": 54838682,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-searxng@sha256:2ac6e5bb3a6e656a417a49a0ad92174e17d26807e33457554a1e017a8b617dfa",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-searxng-35db1d1ce520/rootfs-searxng.tar.gz",
+      "sha256": "35db1d1ce52021b4a990a002bd19672b8223fe65f948040760039b16f7109656",
+      "size": 54838409,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -262,10 +374,10 @@
     },
     "sequential-thinking": {
       "name": "sequential-thinking",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-sequential-thinking@sha256:d7683fa1ec2e6f4881260b6f238886166e86a595c69236e4dff2256077cb64e0",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-sequential-thinking-aaea2d0f4dec/rootfs-sequential-thinking.tar.gz",
-      "sha256": "aaea2d0f4decf157fba3272a0742196604dd19835707870be538f84b3bc21033",
-      "size": 77237337,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-sequential-thinking@sha256:41d777816aac0abc52108808b2e0f1aca348054c2179bec09b31326412449ba5",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-sequential-thinking-637c4cd888e6/rootfs-sequential-thinking.tar.gz",
+      "sha256": "637c4cd888e61e33e8fff054f97cd6af9d840dc6d8d915c2afc0d43d92f685e9",
+      "size": 77237366,
       "entrypoint": [
         "/usr/local/bin/node",
         "--disallow-code-generation-from-strings",
@@ -280,12 +392,50 @@
         "DISABLE_THOUGHT_LOGGING": "true"
       }
     },
+    "tasks": {
+      "name": "tasks",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-tasks@sha256:f36ea1cae78389c40d0b8c55b2a73e79523a6d0a3a90e1539f3ccbd0fdc85719",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-tasks-f6e219366155/rootfs-tasks.tar.gz",
+      "sha256": "f6e219366155c6a45ab1c323b80d86f39fedd60db2380849e2a2e5c66466189e",
+      "size": 54857801,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
+    "telegram-user": {
+      "name": "telegram-user",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-telegram-user@sha256:7e14f39ba6dddad24537e103dcda60e028f9b5aed11ddd1d4f35e5d9df358791",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-telegram-user-50168f3d9c7b/rootfs-telegram-user.tar.gz",
+      "sha256": "50168f3d9c7b68e3bc87b06cccca994dd1f8b273e2bfe0e2831bbce80aae5516",
+      "size": 57829020,
+      "entrypoint": [
+        "/opt/venv/bin/python",
+        "-I",
+        "-u",
+        "/opt/mcp/server.py"
+      ],
+      "user": 10001,
+      "workdir": "/tmp",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME": "/tmp"
+      }
+    },
     "time": {
       "name": "time",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-time@sha256:e207566a72ad4b9a991bd14f453f9c7f48276d856e19fca46eb050844fbf3a13",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-time-c8ef1b6d7823/rootfs-time.tar.gz",
-      "sha256": "c8ef1b6d782326c6a7a3f5c9e3419cfd2cac45ea40168f1a8c01ad1f75e89c74",
-      "size": 55373336,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-time@sha256:4e4b58094a84345e72325cbe513ef7ec76fd2f8e97d5a1fac2d7c328a10a3836",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-time-d8ca9183d63c/rootfs-time.tar.gz",
+      "sha256": "d8ca9183d63c71fe8fa939f7ffc19499647fb62e6da6d5d90802b74486b96cd1",
+      "size": 55373886,
       "entrypoint": [
         "/opt/venv/bin/python",
         "-I",
@@ -301,10 +451,10 @@
     },
     "whatsapp": {
       "name": "whatsapp",
-      "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatsapp@sha256:663153d2d5fd3f68564a1aed59c0ae74b8da0a76e00e6dd398216712c5dd7e0c",
-      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-whatsapp-a728ee36dea6/rootfs-whatsapp.tar.gz",
-      "sha256": "a728ee36dea6e13cd5e4b562b1b690a2f6800b822f067139c29b4716d8affacc",
-      "size": 41643991,
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-whatsapp@sha256:405d3c1ab3997dd733e74dbd74d9bd0a41f6bc951ba578b931fd5963521a4f9e",
+      "url": "https://github.com/c0decave/sandbox-ai-mcp/releases/download/rootfs-whatsapp-4f3e68302686/rootfs-whatsapp.tar.gz",
+      "sha256": "4f3e6830268683135a34e4d34103b3ddf1f594bf268368ff93281ee577f740c5",
+      "size": 41643876,
       "entrypoint": [
         "/usr/local/bin/wa-mcp",
         "serve"
