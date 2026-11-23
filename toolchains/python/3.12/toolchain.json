@@ -35,7 +35,7 @@
   },
   "requires": [],
   "optional": [
-    "lib/python3.12/lib-dynload/_tkinter*",
+    "lib/python3.12/lib-dynload/_tkinter*", "lib/python3.12/lib-dynload/_crypt*",
     "lib/libtcl*",
     "lib/libtk*",
     "lib/tcl*",
