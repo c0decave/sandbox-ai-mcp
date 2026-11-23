@@ -1,6 +1,8 @@
 name: toolchains
 
-# Builds every toolchain of toolchains/ (scripts/toolchain.py: the upstream release by its pinned URL and hash, or
+# Builds every toolchain of toolchains/, every version (one recipe each: toolchains/NAME/toolchain.json the newest,
+# ID NAME; toolchains/NAME/LINE/toolchain.json an older one, ID NAME@LINE) (scripts/toolchain.py: the upstream
+# release by its pinned URL and hash, or
 # its verified signature; the tree's ELF files held to what the manifest says they need), then compiles and runs a
 # hello world with it as sandbox-ai mounts it - sandbox-ai's own store, plan, session folder and mounts
 # (scripts/toolchain_smoke.py) - under Podman and under Bubblewrap, without network. The archive of a toolchain
@@ -72,7 +74,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [go, python, jdk, zig, cc, node, dotnet, rust]
+        # Every recipe's ID (scripts/toolchain.py ids; tests/test_toolchains.py holds this list to it).
+        toolchain: [go, go@1.26, python, python@3.13, python@3.12, python@3.11, jdk, jdk@17, jdk@11, zig, cc, node,
+                    node@24, node@22, dotnet, rust, rust@1.98, rust@1.97]
         arch: [x86_64, aarch64]
         include:
           - arch: x86_64
@@ -111,22 +115,12 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --version && podman --version
 
-      # The toolchains this one requires are built here too (rust: cc, zig; cc: zig): the smoke test mounts them
-      # with it, as sandbox-ai attaches them with it. Their own jobs publish them.
+      # The toolchains this one requires are built here too (rust: cc, zig; cc: zig - always their newest): the smoke
+      # test mounts them with it, as sandbox-ai attaches them with it. Their own jobs publish them.
       - name: Build (pinned downloads, the tree's needs checked)
         run: |
           set -o pipefail
-          required=$(python3 - <<'PY'
-          import json, os
-          def needed(name, seen):
-              for other in json.load(open(f"toolchains/{name}/toolchain.json")).get("requires", []):
-                  if other not in seen:
-                      needed(other, seen)
-                      seen.append(other)
-              return seen
-          print(" ".join(needed(os.environ["NAME"], [])))
-          PY
-          )
+          required=$(python3 scripts/toolchain.py requires "${NAME}")
           echo "REQUIRED=${required}" >> "$GITHUB_ENV"
           for name in ${required} "${NAME}"; do
             python3 scripts/toolchain.py build "${name}" --arch "${ARCH}" --out out 2>&1 | tee -a build.log \
@@ -158,10 +152,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sha=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['entry']['sha256'][:12])" \
+          # The entry's URL names the release (toolchain-NAME-ARCH-<its hash>) and the asset (toolchain-NAME-ARCH.tar.xz),
+          # for every version of NAME alike (out/ names the file after the recipe's ID, jdk@17).
+          url=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['entry']['url'])" \
                 "out/toolchain-${NAME}-${ARCH}.json")
-          tag="toolchain-${NAME}-${ARCH}-${sha}"
-          asset="toolchain-${NAME}-${ARCH}.tar.xz"
+          tag=$(basename "$(dirname "$url")")
+          asset=$(basename "$url")
+          case "$tag/$asset" in toolchain-*-"${ARCH}"-*/toolchain-*-"${ARCH}".tar.xz) ;; *) echo "::error::unexpected $url"; exit 1 ;; esac
+          mkdir -p upload && cp "out/toolchain-${NAME}-${ARCH}.tar.xz" "upload/$asset"
           # Named after its hash: a release that has the archive already holds these very bytes.
           if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -qxF "$asset"; then
             echo "$tag has $asset already"
@@ -169,7 +167,7 @@ jobs:
           fi
           if ! out=$( { gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" \
                  --notes "The toolchain ${NAME} for ${ARCH}, mounted read-only by sandbox-ai (sandbox-ai toolchain add ${NAME}). Its upstream sources: toolchains.json." \
-                 --target "${GITHUB_SHA}"; } 2>&1 && gh release upload "$tag" "out/$asset" --clobber 2>&1 ); then
+                 --target "${GITHUB_SHA}"; } 2>&1 && gh release upload "$tag" "upload/$asset" --clobber 2>&1 ); then
             text=$(printf '%s' "$out" | tail -n 8 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
             echo "::error title=${NAME} ${ARCH} not published::$text"
             exit 1

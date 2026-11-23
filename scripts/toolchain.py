@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 """Build a toolchain of toolchains/NAME: the upstream release, pinned and checked, as one read-only tree.
 
-    scripts/toolchain.py build NAME --arch x86_64 --out DIR [--downloads DIR] [--date YYYY-MM-DD]
-    scripts/toolchain.py check [NAME ...] [--date YYYY-MM-DD]
+    scripts/toolchain.py build ID --arch x86_64 --out DIR [--downloads DIR] [--date YYYY-MM-DD]
+    scripts/toolchain.py check [ID ...] [--date YYYY-MM-DD]
+    scripts/toolchain.py ids                    every recipe's ID, one per line
+    scripts/toolchain.py requires ID            the IDs of what ID requires, in the order they are built
 
-`build` runs the steps of toolchains/NAME/toolchain.json ("build") and writes DIR/toolchain-NAME-ARCH.tar.xz (the
-files of the prefix, which sandbox-ai mounts read-only at /opt/toolchains/NAME) and DIR/toolchain-NAME-ARCH.json:
-the entry of toolchains.json (scripts/make_toolchains.py) with the archive's URL, SHA-256 and sizes, the upstream
-"sources" (URL and SHA-256 of every download, the signature that was checked) and "measured": what the tree's ELF
-files really need. The steps are data, never a shell:
+A toolchain has one recipe per version: toolchains/NAME/toolchain.json is its newest (ID: NAME), and each older
+version that is offered too has its own, toolchains/NAME/LINE/toolchain.json (ID: NAME@LINE), where LINE is the start
+of its version that `sandbox-ai --toolchain NAME@LINE` picks it by (jdk@17: 17.0.21+9, python@3.12: 3.12.16). A
+line selects its own recipe's version and no other of the name; the newest recipe is NAME's; a toolchain another
+requires is always its newest (rust@1.98 requires cc: the cc of toolchains/cc/toolchain.json).
+
+`build` runs the steps of the recipe ID ("build") and writes DIR/toolchain-ID-ARCH.tar.xz (the files of the prefix,
+which sandbox-ai mounts read-only at /opt/toolchains/NAME) and DIR/toolchain-ID-ARCH.json: the entry of
+toolchains.json (scripts/make_toolchains.py) with the archive's URL (the release toolchain-NAME-ARCH-SHA, its asset
+toolchain-NAME-ARCH.tar.xz, whatever the version), SHA-256 and sizes, the upstream "sources" (URL and SHA-256 of
+every download, the signature that was checked) and "measured": what the tree's ELF files really need. The steps
+are data, never a shell:
 
   {"fetch": FILE, "url": URL, "sha256": HEX | "sha512": HEX, "released": "YYYY-MM-DD"}
       a download, refused unless it has that hash. "url" and the hashes may be {"x86_64": ..., "aarch64": ...}.
@@ -37,7 +46,7 @@ architecture (upstream builds aarch64 on a newer system than x86_64): the entry 
 (GUI parts, test data) are measured but only noted. A release younger than 14 days on DATE is refused.
 
 `check` validates every toolchain.json without downloading: the keys, the pins of each architecture, the release
-dates. Standard library only (gpg for a "gpg" step, xz for the archive when it is there).
+dates, and the versions of each name (its lines, its newest). Standard library only (gpg for a "gpg" step, xz for the archive when it is there).
 """
 
 from __future__ import annotations
@@ -68,6 +77,7 @@ ARCHES = ("x86_64", "aarch64")
 MIN_AGE_DAYS = 14
 DOWNLOAD_LIMIT = 2 << 30
 NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")
+LINE = re.compile(r"[0-9]{1,6}(?:\.[0-9]{1,6}){0,2}")  # the start of a version an older recipe is picked by
 MANIFEST_KEYS = ("name", "version", "title", "description", "license", "homepage", "commands", "env", "caches",
                  "hosts", "allow", "needs", "requires")
 KEYS = frozenset({*MANIFEST_KEYS, "arches", "vars", "build", "optional", "smoke", "notes"})
@@ -85,10 +95,36 @@ class Refused(ValueError):
 # --- the recipe ------------------------------------------------------------------------------------------------
 
 
-def load(name: str, root: Path = ROOT) -> dict:
+def split_id(ident: str) -> tuple[str, str | None]:
+    """(name, line or None) of a recipe's ID, NAME or NAME@LINE."""
+    name, at, line = str(ident).partition("@")
     if not NAME.fullmatch(name) or name == "bin":
         raise Refused(f"{name!r}: a toolchain's name is a lower-case letter, then lower-case letters, digits or '-'")
-    path = root / "toolchains" / name / "toolchain.json"
+    if at and not LINE.fullmatch(line):
+        raise Refused(f"{ident!r}: an older version's recipe is NAME@LINE, LINE the start of its version (17, 3.12)")
+    return name, (line if at else None)
+
+
+def recipe_path(ident: str, root: Path = ROOT) -> Path:
+    name, line = split_id(ident)
+    folder = root / "toolchains" / name
+    return (folder / line if line else folder) / "toolchain.json"
+
+
+def selects(line: str, version: str) -> bool:
+    """Whether LINE picks VERSION as sandbox-ai's NAME@LINE does: the version itself, or its start up to a '.', '+',
+    '-' or '_' (17 picks 17.0.21+9, 3.12 picks 3.12.16, 1.2 does not pick 1.26.0)."""
+    return version == line or (version.startswith(line) and version[len(line)] in ".+-_")
+
+
+def version_key(version: str):
+    """VERSION for ordering as sandbox-ai orders them: its numbers first (1.25.4 before 1.9), then its text."""
+    return [int(part) for part in re.findall(r"[0-9]+", version)][:8], version
+
+
+def load(ident: str, root: Path = ROOT) -> dict:
+    name, line = split_id(ident)
+    path = recipe_path(ident, root)
     try:
         recipe = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -98,7 +134,60 @@ def load(name: str, root: Path = ROOT) -> dict:
     unknown = sorted(set(recipe) - KEYS)
     if unknown:
         raise Refused(f"{path}: unknown key {unknown[0]!r}")
+    if line and not (isinstance(recipe.get("version"), str) and selects(line, recipe["version"])):
+        raise Refused(f"{path}: its version {recipe.get('version')!r} does not start with {line} (its folder)")
     return recipe
+
+
+def recipe_ids(root: Path = ROOT) -> list[str]:
+    """Every recipe's ID: each name's newest (NAME), then its older versions (NAME@LINE), newest first."""
+    ids = []
+    for path in sorted((root / "toolchains").glob("*/toolchain.json")):
+        name = path.parent.name
+        lines = [older.parent.name for older in (root / "toolchains" / name).glob("*/toolchain.json")]
+        ids += [name, *(f"{name}@{line}" for line in sorted(lines, key=version_key, reverse=True))]
+    return ids
+
+
+def id_of(name: str, version: str, root: Path = ROOT) -> str:
+    """The ID of the recipe of NAME VERSION, or Refused."""
+    for ident in recipe_ids(root):
+        if split_id(ident)[0] == name:
+            try:
+                if load(ident, root).get("version") == version:
+                    return ident
+            except Refused:
+                continue
+    raise Refused(f"no recipe of {name} {version} (toolchains/{name}/)")
+
+
+def versions_problems(root: Path = ROOT) -> list[str]:
+    """What is wrong with the versions of each name: an older recipe without the newest one, a version twice, a newest
+    recipe that is not the newest version, a line that picks another recipe's version too."""
+    found, recipes = [], {}
+    for path in sorted((root / "toolchains").glob("*/*/toolchain.json")):
+        if not (path.parent.parent / "toolchain.json").is_file():
+            found.append(f"{path.parent.parent.name}: {path.parent.name}/toolchain.json without the newest "
+                         "version's toolchain.json")
+    for ident in recipe_ids(root):
+        try:
+            recipes[ident] = load(ident, root)
+        except Refused as exc:
+            found.append(str(exc))
+    for name in dict.fromkeys(split_id(ident)[0] for ident in recipes):
+        mine = {ident: str(recipe.get("version")) for ident, recipe in recipes.items() if split_id(ident)[0] == name}
+        versions = list(mine.values())
+        for version in sorted({v for v in versions if versions.count(v) > 1}):
+            found.append(f"{name}: {version} has more than one recipe")
+        if name in mine and max(versions, key=version_key) != mine[name]:
+            found.append(f"{name}: toolchains/{name}/toolchain.json is {mine[name]}, but "
+                         f"{max(versions, key=version_key)} is newer: the newest version is the name's own recipe")
+        for ident, version in mine.items():
+            line = split_id(ident)[1]
+            others = [v for other, v in mine.items() if other != ident and line and selects(line, v)]
+            if others:
+                found.append(f"{ident}: {line} picks {', '.join(others)} too, not only {version}")
+    return found
 
 
 def for_arch(value, arch: str, what: str):
@@ -704,9 +793,11 @@ def manifest(recipe: dict, arch: str) -> dict:
     return entry
 
 
-def build(name: str, arch: str, out: Path, downloads: Path | None = None, today: datetime.date | None = None,
+def build(ident: str, arch: str, out: Path, downloads: Path | None = None, today: datetime.date | None = None,
           root: Path = ROOT, opener=None, gpg=subprocess.run) -> dict:
-    recipe = load(name, root)
+    """The recipe IDENT (NAME or NAME@LINE) for ARCH: OUT/toolchain-IDENT-ARCH.tar.xz and .json."""
+    recipe = load(ident, root)
+    name = recipe["name"]
     today = today or datetime.date.today()
     problems = problems_of(recipe, today)
     if arch not in (recipe.get("arches") or []):
@@ -714,7 +805,7 @@ def build(name: str, arch: str, out: Path, downloads: Path | None = None, today:
     if problems:
         raise Refused("; ".join(problems))
     out.mkdir(parents=True, exist_ok=True)
-    tree = out / f"tree-{name}-{arch}"
+    tree = out / f"tree-{ident}-{arch}"
     if tree.exists():
         shutil.rmtree(tree)
     sources = run_steps(recipe, arch, tree, downloads or out / "downloads", opener, gpg)
@@ -728,48 +819,76 @@ def build(name: str, arch: str, out: Path, downloads: Path | None = None, today:
     problems = needs_problems(recipe, found, arch)
     if problems:
         raise Refused(f"{name}: " + "; ".join(problems))
-    archive = out / f"toolchain-{name}-{arch}.tar.xz"
+    archive = out / f"toolchain-{ident}-{arch}.tar.xz"
     pack(tree, archive)
     sha = digest(archive)
+    # The release is named after the archive's hash, its asset after the name alone: one URL scheme for every version.
     entry = {**manifest(recipe, arch),
-             "url": f"{RELEASES}/toolchain-{name}-{arch}-{sha[:12]}/{archive.name}", "sha256": sha,
+             "url": f"{RELEASES}/toolchain-{name}-{arch}-{sha[:12]}/toolchain-{name}-{arch}.tar.xz", "sha256": sha,
              "size": archive.stat().st_size, "unpacked": tree_size(tree), "sources": sources}
     meta = {"entry": entry, "measured": {key: found[key] for key in ("glibc", "libraries", "optional")},
             "smoke": recipe.get("smoke") or []}
-    (out / f"toolchain-{name}-{arch}.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    (out / f"toolchain-{ident}-{arch}.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return meta
+
+
+def requires(ident: str, root: Path = ROOT) -> list[str]:
+    """The IDs of what the recipe IDENT requires, directly or not, each before what needs it: always their newest."""
+    order = []
+
+    def visit(current, seen):
+        for other in load(current, root).get("requires", []):
+            if other in seen:
+                raise Refused(f"{current} and {other} require each other")
+            if other not in order:
+                visit(other, (*seen, other))
+                order.append(other)
+    visit(ident, (split_id(ident)[0],))
+    return order
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
     builder = commands.add_parser("build")
-    builder.add_argument("name")
+    builder.add_argument("name", metavar="ID")
     builder.add_argument("--arch", choices=ARCHES, required=True)
     builder.add_argument("--out", type=Path, required=True)
     builder.add_argument("--downloads", type=Path)
     builder.add_argument("--date", help="today, for the 14-day rule (default: today)")
     builder.add_argument("--root", type=Path, default=ROOT)
     checker = commands.add_parser("check")
-    checker.add_argument("names", nargs="*")
+    checker.add_argument("names", nargs="*", metavar="ID")
     checker.add_argument("--date")
     checker.add_argument("--root", type=Path, default=ROOT)
+    lister = commands.add_parser("ids")
+    lister.add_argument("--root", type=Path, default=ROOT)
+    needer = commands.add_parser("requires")
+    needer.add_argument("name", metavar="ID")
+    needer.add_argument("--root", type=Path, default=ROOT)
     opts = parser.parse_args(argv)
-    today = datetime.date.fromisoformat(opts.date) if opts.date else datetime.date.today()
+    today = datetime.date.fromisoformat(opts.date) if getattr(opts, "date", None) else datetime.date.today()
     try:
+        if opts.command == "ids":
+            print("\n".join(recipe_ids(opts.root)))
+            return 0
+        if opts.command == "requires":
+            print(" ".join(requires(opts.name, opts.root)))
+            return 0
         if opts.command == "build":
             meta = build(opts.name, opts.arch, opts.out, opts.downloads, today, opts.root)
             print(json.dumps({key: meta["entry"][key] for key in ("name", "version", "arch", "sha256", "size",
                                                                   "unpacked")} | {"measured": meta["measured"]},
                              indent=2))
             return 0
-        names = opts.names or sorted(path.parent.name for path in (opts.root / "toolchains").glob("*/toolchain.json"))
-        problems = []
+        names = opts.names or recipe_ids(opts.root)
+        problems = [] if opts.names else versions_problems(opts.root)
         for name in names:
-            problems += problems_of(load(name, opts.root), today)
+            problems += [problem.replace(f"{split_id(name)[0]}: ", f"{name}: ", 1)
+                         for problem in problems_of(load(name, opts.root), today)]
         for problem in problems:
             print(problem, file=sys.stderr)
-        print(f"{len(names)} toolchains, {len(problems)} problems")
+        print(f"{len(names)} recipes, {len(problems)} problems")
         return 1 if problems else 0
     except Refused as exc:
         print(f"refused: {exc}", file=sys.stderr)

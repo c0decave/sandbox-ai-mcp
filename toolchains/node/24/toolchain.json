@@ -1,0 +1,117 @@
+{
+  "name": "node",
+  "version": "24.22.2",
+  "title": "Node.js, npm, TypeScript",
+  "description": "Node.js 24 (LTS) as nodejs.org publishes it, with npm and npx, and the TypeScript compiler 6.0.3 (tsc). npm's cache goes to ~/.npm, global installs to ~/.local. The node binary needs libstdc++, libgcc_s and libatomic of the system.",
+  "license": "MIT AND Artistic-2.0 AND Apache-2.0",
+  "homepage": "https://nodejs.org",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "vars": {
+    "nodearch": {
+      "x86_64": "x64",
+      "aarch64": "arm64"
+    }
+  },
+  "commands": {
+    "node": "bin/node",
+    "npm": "bin/npm",
+    "npx": "bin/npx",
+    "tsc": "lib/node_modules/typescript/bin/tsc",
+    "tsserver": "lib/node_modules/typescript/bin/tsserver"
+  },
+  "env": {
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false"
+  },
+  "caches": {
+    "NPM_CONFIG_PREFIX": ".local"
+  },
+  "hosts": [],
+  "allow": [
+    "npm",
+    "github"
+  ],
+  "needs": {
+    "glibc": "2.28",
+    "libraries": [
+      "libstdc++.so.6",
+      "libgcc_s.so.1",
+      "libatomic.so.1"
+    ]
+  },
+  "requires": [],
+  "build": [
+    {
+      "fetch": "pubring.kbx",
+      "url": "https://raw.githubusercontent.com/nodejs/release-keys/481637f813e912c4aa3622d7964ab426c97b8e8d/gpg/pubring.kbx",
+      "sha256": "610b8d249da3d5733f5a128def2dd0294dbbf5b5713e6ca2529db8db419dee00"
+    },
+    {
+      "fetch": "SHASUMS256.txt",
+      "url": "https://nodejs.org/dist/v{version}/SHASUMS256.txt",
+      "signed": true
+    },
+    {
+      "fetch": "SHASUMS256.txt.sig",
+      "url": "https://nodejs.org/dist/v{version}/SHASUMS256.txt.sig",
+      "signed": true
+    },
+    {
+      "gpg": "SHASUMS256.txt",
+      "signature": "SHASUMS256.txt.sig",
+      "keys": "pubring.kbx"
+    },
+    {
+      "fetch": "node.tar.gz",
+      "url": "https://nodejs.org/dist/v{version}/node-v{version}-linux-{nodearch}.tar.gz",
+      "listed": {
+        "in": "SHASUMS256.txt",
+        "as": "node-v{version}-linux-{nodearch}.tar.gz"
+      },
+      "released": "2026-10-28"
+    },
+    {
+      "unpack": "node.tar.gz",
+      "strip": 1
+    },
+    {
+      "fetch": "typescript.tgz",
+      "url": "https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz",
+      "sha512": "cb64efbb14993c3c906a490544f6472859be28a56a222b1d83dfc26709bd7edbca5cb3fc3515a3dfcfce0e335baf8dd2b285ea36e022b047f519d0b1a9671d07",
+      "released": "2026-04-16"
+    },
+    {
+      "unpack": "typescript.tgz",
+      "strip": 1,
+      "to": "lib/node_modules/typescript"
+    },
+    {
+      "chmod": "lib/node_modules/typescript/bin/tsc",
+      "mode": "755"
+    },
+    {
+      "chmod": "lib/node_modules/typescript/bin/tsserver",
+      "mode": "755"
+    }
+  ],
+  "smoke": [
+    {
+      "run": "node -e 'console.log(\"hello from node\", process.version)'",
+      "expect": "hello from node v24.22.2"
+    },
+    {
+      "run": "npm --version && npx --version",
+      "expect": "."
+    },
+    {
+      "files": {
+        "hello.ts": "const who: string = \"ts\";\nconsole.log(`hello from ${who}`);\n"
+      },
+      "run": "tsc hello.ts && node hello.js",
+      "expect": "hello from ts"
+    }
+  ],
+  "notes": "nodejs.org was not reachable where these pins were made, so the archive is not pinned by a literal hash: SHASUMS256.txt must carry a good signature of a Node.js release key (the keyring of nodejs/release-keys at a pinned commit, by its SHA-256), and the archive must have the SHA-256 that file lists. The build writes that hash into the entry's sources. TypeScript: the npm registry's integrity (sha512)."
+}

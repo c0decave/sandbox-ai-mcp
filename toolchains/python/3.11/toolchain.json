@@ -1,0 +1,95 @@
+{
+  "name": "python",
+  "version": "3.11.18",
+  "title": "Python and uv",
+  "description": "CPython 3.11 from python-build-standalone (OpenSSL, SQLite, zlib and libffi inside) with pip, and uv. The interpreter is marked externally managed: install into a virtual environment (python3 -m venv, uv venv); nothing is written into the toolchain.",
+  "license": "PSF-2.0 AND (MIT OR Apache-2.0)",
+  "homepage": "https://github.com/astral-sh/python-build-standalone",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "commands": {
+    "python3": "bin/python3",
+    "python": "bin/python3",
+    "python3.11": "bin/python3.11",
+    "pip3": "bin/pip3",
+    "pip": "bin/pip3",
+    "uv": "bin/uv",
+    "uvx": "bin/uvx"
+  },
+  "env": {},
+  "caches": {},
+  "hosts": [],
+  "allow": [
+    "pypi"
+  ],
+  "needs": {
+    "glibc": "2.17",
+    "libraries": {
+      "x86_64": [],
+      "aarch64": [
+        "libgcc_s.so.1"
+      ]
+    }
+  },
+  "requires": [],
+  "optional": [
+    "lib/python3.11/lib-dynload/_tkinter*",
+    "lib/libtcl*",
+    "lib/libtk*",
+    "lib/tcl*",
+    "lib/tk*",
+    "lib/itcl*",
+    "lib/thread*",
+    "*/testdata/*"
+  ],
+  "build": [
+    {
+      "fetch": "python.tar.gz",
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-{version}+20261026-{arch}-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "sha256": {
+        "x86_64": "17c4978a36c496dc53c08899ef8dad1ad2734f6325f08d6033a1e66419e0af26",
+        "aarch64": "ecf28575cd67fa7a53c7bf2355bae5cff2c496efeb51780d50a8b54441cdce74"
+      },
+      "released": "2026-10-26"
+    },
+    {
+      "unpack": "python.tar.gz",
+      "strip": 1
+    },
+    {
+      "fetch": "uv.tar.gz",
+      "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-{arch}-unknown-linux-musl.tar.gz",
+      "sha256": {
+        "x86_64": "287491da03f2a785c70fa75b13e1f849918c2f2b5415fe84876b8214eeb792f9",
+        "aarch64": "2d3ec076a0c4c0e8250bb6418c44080828b544f1a3be0b6e46adf9fb6923de45"
+      },
+      "released": "2026-11-03"
+    },
+    {
+      "unpack": "uv.tar.gz",
+      "strip": 1,
+      "to": "bin"
+    }
+  ],
+  "smoke": [
+    {
+      "run": "python3 -c 'import ssl, sqlite3, zlib, ctypes; print(\"hello from python\", ssl.OPENSSL_VERSION)'",
+      "expect": "hello from python OpenSSL"
+    },
+    {
+      "run": "python3 --version",
+      "expect": "Python 3.11.18"
+    },
+    {
+      "run": "python3 --version && uv --version",
+      "expect": "uv 0.13.7"
+    },
+    {
+      "run": "python3 -m venv venv && venv/bin/python -c 'import sys; print(\"venv\", sys.prefix != sys.base_prefix)'",
+      "expect": "venv True"
+    }
+  ],
+  "notes": "SHA256SUMS of the python-build-standalone release 20261026; uv's own .sha256 files. uv is the static musl build."
+}

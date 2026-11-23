@@ -2,8 +2,8 @@
 """Smoke-test a built toolchain as sandbox-ai mounts it: compile and run a hello world, under Podman or Bubblewrap.
 
     scripts/toolchain_smoke.py --sandbox-ai DIR --runner sandbox-ai-podman|sandbox-ai-bwrap \\
-        --meta out/toolchain-NAME-ARCH.json --archive out/toolchain-NAME-ARCH.tar.xz \\
-        [--with out/toolchain-OTHER-ARCH.json ...] --report smoke-NAME-ARCH-RUNNER.json
+        --meta out/toolchain-ID-ARCH.json --archive out/toolchain-ID-ARCH.tar.xz \\
+        [--with out/toolchain-OTHER-ARCH.json ...] --report smoke-ID-ARCH-RUNNER.json
 
 Everything between the archive and the mount is sandbox-ai's own code (DIR/sandbox/toolchains.py): `toolchain add`
 from a catalog of this run (the SHA-256 checked, the archive unpacked without trusting it into a store of this

@@ -8,8 +8,9 @@ compiled and ran a hello world with sandbox-ai, under Podman and under Bubblewra
 The same key and namespace as catalog.json (scripts/sign_catalog.py: ssh-keygen -Y sign, namespace sandbox-ai-mcp,
 principal mcp@sandbox-ai); sandbox-ai checks toolchains.json.sig against sandbox/mcp-signers before `sandbox-ai
 toolchain add` takes an entry. Before it signs it requires, in DIR or a folder below it (the artifact "toolchains"
-of the toolchains workflow), for every entry both smoke reports - smoke-NAME-ARCH-sandbox-ai-podman.json and
-...-bwrap.json -, passed, for exactly the entry's archive (sha256); that toolchains.json agrees with the recipes
+of the toolchains workflow), for every entry - every version of a name is one - both smoke reports -
+smoke-ID-ARCH-sandbox-ai-podman.json and ...-bwrap.json, ID the entry's recipe (NAME, or NAME@LINE for an older
+version) -, passed, for exactly the entry's archive (sha256); that toolchains.json agrees with the recipes
 (scripts/make_toolchains.py --check); and that every toolchain an entry requires is in it. The key never leaves
 your machine. Standard library only (ssh-keygen).
 """
@@ -44,11 +45,12 @@ def problems_of(root: Path, reports: Path) -> list[str]:
         return [f"{reports}: not a folder of smoke reports"]
     names = {(entry["name"], entry["arch"]) for entry in entries}
     for entry in entries:
-        problems += [f"{entry['name']} {entry['arch']}: {problem}" for problem in make.report_problems(reports, entry)]
-        problems += [f"{entry['name']} {entry['arch']}: requires {other}, which is not in toolchains.json"
+        label = f"{entry['name']} {entry['version']} {entry['arch']}"
+        problems += [f"{label}: {problem}" for problem in make.report_problems(reports, entry, root)]
+        problems += [f"{label}: requires {other}, which is not in toolchains.json"
                      for other in entry.get("requires", []) if (other, entry["arch"]) not in names]
         if not entry.get("sources"):
-            problems.append(f"{entry['name']} {entry['arch']}: no upstream sources recorded")
+            problems.append(f"{label}: no upstream sources recorded")
     return problems
 
 

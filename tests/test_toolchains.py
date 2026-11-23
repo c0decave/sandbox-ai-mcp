@@ -89,12 +89,13 @@ class Repo:
         test.addCleanup(shutil.rmtree, self.root, True)
         self.files = {}
 
-    def recipe(self, name="demo", **more):
+    def recipe(self, name="demo", line=None, **more):
+        """toolchains/NAME/toolchain.json, or with LINE an older version's toolchains/NAME/LINE/toolchain.json."""
         recipe = {"name": name, "version": "1.2.3", "title": "Demo", "description": "A demo.", "license": "MIT",
                   "homepage": "https://example.org", "arches": ["x86_64"], "commands": {"demo": "bin/demo"},
                   "env": {"DEMO_HOME": "{prefix}"}, "caches": {}, "hosts": ["example.org"], "allow": [],
                   "needs": {"glibc": "2.17", "libraries": []}, "requires": [], **more}
-        path = self.root / "toolchains" / name
+        path = self.root / "toolchains" / name / (line or "")
         path.mkdir(parents=True, exist_ok=True)
         (path / "toolchain.json").write_text(json.dumps(recipe))
         return recipe
@@ -112,8 +113,12 @@ class Repo:
 
 class Recipes(unittest.TestCase):
     def test_every_recipe_is_pinned_and_old_enough(self):
-        names = sorted(path.parent.name for path in (ROOT / "toolchains").glob("*/toolchain.json"))
+        names = tc.recipe_ids()
         self.assertGreaterEqual(set(names), {"go", "python", "jdk", "zig", "node", "dotnet", "cc", "rust"})
+        # the older versions offered too (the user 2026-11-23: "add toolchain support for older toolchain versions")
+        self.assertGreaterEqual(set(names), {"jdk@17", "jdk@11", "node@24", "node@22", "python@3.13", "python@3.12",
+                                             "python@3.11", "go@1.26", "rust@1.98", "rust@1.97"})
+        self.assertEqual(tc.versions_problems(), [])
         for name in names:
             recipe = tc.load(name)
             self.assertEqual(tc.problems_of(recipe, TODAY), [], name)
@@ -371,18 +376,18 @@ class Catalog(unittest.TestCase):
         (self.ci / f"smoke-demo-x86_64-{runner}.json").write_text(json.dumps(report))
 
     def test_only_what_passed_both_smoke_tests_for_its_archive_enters(self):
-        self.assertEqual(make.from_ci(self.ci)[0], [])
+        self.assertEqual(make.from_ci(self.ci, self.repo.root)[0], [])
         self.report("sandbox-ai-podman")
-        entries, left_out = make.from_ci(self.ci)
+        entries, left_out = make.from_ci(self.ci, self.repo.root)
         self.assertEqual(entries, [])
         self.assertIn("no smoke-demo-x86_64-sandbox-ai-bwrap.json", left_out[0])
         for change, why in (({"ok": False}, "sandbox-ai-bwrap failed"), ({"sha256": "0" * 64}, "is of the archive"),
                             ({"checks": [{"check": "mounted as sandbox-ai mounts it", "ok": True}]},
                              "nothing was run"), ({"arch": "aarch64"}, "is not the sandbox-ai-bwrap report")):
             self.report("sandbox-ai-bwrap", **change)
-            self.assertIn(why, make.from_ci(self.ci)[1][0])
+            self.assertIn(why, make.from_ci(self.ci, self.repo.root)[1][0])
         self.report("sandbox-ai-bwrap")
-        entries, left_out = make.from_ci(self.ci)
+        entries, left_out = make.from_ci(self.ci, self.repo.root)
         self.assertEqual((entries, left_out), ([self.entry], []))
         (self.repo.root / "toolchains.json").write_text(make.document(entries))
         self.assertEqual(make.check(self.repo.root, None), [])
@@ -397,7 +402,7 @@ class Catalog(unittest.TestCase):
         (self.ci / "toolchain-demo-x86_64.json").write_text(json.dumps({"entry": self.entry}))
         self.report("sandbox-ai-podman")
         self.report("sandbox-ai-bwrap")
-        entries, left_out = make.from_ci(self.ci)
+        entries, left_out = make.from_ci(self.ci, self.repo.root)
         self.assertEqual(entries, [])
         self.assertIn("requires cc, which did not pass", left_out[0])
 
@@ -430,8 +435,8 @@ class Catalog(unittest.TestCase):
                          "SANDBOX_AI_CHECKOUT names no sandbox-ai with toolchains")
     def test_sandbox_ai_takes_every_entry_and_mounts_it_for_the_smoke_test(self):
         t = smoke.sandbox_ai(Path(CHECKOUT))
-        for path in sorted((ROOT / "toolchains").glob("*/toolchain.json")):  # every recipe's manifest
-            recipe = tc.load(path.parent.name)
+        for ident in tc.recipe_ids():  # every recipe's manifest, every version
+            recipe = tc.load(ident)
             for arch in recipe["arches"]:
                 t.validated({**tc.manifest(recipe, arch), "url": "https://example.org/a.tar.xz", "sha256": "0" * 64})
         t.validated(self.entry)
@@ -493,6 +498,124 @@ class Catalog(unittest.TestCase):
             os.environ.pop("XDG_DATA_HOME", None) if old is None else os.environ.update(XDG_DATA_HOME=old)
         self.assertFalse(report["ok"])
         self.assertIn("podman build failed (125): no network", report["checks"][-1]["output"])
+
+
+class Versions(unittest.TestCase):
+    """Several versions of a toolchain: one recipe each - toolchains/NAME/toolchain.json the newest (ID NAME),
+    toolchains/NAME/LINE/toolchain.json an older one (ID NAME@LINE, picked by sandbox-ai's --toolchain NAME@LINE) -,
+    each built, smoke-tested and in the catalog on its own."""
+
+    def setUp(self):
+        self.repo = Repo(self)
+        self.shas = {}
+        for version in ("2.0.1", "1.9.4"):
+            data = tar_bytes({f"d-{version}/bin/demo": elf(glibc="GLIBC_2.17"),
+                              f"d-{version}/VERSION": version.encode()})
+            self.shas[version] = self.repo.serve(f"https://example.org/d-{version}.tar.gz", data)
+
+    def steps(self, version):
+        return [{"fetch": "d.tar.gz", "url": "https://example.org/d-{version}.tar.gz", "sha256": self.shas[version],
+                 "released": "2026-10-01"}, {"unpack": "d.tar.gz", "strip": 1}]
+
+    def two(self):
+        self.repo.recipe(version="2.0.1", build=self.steps("2.0.1"), smoke=[{"run": "demo", "expect": "2"}])
+        self.repo.recipe(line="1.9", version="1.9.4", build=self.steps("1.9.4"), smoke=[{"run": "demo", "expect": "1"}])
+
+    def test_each_version_has_its_recipe_and_its_id(self):
+        self.two()
+        self.assertEqual(tc.recipe_ids(self.repo.root), ["demo", "demo@1.9"])
+        self.assertEqual(tc.load("demo@1.9", self.repo.root)["version"], "1.9.4")
+        self.assertEqual(tc.id_of("demo", "1.9.4", self.repo.root), "demo@1.9")
+        self.assertEqual(tc.id_of("demo", "2.0.1", self.repo.root), "demo")
+        with self.assertRaisesRegex(tc.Refused, "no recipe of demo 1.8.0"):
+            tc.id_of("demo", "1.8.0", self.repo.root)
+        self.assertEqual(tc.versions_problems(self.repo.root), [])
+        self.assertEqual(tc.main(["check", "--root", str(self.repo.root), "--date", "2026-11-22"]), 0)
+        for line, version in (("17", "17.0.21+9"), ("3.12", "3.12.16"), ("1.26", "1.26.10"), ("22", "22.23.4")):
+            self.assertTrue(tc.selects(line, version), (line, version))
+        for line, version in (("1.2", "1.26.0"), ("3.1", "3.12.16"), ("17", "170.1")):
+            self.assertFalse(tc.selects(line, version), (line, version))
+
+    def test_what_the_versions_of_a_name_may_not_be(self):
+        self.two()
+        for change, why in (
+                ({"line": "1.8", "version": "1.9.4"}, "does not start with 1.8"),
+                ({"line": "1", "version": "1.9.4"}, "1.9.4 has more than one recipe"),
+                ({"line": "2", "version": "2.1.0"}, "but 2.1.0 is newer"),
+                ({"line": "1", "version": "1.0.0"}, "demo@1: 1 picks 1.9.4 too")):
+            recipe = {**change}
+            line = recipe.pop("line")
+            self.repo.recipe(line=line, build=self.steps("1.9.4"), **recipe)
+            self.assertTrue(any(why in problem for problem in tc.versions_problems(self.repo.root)),
+                            (why, tc.versions_problems(self.repo.root)))
+            self.assertEqual(tc.main(["check", "--root", str(self.repo.root), "--date", "2026-11-22"]), 1)
+            shutil.rmtree(self.repo.root / "toolchains" / "demo" / line)
+        (self.repo.root / "toolchains" / "demo" / "toolchain.json").unlink()
+        self.assertTrue(any("without the newest version's toolchain.json" in problem
+                            for problem in tc.versions_problems(self.repo.root)))
+        with self.assertRaisesRegex(tc.Refused, "LINE the start of its version"):
+            tc.load("demo@1.x", self.repo.root)
+
+    def test_an_older_version_is_built_on_its_own_and_published_under_its_name(self):
+        self.two()
+        meta = tc.build("demo@1.9", "x86_64", self.repo.root / "out", today=TODAY, root=self.repo.root,
+                        opener=self.repo.opener)
+        entry, out = meta["entry"], self.repo.root / "out"
+        self.assertEqual((entry["name"], entry["version"]), ("demo", "1.9.4"))
+        self.assertTrue((out / "toolchain-demo@1.9-x86_64.tar.xz").is_file())
+        self.assertEqual(json.loads((out / "toolchain-demo@1.9-x86_64.json").read_text())["entry"], entry)
+        # the release is named after the archive's hash, the asset after the name: one scheme for every version
+        self.assertEqual(entry["url"], f"{tc.RELEASES}/toolchain-demo-x86_64-{entry['sha256'][:12]}/"
+                                       "toolchain-demo-x86_64.tar.xz")
+        newest = self.repo.build()["entry"]
+        self.assertEqual(newest["version"], "2.0.1")
+        self.assertNotEqual(newest["sha256"], entry["sha256"])
+
+    def test_every_version_that_passed_enters_the_catalog_newest_first(self):
+        self.two()
+        out = self.repo.root / "out"
+        entries = {}
+        for ident in ("demo@1.9", "demo"):
+            entry = tc.build(ident, "x86_64", out, today=TODAY, root=self.repo.root, opener=self.repo.opener)["entry"]
+            entries[ident] = entry
+            for runner in smoke.RUNNERS:
+                (out / f"smoke-{ident}-x86_64-{runner}.json").write_text(json.dumps(
+                    {"name": "demo", "version": entry["version"], "arch": "x86_64", "runner": runner, "ok": True,
+                     "sha256": entry["sha256"], "checks": [{"check": "run demo", "ok": True}]}))
+        found, left_out = make.from_ci(out, self.repo.root)
+        self.assertEqual(left_out, [])
+        self.assertEqual([entry["version"] for entry in found], ["2.0.1", "1.9.4"])
+        (self.repo.root / "toolchains.json").write_text(make.document(found))
+        self.assertEqual(make.check(self.repo.root, None), [])
+        self.assertEqual(sign.problems_of(self.repo.root, out), [])
+        # the report of one version is never taken for another's
+        (out / "smoke-demo@1.9-x86_64-sandbox-ai-bwrap.json").write_text(json.dumps(
+            {"name": "demo", "version": "2.0.1", "arch": "x86_64", "runner": "sandbox-ai-bwrap", "ok": True,
+             "sha256": entries["demo@1.9"]["sha256"], "checks": [{"check": "run demo", "ok": True}]}))
+        found, left_out = make.from_ci(out, self.repo.root)
+        self.assertEqual([entry["version"] for entry in found], ["2.0.1"])
+        self.assertIn("is not the sandbox-ai-bwrap report of demo 1.9.4 x86_64", left_out[0])
+        self.assertTrue(any("demo 1.9.4 x86_64: " in problem for problem in sign.problems_of(self.repo.root, out)))
+        # an entry whose version has no recipe (any more)
+        (self.repo.root / "toolchains.json").write_text(make.document([{**entries["demo"], "version": "1.0.0"}]))
+        self.assertTrue(any("no recipe of demo 1.0.0" in p for p in make.check(self.repo.root, None)))
+
+    def test_what_a_version_requires_is_the_newest_of_it(self):
+        self.repo.recipe(name="base", build=[])
+        self.repo.recipe(name="mid", requires=["base"], build=[])
+        self.repo.recipe(name="top", line="1", version="1.0.0", requires=["mid"], build=[])
+        self.repo.recipe(name="top", version="2.0.0", requires=["mid"], build=[])
+        self.assertEqual(tc.requires("top@1", self.repo.root), ["base", "mid"])
+        self.repo.recipe(name="base", requires=["top"], build=[])
+        with self.assertRaisesRegex(tc.Refused, "require each other"):
+            tc.requires("top@1", self.repo.root)
+
+    def test_the_ci_builds_every_version(self):
+        text = (ROOT / ".github" / "workflows" / "toolchains.yml").read_text(encoding="utf-8")
+        start = text.index("toolchain: [", text.index("matrix:"))
+        listed = [item.strip() for item in text[start + len("toolchain: ["):text.index("]", start)].split(",")]
+        self.assertEqual(sorted(listed), sorted(tc.recipe_ids()))
+        self.assertIn('python3 scripts/toolchain.py requires "${NAME}"', text)
 
 
 class RustLinker(unittest.TestCase):

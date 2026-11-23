@@ -1,0 +1,146 @@
+{
+  "name": "jdk",
+  "version": "17.0.21+9",
+  "title": "Java 17, Maven, Gradle, Kotlin",
+  "description": "Eclipse Temurin JDK 17 (LTS) with Apache Maven 3.9.16, Gradle 9.9.0 and the Kotlin compiler 2.4.21. Repositories and caches go to ~/.m2 and ~/.gradle. The desktop parts of the JDK (AWT on a display, sound) need libraries of the system and are not part of what is vouched for.",
+  "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND Apache-2.0",
+  "homepage": "https://adoptium.net",
+  "arches": [
+    "x86_64",
+    "aarch64"
+  ],
+  "vars": {
+    "jarch": {
+      "x86_64": "x64",
+      "aarch64": "aarch64"
+    }
+  },
+  "commands": {
+    "java": "bin/java",
+    "javac": "bin/javac",
+    "jar": "bin/jar",
+    "javadoc": "bin/javadoc",
+    "jshell": "bin/jshell",
+    "jlink": "bin/jlink",
+    "jdeps": "bin/jdeps",
+    "jcmd": "bin/jcmd",
+    "keytool": "bin/keytool",
+    "mvn": "maven/bin/mvn",
+    "gradle": "gradle/bin/gradle",
+    "kotlinc": "kotlinc/bin/kotlinc",
+    "kotlin": "kotlinc/bin/kotlin"
+  },
+  "env": {
+    "JAVA_HOME": "{prefix}"
+  },
+  "caches": {},
+  "hosts": [
+    "repo.maven.apache.org",
+    "repo1.maven.org",
+    "plugins.gradle.org",
+    "plugins-artifacts.gradle.org",
+    "services.gradle.org",
+    "downloads.gradle.org"
+  ],
+  "allow": [
+    "github"
+  ],
+  "needs": {
+    "glibc": "2.17",
+    "libraries": []
+  },
+  "requires": [],
+  "optional": [
+    "lib/libawt_xawt.so",
+    "lib/libjawt.so",
+    "lib/libsplashscreen.so",
+    "lib/libjsound.so",
+    "lib/libfontmanager.so",
+    "maven/lib/jansi-native/*"
+  ],
+  "build": [
+    {
+      "fetch": "jdk.tar.gz",
+      "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_{jarch}_linux_hotspot_17.0.21_9.tar.gz",
+      "sha256": {
+        "x86_64": "8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711",
+        "aarch64": "3e4eca7ead088f080af1476007decf010a240a1eb4e1e78c54fa32fbcc347084"
+      },
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "jdk.tar.gz",
+      "strip": 1
+    },
+    {
+      "fetch": "maven.tar.gz",
+      "url": "https://repo1.maven.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.tar.gz",
+      "sha512": "831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6",
+      "released": "2026-05-13"
+    },
+    {
+      "unpack": "maven.tar.gz",
+      "strip": 1,
+      "to": "maven"
+    },
+    {
+      "fetch": "gradle.zip",
+      "url": "https://github.com/gradle/gradle-distributions/releases/download/v9.9.0/gradle-9.9.0-bin.zip",
+      "sha256": "0b00b0ffe07c4d4789c12d4935a44a7057d55774b7540bd4a3f76f336deb177a",
+      "released": "2026-11-06"
+    },
+    {
+      "unpack": "gradle.zip",
+      "strip": 1,
+      "to": "gradle"
+    },
+    {
+      "fetch": "kotlin.zip",
+      "url": "https://github.com/JetBrains/kotlin/releases/download/v2.4.21/kotlin-compiler-2.4.21.zip",
+      "sha256": "7cc140e76daf416a0424a5557f99afd7ca89ebd463ea1101261e3e01c33e75cd",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "kotlin.zip",
+      "strip": 1,
+      "to": "kotlinc"
+    },
+    {
+      "chmod": "gradle/bin/gradle",
+      "mode": "755"
+    },
+    {
+      "chmod": "kotlinc/bin/kotlinc",
+      "mode": "755"
+    },
+    {
+      "chmod": "kotlinc/bin/kotlin",
+      "mode": "755"
+    }
+  ],
+  "smoke": [
+    {
+      "files": {
+        "Hello.java": "public class Hello {\n    public static void main(String[] args) {\n        System.out.println(\"hello from java \" + Runtime.version().feature());\n    }\n}\n"
+      },
+      "run": "javac Hello.java && java Hello",
+      "expect": "hello from java 17"
+    },
+    {
+      "run": "mvn -v",
+      "expect": "Apache Maven 3.9.16"
+    },
+    {
+      "run": "gradle --version",
+      "expect": "Gradle 9.9.0"
+    },
+    {
+      "files": {
+        "hello.kt": "fun main() { println(\"hello from kotlin\") }\n"
+      },
+      "run": "kotlinc hello.kt -include-runtime -d hello.jar 2>/dev/null && java -jar hello.jar",
+      "expect": "hello from kotlin"
+    }
+  ],
+  "notes": "Temurin: the .sha256.txt beside each archive (GitHub adoptium/temurin17-binaries). Maven: the .sha512 on Maven Central. Gradle: the digest of gradle/gradle-distributions. Kotlin: its .sha256 asset."
+}

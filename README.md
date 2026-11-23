@@ -630,8 +630,10 @@ server passed both smoke runs (Podman and Bubblewrap, `tools/list` matching
 
 Beside the MCP servers this repository builds the **toolchains** sandbox-ai mounts read-only into a sandbox
 (`sandbox-ai claude --toolchain go`, `sandbox-ai toolchain attach RUN jdk`): Go, Python with uv, a JDK with Maven,
-Gradle and Kotlin, Zig, C and C++ (zig cc, CMake, Ninja), Node.js with npm and TypeScript, the .NET SDK and Rust.
-Each is a recipe (`toolchains/NAME/toolchain.json`): the upstream release by its pinned URL and hash or its verified
+Gradle and Kotlin, Zig, C and C++ (zig cc, CMake, Ninja), Node.js with npm and TypeScript, the .NET SDK and Rust -
+and older versions of several of them (JDK 17 and 11, Node.js 24 and 22, Python 3.13, 3.12 and 3.11, Go 1.26, Rust
+1.98 and 1.97), chosen with `--toolchain jdk@17` (the newest of a name without `@`). Each version is a recipe
+(`toolchains/NAME/toolchain.json` the newest, `toolchains/NAME/LINE/toolchain.json` an older one): the upstream release by its pinned URL and hash or its verified
 signature, at least 14 days old, unpacked into one tree whose programs are checked against what the recipe says they
 need from the system. CI (`.github/workflows/toolchains.yml`) builds it, compiles and runs a hello world with it as
 sandbox-ai mounts it under Podman and under Bubblewrap, and publishes the archive as a release named after its hash;
