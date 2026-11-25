@@ -40,6 +40,14 @@ MODULE = {"id": "terraform-aws-modules/vpc/aws/5.0.0", "source": "https://github
                    "provider_dependencies": [{"name": "aws", "source": "hashicorp/aws", "version": ">= 5.0"}],
                    "resources": [{"name": "this", "type": "aws_vpc"}, {"name": "this", "type": "aws_vpc"}]},
           "submodules": [{"path": "modules/vpc-endpoints"}], "examples": [{"path": "examples/simple"}]}
+#: terraform-aws-vpc's size (220 inputs, 109 outputs); the registry lists them in an order of its own, neither the
+#: file's nor by name (CI, 2026-11-25: outputs vpc_id, vpc_arn, outpost_subnets, database_route_table_ids, ...)
+_NAMES = ["vpc_flow_log_tags", "azs", "zeta_required", "public_subnets", "cidr", "amazon_side_asn", "alpha_required"] \
+    + [f"input_{i:03d}" for i in range(213)]
+BIG_MODULE = {**MODULE, "root": {**MODULE["root"], "inputs": [
+    {"name": n, "type": "list(string)", "description": "d" * 180, "default": None if n.endswith("_required") else [],
+     "required": n.endswith("_required")} for n in _NAMES],
+    "outputs": [{"name": f"output_{i:03d}", "description": "o" * 60} for i in range(109)]}}
 POLICIES = {"data": [
     {"attributes": {"name": "CIS-Policy-Set-for-AWS-Terraform", "title": "Pre-written Sentinel Policies for AWS CIS",
                     "downloads": 900, "verified": True},
@@ -69,6 +77,8 @@ def respond(request):
         doc = path.rsplit("/", 1)[1]
         if doc == "999":
             return 404, {"errors": ["not found"]}, None
+        if len(doc) > 10:  # the real registry, CI of 2026-11-25: HTTP 400 for provider-docs/999999999999
+            return 400, {"errors": [{"status": "400", "title": "bad request"}]}, None
         return 200, {"data": {"id": doc, "attributes": {"title": "aws_instance", "category": "resources",
                                                          "content": CONTENT}}}, None
     if path == "/v2/providers/hashicorp/aws":
@@ -79,6 +89,8 @@ def respond(request):
             {"id": "terraform-aws-modules/vpc/aws/5.0.0", "name": "vpc", "downloads": 9000, "verified": True}]}, None
     if path == "/v1/modules/terraform-aws-modules/vpc/aws/5.0.0":
         return 200, MODULE, None
+    if path == "/v1/modules/terraform-aws-modules/vpc/aws/6.0.0":
+        return 200, BIG_MODULE, None
     if path == "/v1/modules/terraform-aws-modules/vpc/aws":
         return 200, {"version": "6.5.1", "published_at": "2026-10-01T00:00:00Z"}, None
     if path == "/v2/policies":
@@ -145,6 +157,9 @@ class Terraform(unittest.TestCase):
         self.assertNotIn("next_offset", rest)
         self.assertEqual(rest["content"], CONTENT[40_000:])
         self.refused("get_provider_details", "not found - use search_provider_docs", provider_doc_id="999")
+        # an id the registry cannot take (HTTP 400; the id is the only thing the request varies): not found either
+        self.refused("get_provider_details", "provider document 999999999999 not found - use search_provider_docs",
+                     provider_doc_id="999999999999")
 
     def test_v2_categories_are_paged_and_bounded(self):
         guides = self.call("search_provider_docs", provider_name="aws", provider_namespace="hashicorp",
@@ -185,6 +200,16 @@ class Terraform(unittest.TestCase):
         self.assertIn('version = "5.0.0"', module["usage"])
         self.assertEqual(self.call("get_latest_module_version", module_publisher="terraform-aws-modules",
                                    module_name="vpc", module_provider="aws")["latest_version"], "6.5.1")
+        # too many inputs for one answer: the required ones first, then by name - the same part every time, whatever
+        # order the registry lists them in - and the answer says how many are left out
+        big = self.call("get_module_details", module_id="terraform-aws-modules/vpc/aws/6.0.0")
+        names = [i["name"] for i in big["inputs"]]
+        self.assertLess(len(names), len(_NAMES))
+        self.assertEqual(names, (["alpha_required", "zeta_required"] + sorted(n for n in _NAMES
+                                                                              if not n.endswith("_required")))[:len(names)])
+        self.assertEqual(names[2:5], ["amazon_side_asn", "azs", "cidr"])
+        self.assertEqual(big["truncated"], f"only {len(names)} of 220 inputs fit into 24000 characters")
+        self.assertLessEqual(len(json.dumps(big, ensure_ascii=False)), 24_000)
 
     def test_policies(self):
         found = self.call("search_policies", policy_query="CIS aws")

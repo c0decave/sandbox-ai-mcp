@@ -284,7 +284,9 @@ def get_provider_details(provider_doc_id: str, offset: int = 0) -> str:
         try:
             data = registry(f"provider-docs/{doc_id}", version="v2")
         except Refused as exc:
-            if str(exc) == "not found":
+            # HTTP 400: the registry cannot take the id (999999999999, CI of 2026-11-25) - the id is all this request
+            # varies, so there is no such document either
+            if str(exc) in ("not found", "the Terraform Registry answered HTTP 400"):
                 raise Refused(f"provider document {doc_id} not found - use search_provider_docs") from None
             raise
         attributes = (data.get("data") or {}).get("attributes") or {}
@@ -414,7 +416,9 @@ def get_module_details(module_id: str) -> str:
                               "default": clean(json.dumps(i.get("default")), 200) if "default" in i else None,
                               "required": bool(i.get("required"))}
                              for i in root.get("inputs") or [] if isinstance(i, dict)]}
-        result["inputs"].sort(key=lambda i: not i["required"])  # the required ones first
+        # the required ones first, then by name: what bounded() keeps of many inputs is the same part every time (the
+        # registry lists them in an order of its own, neither the file's nor by name)
+        result["inputs"].sort(key=lambda i: (not i["required"], i["name"] or ""))
         return bounded(result, "inputs")
     return answer(work)
 
