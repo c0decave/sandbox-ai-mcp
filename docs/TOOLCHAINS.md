@@ -49,12 +49,17 @@ python3 scripts/toolchain.py check                                # the 14-day r
   the extensions Qt WebEngine and Qt PDF), named by its `Updates.xml`, each pinned by the SHA-256 download.qt.io
   publishes beside it; never debug information, sources, documentation, examples, or a package outside the lists.
   aqtinstall is not used (py7zr and nine packages below it would have to be read in full): `scripts/toolchain.py`
-  reads 7z through `bsdtar`, which only decodes - every file is written by the builder, with its checks. What the
-  Qt installer does after unpacking are steps: `mkspecs/qconfig.pri` to the open-source edition (`replace`),
-  `bin/qt.conf`, `libexec/qt.conf`. The recipes of 6.12.0 and 6.11.3 were written by the two commands above and
-  are in the matrix of `toolchains.yml` (x86_64 only, aarch64 in its `exclude`); their first CI build is what shows
-  whether the archive layout `VERSION/gcc_64/`, the commands' paths and the libraries (from Qt's documentation and the
-  wheels) hold.
+  reads 7z through `bsdtar`, which only decodes - every file is written by the builder, with its checks. Each
+  archive goes where the `Extract` operation of its package in `Updates.xml` puts it: `@TargetDir@/VERSION/gcc_64`
+  is the prefix (the archives hold `include/`, `lib/`, ... relative to it, nothing to strip), ICU's
+  `.../gcc_64/lib` is `"to": "lib"`; an archive without such an operation, or one aimed elsewhere, is refused when
+  the recipe is written. (CI run 45652957013 stripped two parts as for a `VERSION/gcc_64/` layout: qtbase's
+  `include/QtGui/QtGui` became the file `QtGui` where qtgrpc's `include/QtProtobufQtGuiTypes/QtGui/` had made a
+  folder `QtGui`, and the unpacker refused, rightly.) What the Qt installer does after unpacking are steps:
+  `bin/qt.conf`, `libexec/qt.conf`; `mkspecs/qconfig.pri` of 6.11.3 and 6.12.0 has no `QT_EDITION`/`QT_LICHECK`
+  line to set. The `prefix=` of `lib/pkgconfig/*.pc` stays Qt's build path `/home/qt/work/install` (the installer's
+  QtPatch would set it; CMake and qmake do not read these files). The recipes of 6.12.0 and 6.11.3 were written by
+  the two commands above and are in the matrix of `toolchains.yml` (x86_64 only, aarch64 in its `exclude`).
 - **The compiler.** Qt's builds are GCC's (libstdc++). The toolchain `cc` is Clang with libc++: Qt's exported
   functions with `std::` types in their signature (`QTimer::singleShot(std::chrono...)`, `QObject::startTimer`,
   `QMetaType::registerConverterFunction(std::function...)`: 100 symbols in Qt Core alone) do not link with it. `qt`

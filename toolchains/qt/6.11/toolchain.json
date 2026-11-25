@@ -98,7 +98,43 @@
     "*/libQt6Nfc.so*",
     "*/texttospeech/*",
     "*/networkinformation/libqglib.so",
-    "*/libQt6Quick3DXr*"
+    "*/libQt6Quick3DXr*",
+    "platforms/libqxcb.so",
+    "libQt6XcbQpa.so*",
+    "xcbglintegrations/*",
+    "libQt6Wayland*",
+    "libQt6Wl*",
+    "platforms/libqwayland*",
+    "wayland-*/*",
+    "qml/QtWayland/*",
+    "libQt6EglFS*",
+    "libQt6EglFs*",
+    "egldeviceintegrations/*",
+    "platforms/libqlinuxfb.so",
+    "libQt6WebEngine*",
+    "libQt6Pdf*",
+    "QtWebEngineProcess",
+    "libQt6Multimedia.so*",
+    "plugins/multimedia/*",
+    "libav*",
+    "libsw*",
+    "libQt6FFmpegStub*",
+    "libQt6SpatialAudio*",
+    "libQt6Quick3DSpatialAudio*",
+    "platformthemes/libqgtk3.so",
+    "printsupport/*",
+    "sqldrivers/libqsqloci.so",
+    "sqldrivers/libqsqlibase.so",
+    "sqldrivers/libqsqlmimer.so",
+    "sqldrivers/libqsqlmysql.so",
+    "sqldrivers/libqsqlodbc.so",
+    "sqldrivers/libqsqlpsql.so",
+    "libQt6Nfc.so*",
+    "texttospeech/*",
+    "networkinformation/libqglib.so",
+    "libQt6Quick3DXr*",
+    "libexec/webenginedriver",
+    "libexec/sdpscanner"
   ],
   "build": [
     {
@@ -108,8 +144,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt3d-qt3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt3d-qt3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt5compat-qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -118,8 +153,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt5compat-qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt5compat-qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtcharts-qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -128,8 +162,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtcharts-qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtcharts-qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtconnectivity-qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -138,8 +171,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtconnectivity-qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtconnectivity-qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtdatavis3d-qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -148,8 +180,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtdatavis3d-qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtdatavis3d-qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtgraphs-qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -158,8 +189,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtgraphs-qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtgraphs-qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtgrpc-qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -168,8 +198,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtgrpc-qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtgrpc-qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qthttpserver-qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -178,8 +207,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qthttpserver-qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qthttpserver-qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtimageformats-qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -188,8 +216,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtimageformats-qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtimageformats-qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtlanguageserver-qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -198,8 +225,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtlanguageserver-qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtlanguageserver-qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtlocation-qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -208,8 +234,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtlocation-qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtlocation-qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtlottie-qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -218,8 +243,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtlottie-qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtlottie-qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtmultimedia-qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -228,8 +252,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtmultimedia-qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtmultimedia-qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtnetworkauth-qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -238,8 +261,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtnetworkauth-qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtnetworkauth-qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtpositioning-qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -248,8 +270,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtpositioning-qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtpositioning-qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtquick3d-qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -258,8 +279,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtquick3d-qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtquick3d-qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtquick3dphysics-qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -268,8 +288,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtquick3dphysics-qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtquick3dphysics-qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtquickeffectmaker-qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -278,8 +297,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtquickeffectmaker-qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtquickeffectmaker-qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtquicktimeline-qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -288,8 +306,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtquicktimeline-qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtquicktimeline-qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtremoteobjects-qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -298,8 +315,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtremoteobjects-qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtremoteobjects-qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtscxml-qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -308,8 +324,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtscxml-qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtscxml-qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtsensors-qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -318,8 +333,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtsensors-qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtsensors-qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtserialbus-qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -328,8 +342,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtserialbus-qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtserialbus-qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtserialport-qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -338,8 +351,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtserialport-qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtserialport-qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtshadertools-qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -348,8 +360,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtshadertools-qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtshadertools-qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtspeech-qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -358,8 +369,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtspeech-qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtspeech-qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtvirtualkeyboard-qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -368,8 +378,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtvirtualkeyboard-qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtvirtualkeyboard-qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtwebchannel-qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -378,8 +387,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtwebchannel-qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtwebchannel-qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtwebsockets-qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -388,8 +396,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtwebsockets-qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtwebsockets-qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtwebview-qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -398,8 +405,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtwebview-qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtwebview-qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -408,8 +414,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -418,8 +423,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -428,8 +432,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -438,8 +441,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -448,8 +450,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -458,8 +459,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -468,8 +468,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qt-qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qt-qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qt-icu-linux-Rhel8.6-x86_64.7z",
@@ -479,7 +478,7 @@
     },
     {
       "unpack": "qt-icu-linux-Rhel8.6-x86_64.7z",
-      "strip": 2
+      "to": "lib"
     },
     {
       "fetch": "qtwebengine-qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -488,8 +487,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtwebengine-qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
+      "unpack": "qtwebengine-qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "fetch": "qtpdf-qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
@@ -498,18 +496,7 @@
       "released": "2026-10-22"
     },
     {
-      "unpack": "qtpdf-qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
-      "strip": 2
-    },
-    {
-      "replace": "mkspecs/qconfig.pri",
-      "line": "QT_EDITION =",
-      "with": "QT_EDITION = OpenSource"
-    },
-    {
-      "replace": "mkspecs/qconfig.pri",
-      "line": "QT_LICHECK =",
-      "with": "QT_LICHECK ="
+      "unpack": "qtpdf-qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z"
     },
     {
       "write": "bin/qt.conf",

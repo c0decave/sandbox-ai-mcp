@@ -35,7 +35,7 @@ are data, never a shell:
       stream: every file is written by this script, with the same checks.
   {"copy": FILE, "to": PATH, "mode": "644"}       a fetched, verified file as it is (a license text)
   {"replace": PATH, "line": START, "with": TEXT}  every line of the text file PATH that begins with START becomes
-      TEXT (what Qt's installer does to mkspecs/qconfig.pri); refused when no line does
+      TEXT (a setting of a configuration file); refused when no line does
   {"write": PATH, "text": TEXT, "mode": "755"}    a small file of ours (a wrapper script)
   {"link": PATH, "to": TARGET}                    a relative symbolic link inside the prefix
   {"move": PATH, "to": PATH}, {"remove": [GLOB, ...]}, {"chmod": PATH, "mode": "755"}
@@ -599,10 +599,10 @@ def wanted(parts, only) -> bool:
                            for prefix in only)
 
 
-def write_member(path: Path, source, mode: int) -> None:
+def write_member(path: Path, source, mode: int, name: str = "") -> None:
     if path.is_symlink() or path.is_dir():
         if path.is_dir() and not path.is_symlink():
-            raise Refused(f"{path.name}: a file where a folder is")
+            raise Refused(f"archive member {name or path.name}: a file where a folder is")
         path.unlink()
     with open(path, "wb") as out:
         shutil.copyfileobj(source, out)
@@ -627,7 +627,7 @@ def unpack(archive: Path, top: Path, strip: int = 0, only=()) -> None:
                     link_inside(top, path, source.read(info).decode())
                 else:
                     with source.open(info) as stream:
-                        write_member(path, stream, mode)
+                        write_member(path, stream, mode, info.filename)
         return
     with open(archive, "rb") as stream:
         seven_zip = stream.read(len(SEVEN_ZIP)) == SEVEN_ZIP
@@ -642,7 +642,7 @@ def unpack(archive: Path, top: Path, strip: int = 0, only=()) -> None:
                     raise Refused(f"archive member {member.name}: a folder where something else is")
                 path.mkdir(exist_ok=True)
             elif member.isfile():
-                write_member(path, source.extractfile(member), member.mode)
+                write_member(path, source.extractfile(member), member.mode, member.name)
             elif member.issym():
                 link_inside(top, path, member.linkname)
             elif member.islnk():

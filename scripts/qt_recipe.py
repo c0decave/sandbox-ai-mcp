@@ -20,8 +20,9 @@ the extensions of EXTENSIONS, never debug information, sources, documentation or
 another licence (the open-source repository has none; a name outside the lists is left out and named). Each archive
 is pinned by the SHA-256 download.qt.io publishes beside it (ARCHIVE.sha256). aqtinstall itself is not used: what
 it adds to these two requests is py7zr and nine packages below it, which nobody here has read in full; the builder
-reads 7z through bsdtar and writes every file itself. What the Qt installer does after unpacking is done as steps:
-mkspecs/qconfig.pri is set to the open-source edition, bin/qt.conf and libexec/qt.conf name the prefix.
+reads 7z through bsdtar and writes every file itself, each archive into the folder of the prefix its Extract
+operation in Updates.xml names (the archives hold paths relative to it). What the Qt installer does after
+unpacking is done as steps: bin/qt.conf and libexec/qt.conf name the prefix.
 
 aarch64 is not offered: Qt's builds for it (the SDK's and the wheels') need glibc 2.38, sandbox-ai's images have
 2.36, and a toolchain enters the catalog only when it ran under Podman too.
@@ -91,6 +92,9 @@ ADDONS = ("qt3d", "qt5compat", "qtcharts", "qtconnectivity", "qtdatavis3d", "qtg
           "qtremoteobjects", "qtscxml", "qtsensors", "qtserialbus", "qtserialport", "qtshadertools", "qtspeech",
           "qtvirtualkeyboard", "qtwebchannel", "qtwebsockets", "qtwebview")
 EXTENSIONS = ("qtwebengine", "qtpdf")
+# The SDK's programs the wheels do not have: Qt WebEngine's WebDriver (Chromium's libraries), Qt Bluetooth's SDP
+# scanner (BlueZ).
+SDK_OPTIONAL = ["libexec/webenginedriver", "libexec/sdpscanner"]
 SDK_COMMANDS = {
     "qmake": "bin/qmake", "qmake6": "bin/qmake6", "qt-cmake": "bin/qt-cmake", "qtpaths": "bin/qtpaths",
     "moc": "libexec/moc", "uic": "libexec/uic", "rcc": "libexec/rcc", "lupdate": "bin/lupdate",
@@ -316,7 +320,7 @@ def digits(version: str) -> str:
 
 
 def packages_of(xml_text: bytes, where: str) -> list[dict]:
-    """[{"name", "version", "released", "archives": [names]}] of an Updates.xml."""
+    """[{"name", "version", "released", "archives": [names], "extract": {archive: folder}}] of an Updates.xml."""
     try:
         root = xml.etree.ElementTree.fromstring(xml_text)
     except xml.etree.ElementTree.ParseError as exc:
@@ -328,7 +332,12 @@ def packages_of(xml_text: bytes, where: str) -> list[dict]:
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,200}", name) or not re.fullmatch(r"[A-Za-z0-9._+-]{1,100}", version) \
                 or not all(re.fullmatch(r"[A-Za-z0-9._+-]{1,200}\.7z", archive) for archive in archives):
             raise Refused(f"{where}: a package with a name, version or archive that is no plain name ({name!r})")
-        found.append({"name": name, "version": version, "archives": archives,
+        extract = {}  # archive -> the folder the installer extracts it into (its Extract operations)
+        for operation in update.iter("Operation"):
+            arguments = [(argument.text or "").strip() for argument in operation.findall("Argument")]
+            if operation.get("name") == "Extract" and len(arguments) == 2:
+                extract[arguments[1]] = arguments[0]
+        found.append({"name": name, "version": version, "archives": archives, "extract": extract,
                       "released": (update.findtext("ReleaseDate") or "").strip()})
     if not found:
         raise Refused(f"{where}: it names no package")
@@ -341,6 +350,24 @@ def archive_hash(url: str, opener=None) -> str:
     if not text or not re.fullmatch(r"[0-9a-f]{64}", text[0]):
         raise Refused(f"{url}.sha256: no SHA-256")
     return text[0]
+
+
+def unpack_step(file: str, archive: str, package: dict, version: str, where: str) -> dict:
+    """Where ARCHIVE of PACKAGE goes: the folder its Extract operation names, below @TargetDir@/VERSION/gcc_64 (the
+    prefix). The archives hold their files relative to that folder (qtbase: include/QtGui/QtGui, ICU: its libraries
+    for lib/), not below VERSION/gcc_64/ as before the installer's Extract operations (CI run 45652957013: stripped
+    of two parts, include/QtGui/QtGui became the file QtGui at the top)."""
+    target = package["extract"].get(archive)
+    prefix = f"@TargetDir@/{version}/gcc_64"
+    if target is None:
+        raise Refused(f"{where}: {package['name']} names no Extract operation for {archive}: where it goes is unknown")
+    if target != prefix and not target.startswith(prefix + "/"):
+        raise Refused(f"{where}: {package['name']} extracts {archive} into {target}, not below {prefix}")
+    below = target[len(prefix):].strip("/")
+    if below and not all(re.fullmatch(r"[A-Za-z0-9._+-]{1,100}", part) and part not in (".", "..")
+                         for part in below.split("/")):
+        raise Refused(f"{where}: {package['name']} extracts {archive} into {target}: no plain folder of the prefix")
+    return {"unpack": file, "to": below} if below else {"unpack": file}
 
 
 def sdk_steps(version: str, opener=None, base: str = QT_REPOSITORY, out=print) -> list[dict]:
@@ -379,8 +406,9 @@ def sdk_steps(version: str, opener=None, base: str = QT_REPOSITORY, out=print) -
             for archive in package["archives"]:
                 url = f"{folder}/{name}/{package['version']}{archive}"
                 file = f"{module}-{archive}"
+                step = unpack_step(file, archive, package, version, f"{folder}/Updates.xml")
                 steps += [{"fetch": file, "url": url, "sha256": archive_hash(url, opener), "released": released},
-                          {"unpack": file, "strip": 2}]  # VERSION/gcc_64/... -> the prefix
+                          step]
             taken.add(module)
     missing = sorted({"qt", *ADDONS, *EXTENSIONS} - taken)
     if "qt" in missing:
@@ -397,10 +425,10 @@ def qt(version: str, opener=None, base: str = QT_REPOSITORY, out=print) -> dict:
     sources = [f"https://download.qt.io/official_releases/qt/{version.rsplit('.', 1)[0]}/{version}/single/"
                f"qt-everywhere-src-{version}.tar.xz", f"https://github.com/qt/qt5/tree/v{version}"]
     steps += [
-        # What the Qt installer does after unpacking (its LineReplace operations; aqtinstall's Updater): the
-        # packages are built once for every edition.
-        {"replace": "mkspecs/qconfig.pri", "line": "QT_EDITION =", "with": "QT_EDITION = OpenSource"},
-        {"replace": "mkspecs/qconfig.pri", "line": "QT_LICHECK =", "with": "QT_LICHECK ="},
+        # What the Qt installer does after unpacking (installscript.qs of the package): qt.conf names the prefix.
+        # Its mkspecs/qconfig.pri has no QT_EDITION or QT_LICHECK line any more (6.11.3, 6.12.0: nothing to set to
+        # the open-source edition); its QtPatch of /home/qt/work/install leaves the binaries alone and touches the
+        # text files Qt's CMake packages do not need (lib/pkgconfig/*.pc).
         {"write": "bin/qt.conf", "text": "[Paths]\nPrefix=..\n"},
         {"write": "libexec/qt.conf", "text": "[Paths]\nPrefix=..\n"},
         *license_steps(f"v{version}", opener),
@@ -426,7 +454,8 @@ def qt(version: str, opener=None, base: str = QT_REPOSITORY, out=print) -> dict:
         "caches": {}, "hosts": [], "allow": [],
         "needs": {"glibc": GLIBC, "libraries": LIBRARIES},
         "requires": ["pyside6"],
-        "optional": OPTIONAL,
+        # OPTIONAL at the top of the prefix too (plugins/multimedia/...: the wheels have it in PySide6/Qt/)
+        "optional": [*OPTIONAL, *(pattern[2:] for pattern in OPTIONAL if pattern.startswith("*/")), *SDK_OPTIONAL],
         "build": steps,
         "smoke": QT_SMOKE,
         "smoke_apt": ["g++", "make", "cmake", "ninja-build", "libgl1-mesa-dev"],

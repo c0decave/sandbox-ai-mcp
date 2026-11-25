@@ -54,7 +54,8 @@ def tar_bytes(members, mode="w:gz"):
                 info.linkname = value[1] if value[0] == "sym" else ""
                 tar.addfile(info)
             else:
-                info.size, info.mode = len(value), 0o4755 if "/bin/" in name or "/libexec/" in name else 0o644
+                tool = "/bin/" in f"/{name}" or "/libexec/" in f"/{name}"
+                info.size, info.mode = len(value), 0o4755 if tool else 0o644
                 tar.addfile(info, io.BytesIO(value))
     return buffer.getvalue()
 
@@ -212,7 +213,10 @@ class Build(unittest.TestCase):
         for members, why in (({"demo/../../escape": b"x"}, "leaves the tree"),
                              ({"demo/bin": ("sym", "/etc"), "demo/bin/x": b"x"}, "absolute link"),
                              ({"demo/up": ("sym", "../../outside")}, "leaves the tree"),
-                             ({"demo/bin": ("sym", "lib"), "demo/bin/x": b"x"}, "which is no folder")):
+                             ({"demo/bin": ("sym", "lib"), "demo/bin/x": b"x"}, "which is no folder"),
+                             # never a folder replaced by a file; the refusal names the member
+                             ({"demo/inc/QtGui/x.h": b"x", "demo/inc/QtGui": b"x"},
+                              "^archive member demo/inc/QtGui: a file where a folder is$")):
             with self.subTest(why=why):
                 top = Path(tempfile.mkdtemp(dir=self.repo.root))
                 (top / "a.tar.gz").write_bytes(tar_bytes(members))
@@ -1015,29 +1019,46 @@ class FakeUpstream:
                 "PySide6/Qt/lib/libQt6WebEngineCore.so.6": elf(["libnss3.so"])})
             self.wheel("PySide6_Pdf", f"{version}.140", members={"PySide6/QtPdf.abi3.so": elf(["libQt6Core.so.6"])})
 
-    def qt_repository(self, version="6.12.0", day="2026-10-06"):
+    def qt_repository(self, version="6.12.0", day="2026-10-06", extract=None):
+        """download.qt.io's online repository as it is (since 6.11 at least): every archive holds its files relative
+        to the folder its package's Extract operation names (@TargetDir@/VERSION/gcc_64, ICU's .../lib). EXTRACT
+        changes that folder per archive (None: no Extract operation for it)."""
         self.licenses(version)
         number, stamp = version.replace(".", ""), f"{version}-0-202610060909"
-        top = f"{version}/gcc_64"
+        prefix = f"@TargetDir@/{version}/gcc_64"
         archives = {
             "qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": {
-                **{f"{top}/{path}": elf(["libstdc++.so.6"]) for path in sorted(set(qt.SDK_COMMANDS.values()))},
-                f"{top}/lib/libQt6Core.so.6": elf(["libglib-2.0.so.0"], "GLIBC_2.34"),
-                f"{top}/lib/libQt6Core.so": ("sym", "libQt6Core.so.6"),
-                f"{top}/include/QtCore/qglobal.h": b"// qglobal\n",
-                f"{top}/lib/cmake/Qt6/Qt6Config.cmake": b"# Qt6\n",
-                f"{top}/mkspecs/qconfig.pri": b"QT_ARCH = x86_64\nQT_EDITION = Enterprise\nQT_LICHECK = licheck64\n",
-                f"{top}/plugins/platforms/libqxcb.so": elf(["libxcb-cursor.so.0"])},
-            "icu-linux-Rhel8.6-x64.7z": {f"{top}/lib/libicuuc.so.73": elf()},
-            "qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": {f"{top}/lib/libQt6Charts.so.6": elf()},
+                **{path: elf(["libstdc++.so.6"]) for path in sorted(set(qt.SDK_COMMANDS.values()))},
+                "lib/libQt6Core.so.6": elf(["libglib-2.0.so.0"], "GLIBC_2.34"),
+                "lib/libQt6Core.so": ("sym", "libQt6Core.so.6"),
+                "include/QtCore/qglobal.h": b"// qglobal\n",
+                # stripped of two parts (CI run 45652957013), this was the file QtGui where qtgrpc's folder QtGui
+                # (include/QtProtobufQtGuiTypes/QtGui/) already was
+                "include/QtGui/QtGui": b"#include <QtGui/QtGuiDepends>\n",
+                "include/QtGui/qwindow.h": b"// qwindow\n",
+                "lib/cmake/Qt6/Qt6Config.cmake": b"# Qt6\n",
+                "mkspecs/qconfig.pri": b"QT_ARCH = x86_64\nQT_VERSION = 6.12.0\n",  # no QT_EDITION, no QT_LICHECK
+                "plugins/platforms/libqxcb.so": elf(["libxcb-cursor.so.0"]),
+                # optional at the top of the prefix too (OPTIONAL's */plugins/multimedia/* is the wheels' PySide6/Qt/)
+                "plugins/multimedia/libffmpegmediaplugin.so": elf(["libpulse.so.0"]),
+                "libexec/sdpscanner": elf(["libbluetooth.so.3"])},
+            "icu-linux-Rhel8.6-x64.7z": {"libicuuc.so.73.2": elf(), "libicuuc.so.73": ("sym", "libicuuc.so.73.2")},
+            "qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": {
+                "config_qtcharts.opt": b"\n", "lib/libQt6Charts.so.6": elf(),
+                "include/QtProtobufQtGuiTypes/QtGui/QtGui.proto": b"// as in qtgrpc\n"},
             "qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": {
-                f"{top}/lib/libQt6WebEngineCore.so.6": elf(["libnss3.so"])},
-            "qtmcu-Linux.7z": {f"{top}/lib/libQt6Mcu.so.6": elf()},
+                "lib/libQt6WebEngineCore.so.6": elf(["libnss3.so"])},
+            "qtmcu-Linux.7z": {"lib/libQt6Mcu.so.6": elf()},
         }
+        into = {name: prefix + ("/lib" if name.startswith("icu") else "") for name in archives}
+        into.update(extract or {})
 
         def package(name, files, at=stamp):
+            operations = "".join(f"<Operation name=\"Extract\"><Argument>{into[file]}</Argument>"
+                                 f"<Argument>{file}</Argument></Operation>" for file in files if into.get(file))
             return (f"<PackageUpdate><Name>{name}</Name><Version>{at}</Version><ReleaseDate>{day}</ReleaseDate>"
-                    f"<DownloadableArchives>{', '.join(files)}</DownloadableArchives><SHA1>00</SHA1></PackageUpdate>")
+                    f"<DownloadableArchives>{', '.join(files)}</DownloadableArchives>"
+                    f"<Operations>{operations}</Operations><SHA1>00</SHA1></PackageUpdate>")
 
         def serve(folder, name, files, at=stamp):
             for file in files:
@@ -1201,7 +1222,9 @@ class QtRecipes(WithBsdtar):
             self.assertTrue(step["url"].startswith("https://download.qt.io/online/qtsdkrepository/linux_x64/"))
             self.assertEqual(step["sha256"], hashlib.sha256(self.upstream.files[step["url"]]).hexdigest())
             self.assertEqual(step["released"], "2026-10-06")
-            self.assertIn({"unpack": step["fetch"], "strip": 2}, recipe["build"])
+            # into the folder of the prefix the package's Extract operation names, nothing stripped
+            unpacked = {"unpack": step["fetch"], **({"to": "lib"} if "icu" in step["fetch"] else {})}
+            self.assertIn(unpacked, recipe["build"])
         self.assertIn("left out: qt.qt6.6120.addons.qtmcu.linux_gcc_64 (not among ADDONS)", said)
         self.assertIn("not in the repository for 6.12.0: qtpdf", said)
         self.assertFalse(any("debug" in step.get("url", "") or "src" in step.get("fetch", "")
@@ -1216,12 +1239,17 @@ class QtRecipes(WithBsdtar):
         meta = self.build(recipe)
         tree = self.repo.root / "out/tree-qt-x86_64"
         for path in ("bin/qmake", "libexec/moc", "include/QtCore/qglobal.h", "lib/cmake/Qt6/Qt6Config.cmake",
+                     "include/QtGui/QtGui", "include/QtGui/qwindow.h", "include/QtProtobufQtGuiTypes/QtGui/QtGui.proto",
                      "lib/libicuuc.so.73", "lib/libQt6Charts.so.6", "lib/libQt6WebEngineCore.so.6",
                      "licenses/LGPL-3.0-only.txt", "NOTICE.txt"):
             self.assertTrue((tree / path).is_file(), path)
+        self.assertEqual(os.readlink(tree / "lib/libicuuc.so.73"), "libicuuc.so.73.2")
+        self.assertEqual(sorted(path.name for path in tree.iterdir()),
+                         ["NOTICE.txt", "bin", "config_qtcharts.opt", "include", "lib", "libexec", "licenses",
+                          "mkspecs", "plugins"])
         self.assertFalse((tree / "lib/libQt6Mcu.so.6").exists())
         self.assertEqual((tree / "mkspecs/qconfig.pri").read_text(),
-                         "QT_ARCH = x86_64\nQT_EDITION = OpenSource\nQT_LICHECK =\n")
+                         "QT_ARCH = x86_64\nQT_VERSION = 6.12.0\n")
         self.assertEqual(((tree / "bin/qt.conf").read_text(), (tree / "libexec/qt.conf").read_text()),
                          ("[Paths]\nPrefix=..\n",) * 2)
         self.assertEqual(meta["smoke_apt"], ["g++", "make", "cmake", "ninja-build", "libgl1-mesa-dev"])
@@ -1264,6 +1292,26 @@ class QtRecipes(WithBsdtar):
         self.repo.recipe(name="pyside6", build=[])
         with self.assertRaisesRegex(tc.Refused, "sha256 .*, pinned is .*: not used"):
             self.build(recipe)
+
+    def test_an_archive_goes_where_its_extract_operation_says_and_nowhere_else(self):
+        prefix = "@TargetDir@/6.12.0/gcc_64"
+        icu = "icu-linux-Rhel8.6-x64.7z"
+        for extract, why in (
+                ({icu: None}, f"names no Extract operation for {icu}: where it goes is unknown"),
+                ({icu: "@TargetDir@/6.11.3/gcc_64/lib"},
+                 f"extracts {icu} into @TargetDir@/6.11.3/gcc_64/lib, not below"),
+                ({icu: "@TargetDir@/6.12.0/gcc_64lib"}, "not below @TargetDir@/6.12.0/gcc_64"),
+                ({icu: f"{prefix}/../../etc"}, "no plain folder of the prefix"),
+                ({icu: f"{prefix}/lib/./x"}, "no plain folder of the prefix")):
+            with self.subTest(why=why):
+                self.upstream.files = {}
+                self.upstream.qt_repository(extract=extract)
+                with self.assertRaisesRegex(qt.Refused, re.escape(why)):
+                    qt.qt("6.12.0", self.upstream.opener, out=lambda line: None)
+        self.upstream.files = {}
+        self.upstream.qt_repository(extract={icu: f"{prefix}/lib/icu/"})
+        recipe = qt.qt("6.12.0", self.upstream.opener, out=lambda line: None)
+        self.assertIn({"unpack": f"qt-{icu}", "to": "lib/icu"}, recipe["build"])
 
     def test_a_release_younger_than_14_days_is_not_a_recipe_yet(self):
         self.upstream.qt_repository(day="2026-11-15")
