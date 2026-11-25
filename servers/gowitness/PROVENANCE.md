@@ -6,9 +6,9 @@
 | gowitness | sensepost/gowitness **3.2.2** (GPL-3.0), tag `3.2.2`, commit `601c84367aaf26eae7d1b5181b70633cb662cf66` (GitHub release of 2026-10-11, commit of 2026-10-11), built from source in the image with `gowitness-chromedp-only.patch` and ten files removed (below) |
 | Go modules | the release's `go.mod`/`go.sum` (95 modules); `go mod download` and `go mod verify` check every archive against `go.sum`. 43 of them are linked after the reduction, each listed with its licence under `/usr/share/doc/sandbox-ai-mcp-gowitness/modules` in the image |
 | Go toolchain | `golang:1.26-trixie` (Go 1.26.10) by digest, build stage only |
-| Browser | Debian `chromium` `156.0.8078.79-1~deb13u1` (trixie-security), not a download, so apt verifies the browser (the same version `servers/playwright` pins) |
+| Browser | Debian `chromium` `156.0.8078.108-1~deb13u1` (trixie-security), not a download, so apt verifies the browser (the same version `servers/playwright` pins) |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to `servers/web-fetch`) |
-| Debian packages | `python3=3.13.5-1` (`python3-venv=3.13.5-1` only to build the venv, then purged), `chromium=156.0.8078.79-1~deb13u1`, `ca-certificates=20250419+deb13u1`, `fonts-liberation=1:2.1.5-3`, `tini=0.19.0-3+b8` |
+| Debian packages | `python3=3.13.5-1` (`python3-venv=3.13.5-1` only to build the venv, then purged), `chromium=156.0.8078.108-1~deb13u1`, `ca-certificates=20250419+deb13u1`, `fonts-liberation=1:2.1.5-3`, `tini=0.19.0-3+b8` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the one the other servers use) |
 
 **Pinning rule:** 3.2.2 is gowitness's newest release, published on 2026-10-11, 32 days before this review
@@ -17,6 +17,13 @@ release. The Debian versions are those of the trixie and trixie-security indexes
 install` refuses a version the archive no longer has, so a superseded `chromium` (trixie-security keeps only the
 newest) stops the CI build with apt's message: then take the new version from `apt-cache policy chromium` in the
 pinned base, here and in `servers/playwright`.
+
+**Chromium 156.0.8078.108-1~deb13u1 (2026-11-25):** the security release of 2026-11-23 (Debian's changelog of
+2026-11-22: a new upstream security release, Chromium's extended stable channel from now on, 217 CVEs), taken under
+the security exception of the 14-day rule. The pin before it, 156.0.8078.79-1~deb13u1, went from trixie-security
+into trixie with the 13.8 point release (2026-11-21); there apt's candidate for `chromium-common` is the newer one
+of trixie-security, so the old pin stopped with "held broken packages" instead of "version not found": the
+same signal, a superseded `chromium`.
 
 ## Why our own server
 

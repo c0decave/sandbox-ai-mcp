@@ -31,7 +31,11 @@ RUN test "$(node --version)" = "${NODE_VERSION}" \
 
 FROM ${DEBIAN_IMAGE}
 # Debian versions from the trixie / trixie-security indexes of 2026-11-05, the same as servers/playwright.
-ARG CHROMIUM_VERSION=156.0.8078.79-1~deb13u1
+# Chromium: the security release 156.0.8078.108-1~deb13u1 of trixie-security (built 2026-11-22, in the archive
+# 2026-11-23; read 2026-11-25), taken under the security exception of the 14-day rule. trixie-security keeps only
+# the newest chromium: 156.0.8078.79 went into trixie with the 13.8 point release, but its chromium-common there is
+# not apt's candidate, so the old pin stopped with "held broken packages".
+ARG CHROMIUM_VERSION=156.0.8078.108-1~deb13u1
 LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mcp" \
       org.opencontainers.image.title="sandbox-ai-mcp-chrome-devtools" \
       org.opencontainers.image.description="Browser debugging and automation with Chrome DevTools MCP and a headless Chromium, an MCP server of sandbox-ai-mcp (stdio)" \

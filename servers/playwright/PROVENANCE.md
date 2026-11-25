@@ -4,8 +4,8 @@
 |---|---|
 | MCP server | microsoft/playwright-mcp **0.0.83** (Apache-2.0), tag `v0.0.83`, commit `f183dad4a52965583e3cc1d59b88cdc279e2e57d` (2026-09-28; GitHub release and npm `@playwright/mcp@0.0.83` of 2026-09-28) |
 | Its code | `playwright` and `playwright-core` `1.64.0-alpha-1790635538000` (Apache-2.0, microsoft/playwright commit `e8149b8257d32dcf8f72573ecc43e72439da7080` of 2026-09-28, npm of 2026-09-28), the only runtime dependencies of the release's `package-lock.json`, installed by `npm ci` with their integrity hashes (`sha512-pNwaXirh...` and `sha512-/5XDUMxp...`, checked against the registry's tarballs on 2026-11-11). The MCP SDK, zod and the other libraries are bundled into `playwright-core` (`lib/utilsBundle.js`) |
-| Browser | Debian `chromium` `156.0.8078.79-1~deb13u1` (trixie-security), not Playwright's download, so apt verifies the browser |
-| Debian packages | final image: `nodejs=20.19.2+dfsg-1+deb13u3`, `chromium=156.0.8078.79-1~deb13u1`, `ca-certificates=20250419+deb13u1`, `fonts-liberation=1:2.1.5-3`, `tini=0.19.0-3+b8`; build stage also `npm=9.2.0~ds1-3`, `git=1:2.47.3-0+deb13u1` |
+| Browser | Debian `chromium` `156.0.8078.108-1~deb13u1` (trixie-security), not Playwright's download, so apt verifies the browser |
+| Debian packages | final image: `nodejs=20.19.2+dfsg-1+deb13u3`, `chromium=156.0.8078.108-1~deb13u1`, `ca-certificates=20250419+deb13u1`, `fonts-liberation=1:2.1.5-3`, `tini=0.19.0-3+b8`; build stage also `npm=9.2.0~ds1-3`, `git=1:2.47.3-0+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 **Pinning rule:** 0.0.83 is the newest release published 14 days or more before 2026-11-11
@@ -17,6 +17,13 @@
 Debian host reachable where this was built); `apt-get install` refuses a version the archive no longer
 has, so a superseded `chromium` (trixie-security keeps only the newest) stops the CI build with
 apt's message: then take the new version from `apt-cache policy chromium` in the pinned base.
+
+**Chromium 156.0.8078.108-1~deb13u1 (2026-11-25):** the security release of 2026-11-23 (Debian's changelog of
+2026-11-22: a new upstream security release, Chromium's extended stable channel from now on, 217 CVEs), taken under
+the security exception of the 14-day rule. The pin before it, 156.0.8078.79-1~deb13u1, went from trixie-security
+into trixie with the 13.8 point release (2026-11-21); there apt's candidate for `chromium-common` is the newer one
+of trixie-security, so the old pin stopped with "held broken packages" instead of "version not found": the
+same signal, a superseded `chromium`.
 
 ## What 0.0.84 changes (not in this image)
 
