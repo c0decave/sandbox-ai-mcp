@@ -218,6 +218,19 @@ class YoutubeTranscript(unittest.TestCase):
         self.module.VIDEOS = self.module.Videos()
         StandIn(self, status=500)
         self.assertEqual(self.module.get_video_info(VID)["error"], "YouTube answered an error (HTTP 500)")
+        # CI, 2026-11-25: YouTube answered a runner's player request with videoDetails but UNPLAYABLE "This content
+        # isn’t available." for "Me at the zoo" (upstream issue 470: for every video from such an address, then gone)
+        self.module.VIDEOS = self.module.Videos()
+        StandIn(self, player={"playabilityStatus": {"status": "UNPLAYABLE", "reason": "This content isn’t available."},
+                              "videoDetails": {"videoId": VID, "title": "x"}})
+        refusal = self.module.get_available_languages(VID)["error"]
+        self.assertEqual(refusal, "the video cannot be played: This content isn’t available.")
+        spec = json.loads((FOLDER / "smoke.json").read_text())
+        real = [call for call in spec["calls"] if not call.get("expect_error")]
+        self.assertEqual([call["tool"] for call in real], ["get_video_info", "get_available_languages"])
+        for call in real:
+            self.assertTrue([m for m in call["upstream_limited"] if m in refusal], call["tool"])
+            self.assertFalse([m for m in call["upstream_limited"] if m in "the video cannot be played: Private video"])
         self.module.VIDEOS = self.module.Videos()
         StandIn(self, status=302)
         self.assertIn("YouTube redirected", self.module.get_video_info(VID)["error"])

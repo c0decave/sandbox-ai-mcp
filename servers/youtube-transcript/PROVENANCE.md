@@ -76,7 +76,9 @@ player answer of another shape, a reCAPTCHA page, HTTP 500, a redirect, a 9 MiB 
 each one short sentence, no referral link; `get_video_info` says the same for a player answer without facts (CI's
 first build, 2026-11-21: a runner got the bot check and the answer was only "YouTube gave no facts", which the
 smoke spec could not tell from a broken server). The smoke spec: two real calls (marked upstream-limited for YouTube's bot
-check, which GitHub's runners often get) and two refused. Not run here: the image build and the real calls
+check, which GitHub's runners often get, and for the player's UNPLAYABLE "This content isn’t available.", which a
+runner got for "Me at the zoo" on 2026-11-25 while the same answer had the video's facts - upstream issue 470: for every
+video from such an address, for a while) and two refused. Not run here: the image build and the real calls
 (www.youtube.com is not reachable from this machine).
 
 ## Verdict

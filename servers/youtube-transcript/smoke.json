@@ -17,7 +17,8 @@
         "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
       },
       "expect": "\"title\": \"Me at the zoo\"",
-      "upstream_limited": ["blocks requests from this address", "consent page", "YouTube answered an error"]
+      "upstream_limited": ["blocks requests from this address", "consent page", "YouTube answered an error",
+                           "the video cannot be played: This content isn"]
     },
     {
       "tool": "get_available_languages",
@@ -26,7 +27,7 @@
       },
       "expect": "\"code\": \"en\"",
       "upstream_limited": ["blocks requests from this address", "consent page", "YouTube answered an error",
-                           "proof-of-origin token"]
+                           "proof-of-origin token", "the video cannot be played: This content isn"]
     },
     {
       "tool": "get_transcript",
