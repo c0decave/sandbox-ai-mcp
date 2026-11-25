@@ -245,7 +245,10 @@ are the same in both repositories:
 
 **Smoke test** (`smoke.json`): `/work/hello`, a 16 KB ELF program, is opened, analyzed, its
 functions, strings and the decompilation of `check_password` checked; `open_file /etc/passwd` and
-`open_file nocache:///etc/passwd` must be refused (r2mcp's `-s /work`, patch 0001). The fixture
+`open_file nocache:///etc/passwd` must be refused (r2mcp's `-s /work`, patch 0001), and `close_file` after them must
+find no file open (the JSON-RPC error "Use the open_file method before calling any other method"; `close_file`
+before them closes `/work/hello`): neither refused open opened anything (r2mcp closes an open file before it tries a
+URI, `tools.c:1494-1503`, so the spec closes it itself first). The fixture
 files are `tests/fixtures/analysis-files.json` (base64, pinned by SHA-256; `scripts/fixtures.py`
 writes them), self-made test files from the hub's smoke
 spec - no third-party samples, no malware. They are read by the tool inside its container and never

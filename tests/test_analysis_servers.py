@@ -855,9 +855,23 @@ class Radare2(unittest.TestCase):
             self.assertNotIn(tool, tools)
 
     def test_the_smoke_spec_refuses_a_uri(self):
-        refused = [call["arguments"]["file_path"] for call in read_json("servers", "radare2", "smoke.json")["calls"]
-                   if call.get("expect_error")]
+        calls = read_json("servers", "radare2", "smoke.json")["calls"]
+        refused = [call["arguments"]["file_path"] for call in calls
+                   if call["tool"] == "open_file" and call.get("expect_error")]
         self.assertEqual(refused, ["/etc/passwd", "nocache:///etc/passwd"])
+        # close_file closes the open file; after the refused opens it finds none open: neither opened anything
+        # (in one connection; r2mcp answers any tool but open_file without a file with this JSON-RPC error).
+        self.assertEqual([(call["tool"], call["expect"], bool(call.get("expect_error"))) for call in calls[-4:]],
+                         [("close_file", "File closed successfully.", False),
+                          ("open_file", "Failed to open file", True), ("open_file", "Failed to open file", True),
+                          ("close_file", "Use the open_file method before calling any other method", True)])
+
+    def test_the_smoke_spec_expects_radare2s_own_prototype(self):
+        """Before set_function_prototype, the one radare2's analysis gives: strcmp's argument on the parameter."""
+        prototypes = [call["expect"] for call in read_json("servers", "radare2", "smoke.json")["calls"]
+                      if call["tool"] == "get_function_prototype"]
+        self.assertEqual(prototypes, ["void sym.check_password (const char *s1);",
+                                      "int check_password (const char *input);"])
 
 
 class Playwright(unittest.TestCase):

@@ -163,7 +163,7 @@
       "arguments": {
         "address": "sym.check_password"
       },
-      "expect": "void sym.check_password ()"
+      "expect": "void sym.check_password (const char *s1);"
     },
     {
       "tool": "set_function_prototype",
@@ -238,6 +238,11 @@
       "expect": "addr: 0x"
     },
     {
+      "tool": "close_file",
+      "arguments": {},
+      "expect": "File closed successfully."
+    },
+    {
       "tool": "open_file",
       "arguments": {
         "file_path": "/etc/passwd"
@@ -256,7 +261,8 @@
     {
       "tool": "close_file",
       "arguments": {},
-      "expect": "File closed successfully."
+      "expect": "Use the open_file method before calling any other method",
+      "expect_error": true
     }
   ]
 }
