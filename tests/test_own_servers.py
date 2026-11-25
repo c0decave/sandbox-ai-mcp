@@ -17,6 +17,7 @@ import sys
 import tempfile
 import threading
 import time
+import types
 import unittest
 from unittest import mock
 
@@ -158,6 +159,11 @@ try:
     import mcp  # noqa: F401 - the servers' own dependency
 except ImportError:
     mcp = None
+
+
+def inside_the_image():
+    """True where this runs in a server's image (CI): its own server and venv."""
+    return Path("/opt/mcp/server.py").is_file() and sys.prefix == "/opt/venv"
 
 
 @unittest.skipIf(mcp is None, "the servers' requirements are not installed (pip install --require-hashes -r "
@@ -1201,16 +1207,47 @@ class Servers(unittest.TestCase):
         self.assertEqual(outcome.skipped, [])
         self.assertGreater(outcome.testsRun, 30)
 
-    def offline_suite(self, module_name, minimum):
-        """The offline suite of tests/MODULE_NAME.py: no failure; inside the image (CI) nothing skipped either."""
+    def test_offline_suite_takes_only_the_declared_skips(self):
+        """Inside the image an offline suite skips nothing but the tests its caller names, each for the reason named
+        (a test that needs what no image has, such as test_dbhub's real PostgreSQL); outside it skips are fine."""
+        probe = types.ModuleType("offline_suite_probe")
+
+        class Probe(unittest.TestCase):
+            def test_one(self):
+                pass
+
+            def test_two(self):
+                pass
+
+            @unittest.skip("no database here")
+            def test_needs_a_database(self):
+                pass
+
+        Probe.__module__, Probe.__qualname__ = probe.__name__, "Probe"
+        probe.Probe = Probe
+        declared = (("offline_suite_probe.Probe.test_needs_a_database", "no database here"),)
+        with mock.patch.dict(sys.modules, {probe.__name__: probe}):
+            with mock.patch(f"{__name__}.inside_the_image", return_value=False):
+                self.offline_suite(probe.__name__, 2)
+            with mock.patch(f"{__name__}.inside_the_image", return_value=True):
+                self.offline_suite(probe.__name__, 2, expected_skips=declared)
+                for wrong in ((), (("offline_suite_probe.Probe.test_needs_a_database", "another reason"),),
+                              declared + (("offline_suite_probe.Probe.test_one", "no database here"),)):
+                    with self.assertRaises(AssertionError, msg=wrong):
+                        self.offline_suite(probe.__name__, 2, expected_skips=wrong)
+
+    def offline_suite(self, module_name, minimum, expected_skips=()):
+        """The offline suite of tests/MODULE_NAME.py: no failure; inside the image (CI) nothing skipped either but the
+        tests EXPECTED_SKIPS names, (test id, reason) each: the ones that need what no image has (a real database)."""
         sys.path.insert(0, str(ROOT / "tests"))
         module = __import__(module_name)
         outcome = unittest.TestResult()
-        unittest.defaultTestLoader.loadTestsFromModule(module).run(outcome)
+        # A loader of its own: the whole module, whatever -k the run was started with.
+        unittest.TestLoader().loadTestsFromModule(module).run(outcome)
         problems = [f"{test.id()}: {text[-1500:]}" for test, text in outcome.failures + outcome.errors]
         self.assertEqual(problems, [], "\n".join(problems))
-        if Path("/opt/mcp/server.py").is_file() and sys.prefix == "/opt/venv":
-            self.assertEqual([(test.id(), why) for test, why in outcome.skipped], [])
+        if inside_the_image():
+            self.assertEqual(sorted((test.id(), why) for test, why in outcome.skipped), sorted(expected_skips))
         self.assertGreater(outcome.testsRun, minimum)
 
     def test_exec(self):
@@ -1501,7 +1538,10 @@ class Servers(unittest.TestCase):
         for index, text in enumerate(expected, start=2):
             self.assertTrue(answers[index]["result"]["isError"], index)
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
-        self.offline_suite("test_dbhub", 15)
+        # No image has a PostgreSQL (the smoke run has no network): RealPostgres is for a person or a CI job with one.
+        self.offline_suite("test_dbhub", 15, expected_skips=(
+            ("test_dbhub.RealPostgres.test_read_only_holds_in_the_engine",
+             "SANDBOX_AI_MCP_PG_DSN names no PostgreSQL to test against"),))
 
     def test_codec(self):
         """The codec server over stdio as the image starts it (two tools, no resources or prompts; a CTF recipe, a
