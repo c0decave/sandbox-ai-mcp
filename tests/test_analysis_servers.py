@@ -2184,8 +2184,11 @@ class SandboxAiAgrees(unittest.TestCase):
             self.assertIn("--network=none", command)
             self.assertIn(f"--volume={tmp}:/work:ro", command)
             self.assertIn("--read-only", command)
-            with self.assertRaises(ValueError):  # the folder is required: no server without it
-                mcp.definition_from_entry(entry)
+            # Without a folder given, the required /work is the start's own workspace (sandbox-ai 0.1.214: MCP folder
+            # defaults, @workspace - one server per workspace), never a host folder sandbox-ai picks
+            given_none = mcp.definition_from_entry(entry)
+            work = next(m for m in given_none["mounts"] if m["target"] == "/work")
+            self.assertEqual(work["host"], "@workspace")
 
     def test_the_smoke_limits_are_a_definition_sandbox_ai_takes(self):
         """A spec's memory and pids go into the definition as `mcp add --memory --pids` puts them there."""
