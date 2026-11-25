@@ -6,7 +6,27 @@
  abstract class EmbedProxyJarTask : DefaultTask() {
      @get:InputFile
      abstract val shadowJarFile: RegularFileProperty
-@@ -105,11 +103,8 @@
+@@ -53,6 +51,19 @@
+     testImplementation(libs.burp.montoya.api)
+ }
+ 
++// sandbox-ai-mcp: Netty 4.2.20.Final (2026-11-02) for every Netty module, not the 4.2.6.Final ktor-server-netty 3.3.1
++// brings - CVE-2026-75595 (CRITICAL, netty-handler: SNI routing bypass; fixed in 4.2.17.Final) and the advisories
++// 4.2.18 to 4.2.20 fix (HTTP/1 and HTTP/2 request smuggling and header validation in netty-codec-http and -http2,
++// out-of-bounds reads in netty-buffer, mTLS bypass in netty-handler). The same 4.2 line: no API change.
++configurations.configureEach {
++    resolutionStrategy.eachDependency {
++        if (requested.group == "io.netty" && !requested.name.startsWith("netty-tcnative")) {
++            useVersion("4.2.20.Final")
++            because("CVE-2026-75595 and the Netty advisories up to 4.2.20.Final")
++        }
++    }
++}
++
+ java {
+     toolchain {
+         languageVersion.set(JavaLanguageVersion.of(providers.gradleProperty("java.toolchain.version").get().toInt()))
+@@ -105,11 +116,8 @@
                      "Implementation-Title" to project.name,
                      "Implementation-Version" to project.version,
                      "Implementation-Vendor" to "PortSwigger",

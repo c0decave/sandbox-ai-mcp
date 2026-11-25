@@ -15,6 +15,10 @@ ARG BURP_MCP_COMMIT=291034081160bc944b6df3eccd60c6fc99b477e1
 # gradle/gradle-distributions. The wrapper jar of the repository is not used (deleted below).
 ARG GRADLE_URL=https://github.com/gradle/gradle-distributions/releases/download/v9.2.0/gradle-9.2.0-bin.zip
 ARG GRADLE_SHA256=df67a32e86e3276d011735facb1535f64d0d88df84fa87521e90becc2d735444
+# Netty for every Netty module of the extension, which our patch forces (build.gradle.kts): 4.2.20.Final of 2026-11-02
+# (23 days old on 2026-11-25) instead of ktor-server-netty 3.3.1's 4.2.6.Final - CVE-2026-75595 (CRITICAL,
+# netty-handler, fixed in 4.2.17.Final) and the advisories of 4.2.18 to 4.2.20. The build checks every Netty jar.
+ARG NETTY_VERSION=4.2.20.Final
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openjdk-21-jdk-headless=21.0.13.1+2-1~deb13u1 \
       openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1 git=1:2.47.3-0+deb13u1 ca-certificates=20250419+deb13u1 \
@@ -50,6 +54,8 @@ RUN cd /src \
  && test "$(wc -l < /tmp/jars)" = 1 \
  && cp "$(cat /tmp/jars)" /build/burp-mcp-all.jar \
  && python3 -I /build/check_dependencies.py build/runtime-deps.txt /build/runtime-dependencies.json \
+ && grep -q "^io\.netty:netty-handler:${NETTY_VERSION} " build/runtime-deps.txt \
+ && ! grep '^io\.netty:' build/runtime-deps.txt | grep -v -F ":${NETTY_VERSION} " \
  && unzip -l /build/burp-mcp-all.jar > /tmp/listing \
  && grep -q ' net/portswigger/mcp/ExtensionBase.class$' /tmp/listing \
  && ! grep -q 'mcp-proxy-all.jar' /tmp/listing \

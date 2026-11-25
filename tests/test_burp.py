@@ -14,6 +14,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -399,6 +400,36 @@ class WholeStart(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             runner.start()
             self.assertIn("needs the secret BURP_LICENSE", runner.wait())
+
+
+class Netty(unittest.TestCase):
+    """The extension's Netty: ktor-server-netty 3.3.1 brings 4.2.6.Final (CVE-2026-75595, CRITICAL, in netty-handler,
+    fixed in 4.2.17.Final: CI's Trivy scan of 2026-11-25). Our patch forces one newer version on every Netty module,
+    and the build fails unless every Netty jar in the extension is that version."""
+
+    def setUp(self):
+        folder = ROOT / "servers" / "burp"
+        self.patch = (folder / "patches" / "0001-sandbox-ai-mcp.patch").read_text()
+        self.dockerfile = (folder / "Dockerfile").read_text().replace("\\\n", "")
+        self.provenance = (folder / "PROVENANCE.md").read_text()
+
+    def test_the_patch_forces_one_fixed_netty_on_every_module(self):
+        added = "\n".join(line[1:] for line in self.patch.splitlines() if line.startswith("+"))
+        forced = re.findall(r'useVersion\("([^"]+)"\)', added)
+        self.assertEqual(len(forced), 1, forced)
+        version = forced[0]
+        self.assertRegex(added, r'requested\.group == "io\.netty" && !requested\.name\.startsWith\("netty-tcnative"\)')
+        self.assertIn("configurations.configureEach", added)
+        numbers = tuple(int(n) for n in re.fullmatch(r"4\.2\.(\d+)\.Final", version).groups())
+        self.assertGreaterEqual(numbers, (17,), "CVE-2026-75595 is fixed in 4.2.17.Final")
+        self.assertIn(f"ARG NETTY_VERSION={version}\n", self.dockerfile)
+        self.assertIn(version, self.provenance)
+
+    def test_the_build_checks_every_netty_jar(self):
+        build = re.search(r"RUN cd /src\s+&& /build/gradle-9\.2\.0/bin/gradle .*", self.dockerfile).group(0)
+        self.assertIn("grep -q \"^io\\.netty:netty-handler:${NETTY_VERSION} \" build/runtime-deps.txt", build)
+        self.assertIn("! grep '^io\\.netty:' build/runtime-deps.txt | grep -v -F \":${NETTY_VERSION} \"", build)
+        self.assertLess(build.index("check_dependencies.py"), build.index("NETTY_VERSION"))
 
 
 if __name__ == "__main__":

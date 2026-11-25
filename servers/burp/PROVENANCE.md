@@ -12,8 +12,10 @@
 
 **Pinning rule:** the commit is 20 days old (>= 14). The MCP Kotlin SDK 0.16.0 it brings was published on Maven
 Central on 2026-10-27 (29 days); Ktor 3.5.2 (2026-07-31), kotlin-stdlib 2.4.21 (2026-10-08), kotlinx-coroutines
-1.11.0 (2026-05-07), kotlinx-serialization 1.11.0 (2026-04-09), Netty 4.2.6.Final (2025-09-08) - all older than
-14 days. They are what upstream's build resolves at this commit (no version of ours).
+1.11.0 (2026-05-07), kotlinx-serialization 1.11.0 (2026-04-09) - all older than 14 days. They are what upstream's
+build resolves at this commit (no version of ours) - except Netty: **4.2.20.Final** (2026-11-02, 23 days), which our
+patch forces on every Netty module instead of the 4.2.6.Final (2025-09-08) that `ktor-server-netty` 3.3.1 brings
+(finding 7).
 
 ## The audit (2026-11-25)
 
@@ -81,14 +83,28 @@ processes, files, environment, class loading, URLs and sockets: nothing but `jav
 6. **Not reproducible upstream**: the manifest carries `Built-By` (the user name), `Built-Date` and `Built-JDK`. Our
    patch removes them; Gradle's archives are already without timestamps and in a fixed order.
 7. Netty 4.2.6.Final comes with `ktor-server-netty` 3.3.1 while the SDK lifts other Ktor modules to 3.5.2 (upstream's
-   own build has the same mix). CI's Trivy scan fails the image on a CRITICAL with a fix, as for every server.
+   own build has the same mix). CI's Trivy scan of 2026-11-25 failed the image on CVE-2026-75595 (CRITICAL,
+   `netty-handler` 4.2.6.Final, an SNI routing bypass; fixed in 4.2.17.Final and 4.1.137.Final); Ktor 3.5.2 itself
+   brings 4.2.16.Final, still affected. **Our patch forces 4.2.20.Final on every Netty module** (`io.netty`, but not
+   `netty-tcnative`, which is versioned on its own and not used): the newest release older than 14 days (4.2.21.Final,
+   2026-11-16, is too new), so the CRITICAL fix needs no exception to the 14-day rule. Netty's release notes of
+   4.2.17 to 4.2.20, read: 4.2.17 fixes leaks and adds decompressor APIs; 4.2.18, 4.2.19 and 4.2.20 are security
+   releases - for the modules in this jar request smuggling, CRLF and header validation in `netty-codec-http` and
+   `netty-codec-http2`, unbounded resource use in `netty-codec-base`/`-http`/`-http2`, out-of-bounds reads in
+   `netty-buffer`, an SNI routing bypass, improper access control and an mTLS bypass through session resumption in
+   `netty-handler`. Compatibility: the same 4.2 line (Netty checks its API with revapi); HTTP/2 header value
+   validation is on by default from 4.2.18 (the extension serves HTTP/1.1 on loopback) and `FileUpload.setContentType`
+   validates from 4.2.19 (not used here). The build fails unless every Netty jar of the runtime class path is that
+   version (`Dockerfile`, after the Maven Central check); Trivy checks the image as before.
 
 ### Our patch (`patches/0001-sandbox-ai-mcp.patch`, applied with `git apply`)
 
 - `ExtensionBase.kt`: when the JVM runs with `-Dsandbox.ai.burp.mcp=container` (only `src/server.py` starts Burp so),
   the settings the MCP tab would set: enabled, 127.0.0.1:9876, config editing off, Burp's approval dialogs off,
   credential filtering on. Without the property nothing changes - the same jar is the one for your own Burp.
-- `build.gradle.kts`: no `Built-By`, `Built-Date`, `Built-JDK` (and the unused `Instant` import).
+- `build.gradle.kts`: no `Built-By`, `Built-Date`, `Built-JDK` (and the unused `Instant` import); Netty 4.2.20.Final
+  for every `io.netty` module but `netty-tcnative` (`configurations.configureEach` with a
+  `resolutionStrategy.eachDependency` rule, finding 7).
 
 ### Container mode (`src/server.py`, read in full; tests/test_burp.py)
 
