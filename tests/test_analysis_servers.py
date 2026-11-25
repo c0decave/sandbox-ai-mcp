@@ -2175,7 +2175,11 @@ class SandboxAiAgrees(unittest.TestCase):
             definition = mcp.definition_from_entry(entry, mounts=[f"/work={tmp}:ro"])
             self.assertEqual(definition["network"], "none")
             self.assertEqual(definition["image"], f"{make_catalog.IMAGE_PREFIX}{name}@{digest}")
-            self.assertEqual(definition["mounts"], [{"target": "/work", "host": str(tmp), "mode": "ro"}])
+            # /work as given; any other folder of the entry gets sandbox-ai's own default folder (0.1.214: MCP folder
+            # defaults, e.g. binwalk's /out), never a host path of the user's
+            self.assertEqual(definition["mounts"][0], {"target": "/work", "host": str(tmp), "mode": "ro"})
+            for mount in definition["mounts"][1:]:
+                self.assertIn("/sandbox-ai/mcp-folders/" + name + "/", mount["host"])
             command = load("smoke_test").image_command(mcp, definition, name)
             self.assertIn("--network=none", command)
             self.assertIn(f"--volume={tmp}:/work:ro", command)
