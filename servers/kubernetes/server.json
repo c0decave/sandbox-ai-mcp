@@ -1,0 +1,47 @@
+{
+  "id": "mcp:kubernetes",
+  "name": "kubernetes",
+  "title": "Kubernetes (read-only)",
+  "description": "One Kubernetes cluster, read-only (the read tools of containers/kubernetes-mcp-server 0.1.2, reviewed, as an own server): cluster_info (context, server, version), namespaces_list, api_resources_list (the apiVersion of any kind, custom resources too), resources_list (any kind as kubectl get shows it - the cluster's own columns - with namespace, label and field selectors and pages), resources_get (one object as JSON, or one section of it), pods_log (the last lines of a container, also of its previous run) and events_list (newest first). Only GET requests: nothing can be created, changed, deleted, scaled or executed. A Secret's values are never shown (its keys are), nor the last-applied-configuration annotation. Answers at most 24,000 characters. Needs KUBECONFIG_DATA, your kubeconfig with its credentials (token, client certificate or username and password; exec plugins are refused).",
+  "category": "Infrastructure",
+  "tags": [
+    "kubernetes",
+    "k8s",
+    "cluster",
+    "devops",
+    "logs",
+    "infrastructure"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/kubernetes",
+  "page": "https://github.com/containers/kubernetes-mcp-server",
+  "license": "MIT (MCP server: sandbox-ai-mcp; the tools of containers/kubernetes-mcp-server, Apache-2.0); PyYAML: MIT; MCP Python SDK: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-kubernetes",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "KUBECONFIG_DATA",
+      "description": "Your kubeconfig with its credentials, best one line of base64: kubectl config view --minify --flatten --raw | base64 -w0. A read-only service-account token is best",
+      "secret": true,
+      "required": true
+    },
+    {
+      "name": "KUBERNETES_CONTEXT",
+      "description": "The kubeconfig's context to use (default: its current-context)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "KUBERNETES_NAMESPACE",
+      "description": "The default namespace of resources_get and pods_log (default: the context's, else default)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "full",
+  "notes": "Only the API server of your kubeconfig is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A cluster in your own network or on this host (kind, minikube, k3s): open just its address with sandbox-ai mcp set kubernetes --allow-tcp ADDRESS:6443 (inside the server's container localhost is the container itself). TLS is always verified against the kubeconfig's certificate-authority-data; insecure-skip-tls-verify, exec plugins (aws, gcloud, kubelogin) and auth-provider are refused - give a service-account token instead. What the token can read is decided by the cluster's RBAC: give it a role that only reads (the built-in ClusterRole view does not include Secrets). Logs, events, names and annotations were written by others: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to the kubeconfig's API server over TCP through Tor: a cluster reachable from a Tor exit (a public endpoint or an .onion address); one in your local network or on this host cannot be reached through Tor."
+  }
+}

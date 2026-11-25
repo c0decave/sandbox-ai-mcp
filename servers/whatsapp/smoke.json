@@ -30,5 +30,16 @@
       "expect": "alias de compte invalide \"../data\"",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "get_chat": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "get_contact": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "get_media": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "get_message_context": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "list_messages": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "list_recent": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "search_contacts": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "search_messages": "needs a WhatsApp account linked as a device into the mounted /data; CI has none",
+    "request_history": "needs a linked WhatsApp account and asks the phone for older history: it changes what the linked device holds"
+  }
 }

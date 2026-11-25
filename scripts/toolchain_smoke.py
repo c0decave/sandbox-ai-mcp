@@ -14,7 +14,10 @@ job. Then the "smoke" steps of the toolchain run in that sandbox, without networ
 sandbox: also the passwd home of Podman's root, which Java takes for user.home) and the working folder writable: each
 step's files are written, its command runs with sh, and its output must contain "expect". Under Podman the image is
 sandbox-ai's agent images' base with what they add that a toolchain may need (openssl: libssl.so.3, which .NET
-loads at run time), built once per run unless --image names one.
+loads at run time; the libraries of their GUI base that Qt's own name, and a font), built once per run unless
+--image names one. A toolchain's "smoke_apt" (Qt for C++: GCC, make, CMake, Ninja - the image variant its preset
+names, not a part of the toolchain) is installed on top, in an image of its own; under Bubblewrap the machine must
+have those packages (the workflow installs them).
 
 The report says which archive (sha256) passed with which sandbox-ai; scripts/sign_toolchains.py signs only entries
 with both reports. Standard library only (podman or bwrap).
@@ -39,9 +42,16 @@ RUNNERS = ("sandbox-ai-podman", "sandbox-ai-bwrap")
 # has none - CI run 45032125924: .NET aborted with "No usable version of libssl was found").
 IMAGE = "docker.io/library/node:lts-bookworm-slim"
 SMOKE_IMAGE = "localhost/sandbox-ai-toolchain-smoke:latest"
+# Of the agent images' GUI base (sandbox/Containerfile.*), the packages of the libraries toolchains.OWN_IMAGE names:
+# what Qt's libraries load (libglib, EGL, GL, X11, fontconfig, FreeType, xkbcommon, D-Bus, Brotli, Kerberos, zstd),
+# and a font to draw text with.
+GUI_PACKAGES = ("libglib2.0-0", "libegl1", "libgl1", "libopengl0", "libx11-6", "libfontconfig1", "libxkbcommon0",
+                "libdbus-1-3", "libbrotli1", "libgssapi-krb5-2", "libzstd1", "zlib1g", "fonts-dejavu-core")
 CONTAINERFILE = (f"FROM {IMAGE}\n"
                  "RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \\\n"
+                 f"    {' '.join(GUI_PACKAGES)} \\\n"
                  "    && rm -rf /var/lib/apt/lists/*\n")
+APT_PACKAGE = __import__("re").compile(r"[a-z0-9][a-z0-9+.-]{0,99}")
 PATH = "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
 STEP_SECONDS = 900
 
@@ -84,7 +94,7 @@ def sandbox_command(runner: str, t, entries, session: Path, work: Path, image: s
         elif os.path.exists(path):
             command += ["--ro-bind", path, path]
     command += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp", "--dir", "/etc"]
-    for path in ("/etc/ld.so.cache", "/etc/alternatives", "/etc/passwd", "/etc/group"):
+    for path in ("/etc/ld.so.cache", "/etc/alternatives", "/etc/passwd", "/etc/group", "/etc/fonts"):
         if os.path.exists(path):
             command += ["--ro-bind", path, path]
     for source, target in mounts:
@@ -126,7 +136,7 @@ def run_smoke(opts, run=subprocess.run) -> dict:
                                      "notes": notes})
             image = opts.image
             if opts.runner == "sandbox-ai-podman" and not image:
-                image, problem = smoke_image(tmp / "image", run)
+                image, problem = smoke_image(tmp / "image", run, meta.get("smoke_apt") or (), entry["name"])
                 report["image"] = image
                 if problem:
                     report["checks"].append({"check": "the image (agent images' base with openssl)", "ok": False,
@@ -160,19 +170,31 @@ def run_smoke(opts, run=subprocess.run) -> dict:
     return report
 
 
-def smoke_image(folder: Path, run=subprocess.run) -> tuple[str, str | None]:
+def containerfile(packages=()) -> str:
+    """CONTAINERFILE, with the Debian PACKAGES of a toolchain's "smoke_apt" installed on top."""
+    packages = [str(name) for name in packages]
+    if not all(APT_PACKAGE.fullmatch(name) for name in packages):
+        raise ValueError("smoke_apt must be a list of Debian package names")
+    if not packages:
+        return CONTAINERFILE
+    return (CONTAINERFILE + "RUN apt-get update && apt-get install -y --no-install-recommends \\\n"
+            f"    {' '.join(packages)} \\\n    && rm -rf /var/lib/apt/lists/*\n")
+
+
+def smoke_image(folder: Path, run=subprocess.run, packages=(), name="") -> tuple[str, str | None]:
     """(SMOKE_IMAGE built from CONTAINERFILE in FOLDER - outside the sandbox, with network -, None) or (it, why the
-    build failed)."""
+    build failed). With PACKAGES (a toolchain's "smoke_apt") an image of the toolchain NAME's own."""
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "Containerfile").write_text(CONTAINERFILE, encoding="utf-8")
+    (folder / "Containerfile").write_text(containerfile(packages), encoding="utf-8")
+    image = SMOKE_IMAGE.replace(":latest", f"-{name}:latest") if packages else SMOKE_IMAGE
     try:
-        result = run(["podman", "build", "--pull=missing", "-t", SMOKE_IMAGE, "-f", str(folder / "Containerfile"),
+        result = run(["podman", "build", "--pull=missing", "-t", image, "-f", str(folder / "Containerfile"),
                       str(folder)], capture_output=True, text=True, timeout=STEP_SECONDS, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
-        return SMOKE_IMAGE, f"podman build: no answer within {STEP_SECONDS} s"
+        return image, f"podman build: no answer within {STEP_SECONDS} s"
     if result.returncode != 0:
-        return SMOKE_IMAGE, f"podman build failed ({result.returncode}): {(result.stdout + result.stderr)[-1500:]}"
-    return SMOKE_IMAGE, None
+        return image, f"podman build failed ({result.returncode}): {(result.stdout + result.stderr)[-1500:]}"
+    return image, None
 
 
 def cleanup(tmp: Path) -> None:

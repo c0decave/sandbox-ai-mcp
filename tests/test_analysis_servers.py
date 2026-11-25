@@ -5,13 +5,16 @@ makes of each entry exactly what the catalog says."""
 from __future__ import annotations
 
 import ast
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -44,11 +47,42 @@ def read_json(*parts: str):
     return json.loads(Path(ROOT, *parts).read_text(encoding="utf-8"))
 
 
+def final_stage(name: str) -> str:
+    """The final stage of servers/NAME/Dockerfile (from its last FROM)."""
+    text = (ROOT / "servers" / name / "Dockerfile").read_text()
+    return text[[m.start() for m in re.finditer(r"^FROM ", text, re.M)][-1]:]
+
+
+def final_command(name: str) -> list:
+    """ENTRYPOINT + CMD of the final stage (exec form), as the image runs it and scripts/rootfs.py records it."""
+    final = final_stage(name).replace("\\\n", "")
+    words = []
+    for key in ("ENTRYPOINT", "CMD"):
+        found = re.findall(rf"(?ms)^{key} (\[.*?\])$", final)
+        if found:
+            words += json.loads(found[-1])
+    return words
+
+
+def sandbox_ai_module(name: str):
+    """sandbox/NAME.py of the sandbox-ai checkout SANDBOX_AI_CHECKOUT names, or None without one."""
+    checkout = os.environ.get("SANDBOX_AI_CHECKOUT")
+    if not checkout:
+        return None
+    spec = importlib.util.spec_from_file_location(f"sandbox_ai_{name}_for_test",
+                                                  Path(checkout, "sandbox", f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 class Fixtures(unittest.TestCase):
     def test_the_binary_fixtures_match_their_pinned_sha256(self):
         found = fixtures.load()
         self.assertEqual(sorted(f["path"] for f in found),
-                         ["caps", "demo-res.apk", "demo.apk", "demo.jar", "firmware.bin", "hello"])
+                         ["caps", "demo-res.apk", "demo.apk", "demo.jar", "firmware.bin", "hello", "sales.parquet",
+                          "sample.docx", "sample.epub", "sample.pdf", "sample.pptx", "sample.xlsx", "shop.duckdb",
+                          "shop.sqlite"])
         for fixture in found:
             self.assertLess(fixture["size"], 1 << 20, f"{fixture['path']} should stay a small fixture")
 
@@ -124,6 +158,83 @@ class EveryServer(unittest.TestCase):
                     if call.get("absent"):
                         self.assertNotIn(call["tool"], tools, f"{name}: {call['tool']} is offered")
                         self.assertTrue(call.get("expect_error"), f"{name}: {call['tool']} must be refused")
+
+    def test_every_image_brings_its_own_init(self):
+        """Podman's --init is the HOST's catatonit: a host without it (Debian's and Ubuntu's podman do not pull it in)
+        starts an image only when the image has an init of its own as its ENTRYPOINT (sandbox-ai's hostinit.image_init)
+        or the server is its own PID 1 by its entry ("pid1": "server", exec). Debian's tini, pinned, with -s (it reaps
+        also where it is not PID 1: under Podman's --init and Bubblewrap)."""
+        for name in servers():
+            with self.subTest(server=name):
+                entrypoint = final_command(name)
+                if read_json("servers", name, "server.json").get("pid1") == "server":
+                    self.assertNotEqual(entrypoint[0], "/usr/bin/tini", f"{name}: is PID 1 itself")
+                    continue
+                self.assertEqual(entrypoint[:3], ["/usr/bin/tini", "-s", "--"], f"{name}: no init of its own")
+                final = final_stage(name)
+                self.assertRegex(final, r"apt-get install -y --no-install-recommends (?:[^\n]*\\\n)*[^\n]*"
+                                        r"\btini=0\.19\.0-3\+b8\b", f"{name}: Debian's tini, pinned, in the final image")
+        hostinit = sandbox_ai_module("hostinit")
+        if hostinit is not None:
+            for name in servers():
+                with self.subTest(server=name, check="sandbox-ai's hostinit.image_init"):
+                    if read_json("servers", name, "server.json").get("pid1") == "server":
+                        continue
+                    self.assertEqual(hostinit.image_init(final_command(name)), "tini",
+                                     f"{name}: sandbox-ai would want the host's init for it")
+
+    def test_the_bubblewrap_form_takes_the_entrypoint(self):
+        """The rootfs.json entry of each image runs ENTRYPOINT + CMD as sandbox-ai's mcp_rootfs.validated takes it: an
+        absolute program, at most 32 words (radare2's 70 words of flags are in r2mcp-run), a numeric user that is
+        not root."""
+        for name in servers():
+            with self.subTest(server=name):
+                entrypoint = final_command(name)
+                self.assertTrue(entrypoint[0].startswith("/"), f"{name}: {entrypoint[0]} is not absolute")
+                self.assertLessEqual(len(entrypoint), 32, f"{name}: the Bubblewrap form takes at most 32 words")
+                self.assertTrue(all(word and "\0" not in word and len(word) < 4096 for word in entrypoint))
+        rootfs = sandbox_ai_module("mcp_rootfs")
+        if rootfs is not None:
+            for name in servers():
+                with self.subTest(server=name, check="sandbox-ai's mcp_rootfs.validated"):
+                    sha = "0" * 64
+                    rootfs.validated({"path": str(rootfs.rootfs_dir(sha)), "sha256": sha,
+                                      "entrypoint": final_command(name), "user": 10001, "workdir": "/tmp",
+                                      "env": {}}, name)
+
+    def test_every_image_with_network_has_an_etc_hosts(self):
+        """An image has no /etc/hosts of its own (Podman and Docker mount one at run time; `podman export`, which makes
+        the Bubblewrap form, has none): sandbox-ai's Bubblewrap form binds an allowlist server's pinned hosts onto
+        /etc/hosts, which a read-only root without the file refuses, and WhatWeb's Ruby resolver reads it before every
+        lookup ("No such file or directory - /etc/hosts" under Bubblewrap). Every image with network has one: the
+        file hosts beside its Dockerfile (a COPY, not a RUN: a build mounts its own /etc/hosts over the image's)."""
+        expected = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n"
+        for name in servers():
+            with self.subTest(server=name):
+                if read_json("servers", name, "server.json").get("network", "none") == "none":
+                    self.assertFalse((ROOT / "servers" / name / "hosts").exists(), f"{name}: has no network")
+                    continue
+                self.assertEqual((ROOT / "servers" / name / "hosts").read_text(), expected)
+                self.assertRegex(final_stage(name), r"(?m)^COPY hosts /etc/hosts$")
+
+    def test_every_tool_is_smoked_or_says_why_not(self):
+        """Every tool of tools.json is called by the smoke spec, or named in its "not_smoked" with the reason (it
+        needs an account or a key, sends or changes something outside, needs a device or a network CI does not give
+        this server): a tool added without either fails here."""
+        for name in servers():
+            with self.subTest(server=name):
+                spec = read_json("servers", name, "smoke.json")
+                tools = read_json("servers", name, "tools.json")["tools"]
+                called = {call["tool"] for call in spec.get("calls", []) if not call.get("absent")}
+                why = spec.get("not_smoked", {})
+                self.assertIsInstance(why, dict, f"{name}: not_smoked maps a tool to the reason")
+                for tool, reason in why.items():
+                    self.assertIn(tool, tools, f"{name}: not_smoked names {tool}, which it does not offer")
+                    self.assertNotIn(tool, called, f"{name}: {tool} is called and named in not_smoked")
+                    self.assertIsInstance(reason, str)
+                    self.assertGreaterEqual(len(reason.strip()), 12, f"{name}: {tool}: say why it is not smoked")
+                neither = sorted(set(tools) - called - set(why))
+                self.assertEqual(neither, [], f"{name}: neither called by the smoke spec nor in its not_smoked")
 
     def test_the_smoke_spec_mounts_only_folders_the_entry_declares(self):
         for name in servers():
@@ -719,6 +830,19 @@ class Radare2(unittest.TestCase):
             self.assertIn(text, check.group(1))
 
     def test_the_entrypoint_offers_exactly_the_reviewed_tools(self):
+        # r2mcp-run holds the flags (70 words; the Bubblewrap form takes at most 32 of an ENTRYPOINT), under tini
+        self.assertEqual(self.entrypoint, ["/usr/bin/tini", "-s", "--", "/opt/radare2/bin/r2mcp-run"])
+        self.assertIn("COPY r2mcp-run /opt/radare2/bin/r2mcp-run\n", self.dockerfile)
+        self.assertIn("chmod 0755 /opt/radare2/bin/r2mcp-run", self.dockerfile)
+        script = (self.FOLDER / "r2mcp-run").read_text()
+        self.assertTrue(script.startswith("#!/bin/sh\n"))
+        command = [line for line in script.replace("\\\n", " ").splitlines() if not line.startswith("#")]
+        self.assertEqual(len(command), 1, "one command, nothing else runs")
+        words = command[0].split()
+        self.assertEqual(words[0], "exec", "r2mcp replaces the shell")
+        self.assertNotRegex(command[0], r"[$`;|&<>\"'*?]", "no expansion (no \"$@\": nothing a run line adds "
+                                                         "reaches r2mcp), no second command")
+        self.entrypoint = words[1:]
         self.assertEqual(self.entrypoint[:6], ["/opt/radare2/bin/r2mcp", "-s", "/work", "-g", "none", "-N"])
         rest = self.entrypoint[6:]
         self.assertEqual(rest[0::2], ["-e"] * (len(rest) // 2))
@@ -1265,7 +1389,8 @@ class OsintMcp(unittest.TestCase):
 
     def test_it_starts_through_the_wrapper_with_the_cache_in_memory(self):
         entrypoint = json.loads(re.search(r"^ENTRYPOINT (\[.*\])$", self.dockerfile, re.M).group(1))
-        self.assertEqual(entrypoint, ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"])
+        self.assertEqual(entrypoint, ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u",
+                                      "/opt/mcp/server.py"])
         self.assertIn("COPY src/server.py /opt/mcp/server.py", self.dockerfile)
         self.assertRegex(self.dockerfile, r"(?m)^\s+OSINT_MCP_CACHE_PATH=:memory:$")
         wrapper = (self.folder / "src/server.py").read_text()
@@ -1320,7 +1445,9 @@ class BrainServers(unittest.TestCase):
                 text = (ROOT / "servers" / name / "Dockerfile").read_text()
                 final = text[[m.start() for m in re.finditer(r"^FROM ", text, re.M)][-1]:]
                 final = re.sub(r"(?m)^#.*$", "", final)
-                self.assertNotIn("apt-get install", final)
+                # the one package installed: Debian's tini, the image's init
+                installs = re.findall(r"apt-get install -y --no-install-recommends ([^\\\n]*)", final)
+                self.assertEqual([i.strip() for i in installs], ["tini=0.19.0-3+b8"])
                 self.assertNotRegex(final, r"\b(npm|git|curl|wget)\b(?!-)")
                 self.assertIn("mkdir -m 0755 /data", final)
 
@@ -1493,7 +1620,8 @@ class Filesystem(unittest.TestCase):
     def test_the_entry_allows_only_the_mounted_targets(self):
         entrypoint = re.search(r"^ENTRYPOINT (\[.*?\])$", self.dockerfile, re.M | re.S).group(1)
         self.assertEqual(json.loads(entrypoint.replace("\\\n", "")),
-                         ["/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs",
+                         ["/usr/bin/tini", "-s", "--",
+                          "/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs",
                           *self.TARGETS])
         self.assertIn("COPY src/entry.mjs /opt/filesystem/entry.mjs", self.dockerfile)
         self.assertIn("mkdir -m 0755 /work /ref1 /ref2 /ref3", self.dockerfile)
@@ -1819,7 +1947,7 @@ class Engram(unittest.TestCase):
         final = self.dockerfile[[m.start() for m in re.finditer(r"^FROM ", self.dockerfile, re.M)][-1]:]
         self.assertRegex(final, r"(?m)^ENV .*PATH=/usr/local/bin:/usr/bin:/bin\b")
         self.assertNotIn("git", re.sub(r"(?m)^#.*$", "", final).replace("github.com", ""))
-        self.assertIn('ENTRYPOINT ["/usr/local/bin/engram-mcp"]', final)
+        self.assertIn('ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/engram-mcp"]', final)
 
 
 class BasicMemoryLeftOut(unittest.TestCase):
@@ -1980,7 +2108,8 @@ class WhatsApp(unittest.TestCase):
                          "without /data the server starts and has no account")
         self.assertFalse(any(var["secret"] for var in self.entry["env"]), "the session is a folder, not a variable")
         self.assertIn("install -d -o 10001 -g 10001 -m 0700 /data", self.dockerfile)
-        self.assertRegex(self.dockerfile, r'(?m)^ENTRYPOINT \["/usr/local/bin/wa-mcp"\]\nCMD \["serve"\]$')
+        self.assertRegex(self.dockerfile, r'(?m)^ENTRYPOINT \["/usr/bin/tini", "-s", "--", "/usr/local/bin/wa-mcp"\]\n'
+                                          r'CMD \["serve"\]$')
         self.assertIn("0o700", self.patch("0005-private-account-folder.patch"))
 
     def test_the_smoke_run_needs_no_account_and_no_network(self):
@@ -2101,6 +2230,58 @@ class SandboxAiAgrees(unittest.TestCase):
         argv, _, _ = smoke.sandbox_ai_argv("sandbox-ai-podman", str(self.checkout), f"local/exec@{digest}", "none",
                                            [(str(tmp), "/work", True)], {}, resources={})
         self.assertIn("--init", argv)
+
+    def test_without_the_hosts_init_every_image_starts_on_its_own(self):
+        """CI's no-host-init run (smoke_test.py --runner sandbox-ai-podman-no-host-init): sandbox-ai is told this host
+        has no init binary for Podman's --init (SANDBOX_AI_INIT_BINARY=none) and asks Podman for the image's
+        ENTRYPOINT (here a stand-in podman answering with each Dockerfile's): every image is started without --init,
+        on tini or as its own PID 1; an image without an init of its own is refused, with a failed report."""
+        smoke = load("smoke_test")
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        entrypoints = {f"local/{name}@sha256:{'ab' * 32}": final_command(name) for name in servers()}
+        entrypoints["local/no-init@sha256:" + "ab" * 32] = ["/opt/venv/bin/python", "-I", "/opt/mcp/server.py"]
+        (tmp / "entrypoints.json").write_text(json.dumps(entrypoints))
+        podman = tmp / "bin" / "podman"
+        podman.parent.mkdir()
+        podman.write_text(f"#!{sys.executable}\nimport json, sys\n"
+                          "assert sys.argv[1:5] == ['image', 'inspect', '--format', '{{json .Config.Entrypoint}}']\n"
+                          f"print(json.dumps(json.load(open({str(tmp / 'entrypoints.json')!r}))[sys.argv[5]]))\n")
+        podman.chmod(0o755)
+        saved = {key: os.environ.get(key) for key in ("PATH", "SANDBOX_AI_INIT_BINARY")}
+
+        def restore():
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        self.addCleanup(restore)
+        os.environ["PATH"] = f"{podman.parent}{os.pathsep}{os.environ.get('PATH', '')}"
+        for name in servers():
+            with self.subTest(server=name):
+                os.environ.pop("SANDBOX_AI_INIT_BINARY", None)
+                options = smoke.server_options(str(ROOT / "servers" / name / "smoke.json"))
+                argv, _, facts = smoke.sandbox_ai_argv(smoke.NO_HOST_INIT, str(self.checkout),
+                                                       f"local/{name}@sha256:{'ab' * 32}", "none", [], {},
+                                                       resources=options)
+                self.assertEqual(os.environ.get("SANDBOX_AI_INIT_BINARY"), "none")
+                self.assertNotIn("--init", argv)
+                self.assertEqual((facts["host_init"], facts["podman_init"]), ("none", False))
+        with self.assertRaises(ValueError) as refused:
+            smoke.sandbox_ai_argv(smoke.NO_HOST_INIT, str(self.checkout), "local/no-init@sha256:" + "ab" * 32,
+                                  "none", [], {})
+        self.assertIn("catatonit", str(refused.exception))
+        spec = tmp / "smoke.json"
+        spec.write_text(json.dumps({"name": "no-init", "network": "none", "calls": []}))
+        report = tmp / "report.json"
+        with contextlib.redirect_stdout(io.StringIO()):
+            status = smoke.main(["--runner", smoke.NO_HOST_INIT, "--sandbox-ai", str(self.checkout), "--image",
+                                 "local/no-init@sha256:" + "ab" * 32, "--spec", str(spec), "--report", str(report)])
+        self.assertEqual(status, 1)
+        written = json.loads(report.read_text())
+        self.assertEqual((written["ok"], written["runner"]), (False, smoke.NO_HOST_INIT))
+        self.assertIn("catatonit", written["exception"])
 
     def test_the_smoke_run_line_is_sandbox_ais(self):
         smoke = load("smoke_test")

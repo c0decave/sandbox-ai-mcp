@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
 # ca-certificates only for pip's download while the image is built (Debian's pip uses the system's certificates).
 # adb is Debian's Android platform tool: it is run only against the adb server the human configured (-H/-P).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 python3=3.13.5-1 python3-venv=3.13.5-1 \
       ca-certificates=20250419+deb13u1 adb=1:34.0.5-12 \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /opt/mcp/requirements.txt
@@ -70,6 +70,10 @@ RUN /opt/venv/bin/python -m compileall -q /opt/mcp \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work /out
 ENV HOME=/tmp
+# /etc/hosts of its own (a COPY: a build mounts its own over the image's; Podman and Docker mount theirs at run
+# time): the Bubblewrap form has the file sandbox-ai binds an allowlist server's pinned hosts onto, and resolvers
+# that read it (Ruby's) find it there.
+COPY hosts /etc/hosts
 # The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
@@ -77,4 +81,6 @@ USER 10001:10001
 # without its x bit hid them all
 RUN /opt/venv/bin/python -c "import glob; found = glob.glob('/opt/frida/*/*/*.xz'); assert len(found) == 12, found"
 WORKDIR /tmp
-ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

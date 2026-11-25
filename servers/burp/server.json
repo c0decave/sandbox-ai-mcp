@@ -1,0 +1,59 @@
+{
+  "id": "mcp:burp",
+  "name": "burp",
+  "title": "Burp Suite (PortSwigger's MCP extension)",
+  "description": "Burp Suite as an MCP server through PortSwigger's official MCP extension 1.4.0 (GPL-3.0, built from the reviewed source without its prebuilt proxy jar): send HTTP/1.1 and HTTP/2 requests through Burp, read and search the proxy HTTP and WebSocket history and the Organizer, create Repeater tabs, send to Intruder, URL and Base64 encoding, Burp's project and user options as JSON, intercept and task engine on or off; with Burp Suite Professional also the scanner's issues and Burp Collaborator payloads and interactions. Two ways: host mode (sandbox-ai's default) - your own Burp, Community or Professional, loads this extension (sandbox-ai mcp burp extension) and sandbox-ai reaches it on 127.0.0.1:9876 from the host, this image is not run; container mode - your Burp jar (never part of this image) runs headless here, mounted read-only at /burp, its user folder (licence, accepted terms, project) in /data. Test only targets you may test.",
+  "category": "Web",
+  "tags": [
+    "burp",
+    "pentest",
+    "web",
+    "proxy",
+    "http",
+    "security"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/burp",
+  "page": "https://github.com/PortSwigger/mcp-server",
+  "license": "GPL-3.0 (PortSwigger's MCP extension); MIT (server.py, sandbox-ai-mcp); Burp Suite itself: PortSwigger's licence (yours, not in the image)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-burp",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "BURP_EDITION",
+      "description": "community or professional: the edition of your Burp jar (container mode); professional lists the scanner and Collaborator tools and keeps a project file in /data",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "BURP_LICENSE",
+      "description": "Your Burp Suite Professional licence key, typed into Burp's first headless start in this container only (sandbox-ai secrets set BURP_LICENSE)",
+      "secret": true,
+      "required": false
+    },
+    {
+      "name": "BURP_JAR_SHA256",
+      "description": "The SHA-256 of your Burp jar as you added it: a jar that changed since does not start (sandbox-ai sets it)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "mounts": [
+    {
+      "target": "/burp",
+      "description": "Container mode: the folder with your Burp jar (burpsuite_community or burpsuite_pro), read-only (--mount /burp=DIR:ro)",
+      "required": false
+    },
+    {
+      "target": "/data",
+      "description": "Container mode: Burp's user folder, writable (--mount /data=DIR:rw): the licence once activated, the accepted terms, Professional's project",
+      "required": false
+    }
+  ],
+  "network": "full",
+  "notes": "Use sandbox-ai mcp add burp: host mode by default (--burp-mode host: your Burp with the extension loaded, the endpoint checked; this image only supplies the jar), container mode with --burp-mode container --burp-jar PATH [--burp-edition professional]. Container mode: Burp needs 4g memory and 512 processes (the catalog recommends them); its first start takes up to a minute or two. Professional activates its licence online at portswigger.net once (it counts against your licence's activations; /data keeps it). Burp's approval dialogs cannot be shown in the container: sandbox-ai's MCP rules ask instead (preset pentest-burp). The extension has no authentication: whoever reaches 127.0.0.1:9876 drives Burp. Responses, history and issues come from the targets: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "Container mode: Burp's requests to targets go through Tor over TCP; PortSwigger may refuse a licence activation from a Tor exit (activate once without Tor) and Collaborator polling may fail. Host mode reaches only your Burp on this host and no network of its own."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "burp",
+  "network": "none",
+  "memory": "4g",
+  "pids": 512,
+  "tmp": "256m",
+  "expect_tools": [
+    "send_http1_request",
+    "send_http2_request",
+    "get_proxy_http_history",
+    "create_repeater_tab"
+  ],
+  "calls": [
+    {
+      "tool": "url_encode",
+      "arguments": {
+        "content": "a b"
+      },
+      "expect": "no Burp jar is mounted at /burp",
+      "expect_error": true
+    },
+    {
+      "tool": "send_http1_request",
+      "arguments": {
+        "content": "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+        "targetHostname": "example.com",
+        "targetPort": 443,
+        "usesHttps": true
+      },
+      "expect": "Burp does not run in this container",
+      "expect_error": true
+    }
+  ],
+  "not_smoked": {
+    "base64_decode": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "base64_encode": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "create_repeater_tab": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "create_repeater_tab_http2": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "generate_random_string": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_active_editor_contents": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_organizer_items": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_organizer_items_regex": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_proxy_http_history": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_proxy_http_history_regex": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_proxy_websocket_history": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "get_proxy_websocket_history_regex": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "output_project_options": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "output_user_options": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "send_http2_request": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "send_to_intruder": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "set_active_editor_contents": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "set_project_options": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "set_proxy_intercept_state": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "set_task_execution_engine_state": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "set_user_options": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI",
+    "url_decode": "needs Burp itself: your Burp jar at /burp (container mode) or your own Burp in host mode - PortSwigger's licence keeps Burp out of the image and out of CI"
+  }
+}

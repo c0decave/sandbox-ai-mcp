@@ -718,6 +718,9 @@
       "pids": 256,
       "tmp": "256m"
     },
+    "capa": {
+      "memory": "1g"
+    },
     "cfr": {
       "memory": "1g"
     },

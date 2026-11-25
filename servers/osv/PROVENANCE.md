@@ -6,7 +6,7 @@
 | Upstream reviewed | StacklokLabs/osv-mcp **v0.1.4** (Apache-2.0, `LICENSES/osv-mcp-Apache-2.0.txt`), release published 2026-10-14 17:09 UTC (35 days before this review) from commit `498b22e478b0d6418972bdd09dbbc8098ddf041c` (2026-10-14 17:07 UTC); source tarball `codeload.github.com/StacklokLabs/osv-mcp/tar.gz/v0.1.4`, SHA-256 `613208fe80580e792b9821ea3b959f8c6b8fd5ea6e8a174ca7286dfc8cd20baa`. v0.1.5 (2026-11-17) is too new and was not used |
 | Service | the OSV API v1 (`https://api.osv.dev/v1`: `POST /query`, `POST /querybatch`, `GET /vulns/{id}`), no key |
 | Python packages | the shared lock of this repository (`mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt`, the same as servers/duckduckgo's) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## The review of osv-mcp v0.1.4 (2026-11-18)

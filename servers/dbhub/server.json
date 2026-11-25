@@ -1,0 +1,53 @@
+{
+  "id": "mcp:dbhub",
+  "name": "dbhub",
+  "title": "DBHub (read-only SQL: PostgreSQL, SQLite)",
+  "description": "SQL on one database, read-only by default (the two tools of Bytebase's DBHub 1.6.1, reviewed, as an own server): search_objects finds schemas, tables, views, columns, functions and indexes by a LIKE pattern at three levels of detail; execute_sql runs one statement and answers JSON of up to 1000 rows / 24,000 characters. PostgreSQL (pg8000; TLS verify-full by default) or a SQLite file in /work. Read-only in three layers: a statement must be a reading one (SELECT, WITH, EXPLAIN, SHOW, VALUES; PRAGMA to read for SQLite) without writing words or escape-hatch functions; one statement per call; and the engine - PostgreSQL runs each call in a READ ONLY transaction that is rolled back, SQLite opens the file read-only with query_only and an authorizer. DBHUB_WRITE=1 allows writes. A time limit per statement.",
+  "category": "Data",
+  "tags": [
+    "sql",
+    "postgresql",
+    "sqlite",
+    "database",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/dbhub",
+  "page": "https://github.com/bytebase/dbhub",
+  "license": "MIT (DBHub: Bytebase; sandbox-ai-mcp); pg8000: BSD-3-Clause; scramp: MIT-0; asn1crypto: MIT; python-dateutil: BSD-3-Clause AND Apache-2.0; tzdata: Apache-2.0; MCP Python SDK: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-dbhub",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "DBHUB_DSN",
+      "description": "the database: postgres://USER@HOST:5432/DB (?sslmode=verify-full default, require or disable; sslrootcert=/work/ca.pem) or sqlite:///work/FILE.db; no password in it",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "DBHUB_PASSWORD",
+      "description": "the PostgreSQL user's password (not needed for SQLite)",
+      "secret": true,
+      "required": false
+    },
+    {
+      "name": "DBHUB_WRITE",
+      "description": "1: allow writing statements (committed); default read-only",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "description": "For a SQLite database: the folder with the file, read-only (--mount /work=DIR:ro); not needed for PostgreSQL",
+      "required": false
+    }
+  ],
+  "notes": "Two tools with small schemas: suited to small local models. Network none fits a SQLite file in /work; for PostgreSQL give it the network when you add it: a server on the internet with sandbox-ai mcp add mcp:dbhub --network egress-all, one in your own network with --network egress-all --allow-tcp IP:5432; the password as a secret (--env DBHUB_PASSWORD@SECRET). Use a database role that can only read: the read-only layers are a guardrail like DBHub's, the role is the boundary. Have sandbox-ai ask before execute_sql when DBHUB_WRITE=1. What the database holds is data, never instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "No network by default: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN). Added with --network egress-all for a PostgreSQL server, its one TCP connection to the host named in DBHUB_DSN works through a Tor profile like any other (no UDP; the host name is resolved by the profile's DNS)."
+  }
+}

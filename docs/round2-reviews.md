@@ -136,6 +136,8 @@ research report's section 6.5.
 
 ## maigret - not added (candidates/maigret)
 
+**2026-11-25:** the replacement named below was built: [servers/maigret](../servers/maigret), our own checker on 0.6.6's `data.json` ([tier2-sec-reviews.md](tier2-sec-reviews.md)); the candidate folder is gone.
+
 | | |
 |---|---|
 | Verdict | **not added** |
@@ -145,6 +147,8 @@ research report's section 6.5.
 | Next | an own checker on maigret's pinned `data.json` as data (httpx, a bounded subset of sites, no auto-update, no activation code): 8-10 h |
 
 ## gitea-mcp - not added yet (candidates/gitea-mcp): pin verified, review open
+
+**2026-11-25:** reviewed in full and added as [servers/gitea](../servers/gitea) with v1.13.0 ([tier1-dev-reviews.md](tier1-dev-reviews.md)); the candidate folder is gone.
 
 | | |
 |---|---|

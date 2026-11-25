@@ -32,6 +32,10 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
       org.opencontainers.image.title="sandbox-ai-mcp-context7" \
       org.opencontainers.image.description="Current library documentation from Context7 (context7.com), an MCP server of sandbox-ai-mcp (stdio)" \
       org.opencontainers.image.licenses="MIT"
+# tini (Debian's), the init of the ENTRYPOINT
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt /var/log/apt /var/log/dpkg.log
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /opt/context7 /opt/context7
 COPY --from=build /opt/nodejs-LICENSE /usr/share/doc/sandbox-ai-mcp-context7/nodejs-LICENSE
@@ -41,10 +45,16 @@ RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /u
 # OTEL_SDK_DISABLED=true: the server loads no telemetry at all (its telemetry modules are not even in the image, so
 # the server refuses to start without it). CONTEXT7_API_KEY (optional) comes from sandbox-ai's secret store.
 ENV HOME=/tmp NODE_ENV=production OTEL_SDK_DISABLED=true
+# /etc/hosts of its own (a COPY: a build mounts its own over the image's; Podman and Docker mount theirs at run
+# time): the Bubblewrap form has the file sandbox-ai binds an allowlist server's pinned hosts onto, and resolvers
+# that read it (Ruby's) find it there.
+COPY hosts /etc/hosts
 # The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
 # --disallow-code-generation-from-strings: no eval/new Function at all (zod then validates without its JIT).
-ENTRYPOINT ["/usr/local/bin/node", "--disallow-code-generation-from-strings", \
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/node", "--disallow-code-generation-from-strings", \
             "/opt/context7/node_modules/@upstash/context7-mcp/dist/index.js", "--transport", "stdio"]

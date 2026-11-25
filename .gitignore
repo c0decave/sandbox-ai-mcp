@@ -7,3 +7,11 @@ __pycache__/
 /tests/fixtures/demo.apk
 /tests/fixtures/demo.jar
 /tests/fixtures/demo-res.apk
+/tests/fixtures/sample.docx
+/tests/fixtures/sample.xlsx
+/tests/fixtures/sample.pptx
+/tests/fixtures/sample.pdf
+/tests/fixtures/sample.epub
+/tests/fixtures/sales.parquet
+/tests/fixtures/shop.duckdb
+/tests/fixtures/shop.sqlite

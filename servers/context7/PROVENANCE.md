@@ -222,3 +222,6 @@ The server reviewed completely (line by line, compared with its source), the SDK
 the other packages that load on their risky surfaces, as for servers/memory; three patches (the sign-in nudge, the
 identifying headers, tools only), telemetry removed. Fit to sign once CI has built it and both smoke reports pass, including the
 real calls.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

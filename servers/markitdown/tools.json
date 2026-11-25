@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "convert_to_markdown"
+  ],
+  "read_only_tools": [
+    "convert_to_markdown"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "get_subtitles",
+    "get_video_info",
+    "list_subtitles",
+    "search_videos"
+  ]
+}

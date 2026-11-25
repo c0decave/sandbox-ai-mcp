@@ -6,7 +6,7 @@
 | Upstream reviewed | w0h1v/mcp-shodan (formerly BurtTheCoder/mcp-shodan) **1.0.36** = npm `@burtthecoder/mcp-shodan` 1.0.36 (MIT, `LICENSES/mcp-shodan-MIT.txt`), published 2026-11-03 17:44 UTC (15 days before this review) from commit `8b202b05227e9a9b075139cf60bfda3e4c68cec0` (npm `gitHead`); tarball SHA-256 `13ba4fa3d3adbf76dd11e9b485fb0fcb35f9d986528ceca7573e297c9ab4b05a`, integrity `sha512-dP4yisJaeXrvOAKmIRDW2SRuGtl9jIJpxww7FfOzurzbCI4d6AgsajMhick4wUK3S934v8EWPItzm9nZWaPFaw==`, 17 files. 1.0.37-1.0.41 (2026-11-05 on) are too new |
 | Services | Shodan's REST API (`https://api.shodan.io`, key as the `key` URL parameter, as Shodan requires) and Shodan's CVEDB (`https://cvedb.shodan.io`, no key) |
 | Python packages | the shared lock of this repository (`mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt`, the same as servers/duckduckgo's) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## The review of mcp-shodan 1.0.36 (2026-11-18)

@@ -1,0 +1,338 @@
+{
+  "name": "gitea",
+  "network": "none",
+  "env": {
+    "GITEA_HOST": "http://127.0.0.1:9"
+  },
+  "expect_tools": [
+    "get_file_contents",
+    "issue_read",
+    "pull_request_read",
+    "actions_run_read",
+    "repo_read"
+  ],
+  "calls": [
+    {
+      "tool": "get_gitea_mcp_server_version",
+      "arguments": {},
+      "expect": "Gitea MCP Server version: v1.13.0"
+    },
+    {
+      "tool": "actions_config_read",
+      "arguments": {
+        "method": "list_repo_variables",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/actions/variables",
+      "expect_error": true
+    },
+    {
+      "tool": "actions_run_read",
+      "arguments": {
+        "method": "get_job_log_preview",
+        "owner": "o",
+        "repo": "r",
+        "job_id": 1,
+        "tail_lines": 50,
+        "pattern": "::error::"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/actions/jobs/1/logs",
+      "expect_error": true
+    },
+    {
+      "tool": "branch_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/branches",
+      "expect_error": true
+    },
+    {
+      "tool": "commit_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/commits",
+      "expect_error": true
+    },
+    {
+      "tool": "get_dir_contents",
+      "arguments": {
+        "owner": "o",
+        "repo": "r",
+        "ref": "main",
+        "path": "docs"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/contents/docs",
+      "expect_error": true
+    },
+    {
+      "tool": "get_file_contents",
+      "arguments": {
+        "owner": "o",
+        "repo": "r",
+        "path": "README.md",
+        "start_line": 1,
+        "end_line": 40
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/contents/README.md",
+      "expect_error": true
+    },
+    {
+      "tool": "get_me",
+      "arguments": {},
+      "expect": "127.0.0.1:9/api/v1/user",
+      "expect_error": true
+    },
+    {
+      "tool": "get_repository_tree",
+      "arguments": {
+        "owner": "o",
+        "repo": "r",
+        "tree_sha": "main"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/git/trees/main",
+      "expect_error": true
+    },
+    {
+      "tool": "get_user_orgs",
+      "arguments": {},
+      "expect": "127.0.0.1:9/api/v1/user/orgs",
+      "expect_error": true
+    },
+    {
+      "tool": "issue_read",
+      "arguments": {
+        "method": "get",
+        "owner": "o",
+        "repo": "r",
+        "issue_number": 1
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/issues/1",
+      "expect_error": true
+    },
+    {
+      "tool": "label_read",
+      "arguments": {
+        "method": "list_repo_labels",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/labels",
+      "expect_error": true
+    },
+    {
+      "tool": "list_issues",
+      "arguments": {
+        "owner": "o",
+        "repo": "r",
+        "state": "open"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/issues",
+      "expect_error": true
+    },
+    {
+      "tool": "list_pull_requests",
+      "arguments": {
+        "owner": "o",
+        "repo": "r",
+        "state": "open"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/pulls",
+      "expect_error": true
+    },
+    {
+      "tool": "milestone_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/milestones",
+      "expect_error": true
+    },
+    {
+      "tool": "notification_read",
+      "arguments": {
+        "method": "list"
+      },
+      "expect": "127.0.0.1:9/api/v1/version",
+      "expect_error": true
+    },
+    {
+      "tool": "package_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o"
+      },
+      "expect": "127.0.0.1:9/api/v1/packages/o",
+      "expect_error": true
+    },
+    {
+      "tool": "project_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/projects",
+      "expect_error": true
+    },
+    {
+      "tool": "pull_request_read",
+      "arguments": {
+        "method": "get",
+        "owner": "o",
+        "repo": "r",
+        "pull_number": 1
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/pulls/1",
+      "expect_error": true
+    },
+    {
+      "tool": "release_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/releases",
+      "expect_error": true
+    },
+    {
+      "tool": "repo_read",
+      "arguments": {
+        "method": "get",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r",
+      "expect_error": true
+    },
+    {
+      "tool": "search_issues",
+      "arguments": {
+        "query": "crash"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/issues/search",
+      "expect_error": true
+    },
+    {
+      "tool": "search_org_teams",
+      "arguments": {
+        "org": "o",
+        "query": "dev"
+      },
+      "expect": "127.0.0.1:9/api/v1/orgs/o/teams/search",
+      "expect_error": true
+    },
+    {
+      "tool": "search_repos",
+      "arguments": {
+        "query": "mcp"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/search",
+      "expect_error": true
+    },
+    {
+      "tool": "search_users",
+      "arguments": {
+        "query": "alice"
+      },
+      "expect": "127.0.0.1:9/api/v1/users/search",
+      "expect_error": true
+    },
+    {
+      "tool": "tag_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/tags",
+      "expect_error": true
+    },
+    {
+      "tool": "timetracking_read",
+      "arguments": {
+        "method": "list_repo_times",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/times",
+      "expect_error": true
+    },
+    {
+      "tool": "wiki_read",
+      "arguments": {
+        "method": "list",
+        "owner": "o",
+        "repo": "r"
+      },
+      "expect": "127.0.0.1:9/api/v1/repos/o/r/wiki/pages",
+      "expect_error": true
+    },
+    {
+      "tool": "actions_run_read",
+      "arguments": {
+        "method": "download_job_log",
+        "owner": "o",
+        "repo": "r",
+        "job_id": 1
+      },
+      "expect": "download_job_log is not offered",
+      "expect_error": true
+    },
+    {
+      "tool": "release_read",
+      "arguments": {
+        "method": "download_asset",
+        "owner": "o",
+        "repo": "r",
+        "id": 1,
+        "asset_id": 1
+      },
+      "expect": "download_asset is not offered",
+      "expect_error": true
+    },
+    {
+      "tool": "issue_read",
+      "arguments": {
+        "method": "get",
+        "owner": "o",
+        "repo": "r",
+        "issue_number": 1,
+        "output_path": "/tmp/x"
+      },
+      "expect": "output_path is not offered",
+      "expect_error": true
+    },
+    {
+      "tool": "repo_read",
+      "arguments": {
+        "method": "get",
+        "owner": "..",
+        "repo": "admin"
+      },
+      "expect": "owner \"..\" is not a name",
+      "expect_error": true
+    },
+    {
+      "tool": "issue_write",
+      "arguments": {
+        "method": "create",
+        "owner": "o",
+        "repo": "r",
+        "title": "t"
+      },
+      "expect": "issue_write",
+      "expect_error": true,
+      "absent": true
+    }
+  ]
+}

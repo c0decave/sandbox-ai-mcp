@@ -6,9 +6,10 @@ name: build
 # fix available fails the job), pushes it to ghcr.io/c0decave/sandbox-ai-mcp-<name> and reports
 # the pushed digest. Then the pushed image runs again as sandbox-ai runs it: under Podman with
 # sandbox-ai's own run line, and its rootfs (scripts/rootfs.py, published as a release asset)
-# under Bubblewrap with sandbox-ai's mcp_rootfs; both reports are kept. The catalog job turns
+# under Bubblewrap with sandbox-ai's mcp_rootfs, and under Podman once more as on a host without Podman's init binary
+# (no-host-init: sandbox-ai must start it without --init, on its own init); the three reports are kept. The catalog job turns
 # digests and rootfs into catalog.json and rootfs.json (an artifact, with the reports). Sign them
-# on your machine with scripts/sign_catalog.py, which refuses unless both reports of every server
+# on your machine with scripts/sign_catalog.py, which refuses unless the reports of every server
 # passed, then commit catalog.json, rootfs.json and their .sig files (docs/SIGNING.md).
 # One server failing does not stop the others: each image job uploads what it has (ci-<name>, with
 # result-<name>.json only when every required step passed), and the catalog job runs whenever the
@@ -107,11 +108,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        server: [agentql, arxiv, axross, binwalk, bluesky, brave-search, calculator, capa, cfr, chrome-devtools,
-                 code-search, context7, duckduckgo, engram, exec, files, filesystem, frida, gowitness, jadx, memory,
-                 openosint, osint-mcp, osv, playwright, radare2, searxng, sequential-thinking, shodan, signal,
-                 smali, tasks, telegram, telegram-user, time, web-fetch, whatsapp, whatweb, wikipedia, youtube,
-                 youtube-transcript]   # candidates/ join once their pins are set
+        server: [agentql, arxiv, axross, binwalk, bluesky, brave-search, burp, calculator, capa, cfr,
+                 chrome-devtools, code-search, codec, context7, dbhub, duckdb, duckduckgo, engram, exec, files,
+                 filesystem, frida, ghidra, gitea, github, gowitness, grafana, imap, jadx, kubernetes, lsp-go,
+                 lsp-python, maigret, markitdown, memory, onion-search, openosint, osint-mcp, osv, playwright,
+                 radare2, reddit, searxng, sequential-thinking, shodan, signal, smali, tasks, telegram,
+                 telegram-user, terraform, time, web-fetch, whatsapp, whatweb, wikipedia, youtube,
+                 youtube-transcript, yt-dlp]   # candidates/ join once their pins are set
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -314,6 +317,25 @@ jobs:
             --var "SHODAN_API_KEY=${SHODAN_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
             --report "smoke-${{ matrix.server }}-sandbox-ai-podman.json"
 
+      # no-host-init: as on a host without Podman's init binary (catatonit, which Debian's and Ubuntu's podman do not
+      # install): sandbox-ai is told there is none (SANDBOX_AI_INIT_BINARY=none, set by the runner) and must start the
+      # image without --init, on the init it brings (tini, its ENTRYPOINT) or as its own PID 1 (exec). The whole
+      # smoke spec runs so; a run line with --init or a refused start fails, and sign_catalog.py wants this report too.
+      - name: "no-host-init: smoke with sandbox-ai under Podman without the host's init"
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.tags.outputs.image }}@${{ steps.push.outputs.digest }}
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          AGENTQL_API_KEY: ${{ secrets.AGENTQL_API_KEY }}
+          SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
+        run: |
+          python3 scripts/smoke_test.py --runner sandbox-ai-podman-no-host-init --sandbox-ai sandbox-ai \
+            --image "${IMAGE}" \
+            --spec servers/${{ matrix.server }}/smoke.json --tools-file servers/${{ matrix.server }}/tools.json \
+            --var "BRAVE_API_KEY=${BRAVE_API_KEY}" --var "AGENTQL_API_KEY=${AGENTQL_API_KEY}" \
+            --var "SHODAN_API_KEY=${SHODAN_API_KEY}" --var "FIXTURES=${GITHUB_WORKSPACE}/tests/fixtures" \
+            --report "smoke-${{ matrix.server }}-sandbox-ai-podman-no-host-init.json"
+
       - name: Rootfs of the pushed image
         if: github.event_name != 'pull_request'
         env:
@@ -390,6 +412,7 @@ jobs:
             rootfs-out/rootfs-${{ matrix.server }}.json
             smoke-${{ matrix.server }}-sandbox-ai-podman.json
             smoke-${{ matrix.server }}-sandbox-ai-bwrap.json
+            smoke-${{ matrix.server }}-sandbox-ai-podman-no-host-init.json
             maven-central-${{ matrix.server }}.json
           if-no-files-found: warn
           overwrite: true   # a re-run of the job replaces its artifact

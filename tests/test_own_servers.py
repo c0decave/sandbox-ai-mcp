@@ -224,6 +224,20 @@ class Servers(unittest.TestCase):
         short = module.summary_of(vuln, {"package": {"name": "Jinja2", "ecosystem": "PyPI"}})
         self.assertEqual((short["id"], short["fixed_in"]), ("GHSA-462w-v97r-4m45", ["2.10.1"]))
 
+    def test_github(self):
+        """The github server over stdio as the image starts it (13 read tools, no resources or prompts; code search
+        without GITHUB_TOKEN refused before anything is sent, a path that leaves its segment refused), then the
+        offline suite of tests/test_github.py - inside the image against a stand-in GitHub on loopback over TLS."""
+        answers = self.check_tools("github")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("github", session(("search_code", {"query": "x"}),
+                                        ("get_file_contents", {"owner": "o", "repo": "r", "path": "a/../../b"})),
+                      env={"GITHUB_TOKEN": "", "GITHUB_API_URL": "", "GITHUB_CA_CERT": ""})
+        for index, text in ((2, "https://api.github.com/search/code needs a token"), (3, "path: a path inside")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_github", 14)
+
     def test_wikipedia(self):
         """wikipedia (more in tests/test_wikipedia.py): its tools, refused arguments, the section parser."""
         self.check_tools("wikipedia")
@@ -1311,6 +1325,68 @@ class Servers(unittest.TestCase):
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
         self.offline_suite("test_jadx", 20)
 
+    def test_ghidra(self):
+        """The ghidra server over stdio as the image starts it (its ten tools, no resources or prompts; refusals before
+        any file is opened, so the real /work is never read and no JVM starts). The real Ghidra runs in the smoke spec
+        with the limits it needs (3g, 512 processes: this step's 512m would not hold Ghidra's JVM)."""
+        answers = self.check_tools("ghidra")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        self.assertNotIn("prompts", answers[0]["result"]["capabilities"])
+        answers = rpc("ghidra", session(("open_file", {"path": "../etc/passwd"}), ("open_file", {"path": "/etc/passwd"}),
+                                        ("open_file", {"path": "fw.bin", "language": "-Dx=y"}),
+                                        ("decompile_function", {"path": "a", "function": "a b"}),
+                                        ("list_strings", {"path": "a", "min_length": 0})))
+        expected = ("'..' is not allowed", "only files in /work can be read", "language: Ghidra's language id",
+                    "function: a name as list_functions shows it", "min_length: a whole number from 1 to 1000")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+
+    def test_maigret(self):
+        """The maigret server over stdio as the image starts it (its four tools, no resources or prompts; the offline
+        tools on the image's own database, refusals before anything is sent), then the offline suite of
+        tests/test_maigret.py - inside the image with maigret 0.6.6's data.json, no network."""
+        answers = self.check_tools("maigret")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        self.assertNotIn("prompts", answers[0]["result"]["capabilities"])
+        if Path("/opt/maigret/data.json").is_file():
+            answers = rpc("maigret", session(("list_tags", {}), ("search_username", {"username": "../x"}),
+                                             ("check_site", {"username": "blue", "site": "Twitter"})))
+            self.assertIn("of 5897 sites are checked by this server", answers[2]["result"]["content"][0]["text"])
+            self.assertIn("username:", answers[3]["result"]["content"][0]["text"])
+            self.assertIn("needs maigret's activation", answers[4]["result"]["content"][0]["text"])
+        self.offline_suite("test_maigret", 15)
+
+    def test_yt_dlp(self):
+        """The yt-dlp server over stdio as the image starts it (its four tools, no resources or prompts; refusals of
+        addresses that are not public before any worker starts), then the offline suite of tests/test_yt_dlp.py -
+        inside the image with yt-dlp itself against a page on the loopback, no network."""
+        answers = self.check_tools("yt-dlp")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        self.assertNotIn("prompts", answers[0]["result"]["capabilities"])
+        answers = rpc("yt-dlp", session(("get_video_info", {"url": "http://10.1.2.3/v"}),
+                                        ("get_video_info", {"url": "file:///etc/passwd"}),
+                                        ("get_subtitles", {"url": "dQw4w9WgXcQ", "lang": "../x"})))
+        expected = ("10.1.2.3 is not a public address", "an http(s) address", "lang: a language code")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_yt_dlp", 8)
+
+    def test_onion_search(self):
+        """The onion-search server over stdio as the image starts it (its two tools, no resources or prompts; without
+        a Tor profile it refuses before anything is looked up), then the offline suite of tests/test_onion_search.py
+        inside the image, no network."""
+        answers = self.check_tools("onion-search")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        self.assertNotIn("prompts", answers[0]["result"]["capabilities"])
+        if os.environ.get("SANDBOX_AI_TOR") != "1":
+            answers = rpc("onion-search", session(("search_onion", {"query": "x"}), ("onion_status", {})))
+            self.assertTrue(answers[2]["result"]["isError"])
+            self.assertIn("works only behind a Tor profile", answers[2]["result"]["content"][0]["text"])
+            self.assertIn("not behind a Tor profile", answers[3]["result"]["content"][0]["text"])
+        self.offline_suite("test_onion_search", 8)
+
     def test_cfr(self):
         """The cfr server over stdio as the image starts it (its six tools, no resources or prompts; refusals before
         any file is opened), then the offline suite of tests/test_cfr.py - inside the image with CFR itself, no
@@ -1372,6 +1448,143 @@ class Servers(unittest.TestCase):
             self.assertTrue(answers[index]["result"]["isError"], index)
             self.assertIn(text, answers[index]["result"]["content"][0]["text"])
         self.offline_suite("test_frida", 25)
+
+    def test_markitdown(self):
+        """The markitdown server over stdio as the image starts it (one tool, no resources or prompts; web addresses,
+        data: URIs and paths outside /work refused before anything is opened), then the offline suite of
+        tests/test_markitdown.py - inside the image with markitdown, mammoth and pdfminer.six themselves, no network."""
+        answers = self.check_tools("markitdown")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("markitdown", session(("convert_to_markdown", {"uri": "../etc/passwd"}),
+                                            ("convert_to_markdown", {"uri": "https://example.com/a.pdf"}),
+                                            ("convert_to_markdown", {"uri": "data:text/plain,hello"}),
+                                            ("convert_to_markdown", {"uri": "file:///etc/passwd"}),
+                                            ("convert_to_markdown", {"uri": "a.pdf", "offset": "one"})))
+        expected = ("'..' is not allowed", "no web addresses", "no data: URIs", "only files in /work",
+                    "Input should be a valid integer")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_markitdown", 20)
+
+    def test_duckdb(self):
+        """The duckdb server over stdio as the image starts it (four tools, no resources or prompts; a file outside
+        /work, a write and an extension refused), then the offline suite of tests/test_duckdb.py - inside the image
+        with DuckDB itself, no network."""
+        if importlib.util.find_spec("duckdb") is None:
+            self.skipTest("duckdb is not installed (in the image, or servers/duckdb/requirements.txt)")
+        answers = self.check_tools("duckdb")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("duckdb", session(("execute_query", {"sql": "SELECT * FROM read_csv('/etc/passwd')"}),
+                                        ("execute_query", {"sql": "COPY (SELECT 1) TO '/work/x.csv'"}),
+                                        ("execute_query", {"sql": "INSTALL httpfs"}),
+                                        ("execute_query", {"sql": "SELECT 1", "max_rows": "all"}),
+                                        ("execute_query", {"sql": "SELECT 6 * 7 AS answer"})))
+        expected = ("Permission Error", "this server is read-only", "extensions are never installed",
+                    "Input should be a valid integer")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.assertIn('"rows": [[42]]', answers[6]["result"]["content"][0]["text"])
+        self.offline_suite("test_duckdb", 10)
+
+    def test_dbhub(self):
+        """The dbhub server over stdio as the image starts it (two tools, no resources or prompts; without DBHUB_DSN
+        every call says what to set, a write and a second statement refused before any connection), then the offline
+        suite of tests/test_dbhub.py - inside the image with Debian's SQLite and pg8000, no network."""
+        answers = self.check_tools("dbhub")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("dbhub", session(("execute_sql", {"sql": "SELECT 1"}),
+                                       ("search_objects", {"object_type": "trigger"}),
+                                       ("execute_sql", {"sql": "SELECT 1", "max_rows": "many"})), env={"DBHUB_DSN": ""})
+        expected = ("DBHUB_DSN is not set", "object_type: one of", "Input should be a valid integer")
+        for index, text in enumerate(expected, start=2):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_dbhub", 15)
+
+    def test_codec(self):
+        """The codec server over stdio as the image starts it (two tools, no resources or prompts; a CTF recipe, a
+        path outside /work and an unknown operation refused), then the offline suite of tests/test_codec.py."""
+        answers = self.check_tools("codec")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("codec", session(("run_recipe", {"recipe": ["from_hex", {"op": "xor", "key": "20"}],
+                                                       "input": "48454c4c4f"}),
+                                       ("run_recipe", {"recipe": ["reverse"], "path": "/etc/passwd"}),
+                                       ("run_recipe", {"recipe": ["rm_rf"], "input": "x"})))
+        self.assertTrue(answers[2]["result"]["content"][0]["text"].endswith("hello"))
+        for index, text in ((3, "only files in /work"), (4, "op 'rm_rf': one of")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_codec", 8)
+    def test_kubernetes(self):
+        """The kubernetes server over stdio as the image starts it (seven read tools, no resources or prompts; without
+        KUBECONFIG_DATA every call says what to set, a hostile name refused before anything is sent), then the offline
+        suite of tests/test_kubernetes.py - inside the image against a stand-in API server on loopback over TLS."""
+        answers = self.check_tools("kubernetes")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("kubernetes", session(("cluster_info", {}), ("resources_get", {"api_version": "v1", "kind": "Pod",
+                                                                                     "name": "../x"})),
+                      env={"KUBECONFIG_DATA": ""})
+        for index, text in ((2, "KUBECONFIG_DATA is not set"), (3, "not a valid name")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_kubernetes", 10)
+
+    def test_terraform(self):
+        """The terraform server over stdio as the image starts it (nine registry tools, no resources or prompts; a
+        hostile id refused before anything is sent), then the offline suite of tests/test_terraform.py - inside the
+        image against a stand-in registry on loopback."""
+        answers = self.check_tools("terraform")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("terraform", session(("get_module_details", {"module_id": "../b/c/1.0.0"}),
+                                           ("get_provider_details", {"provider_doc_id": "1/../x"})))
+        for index, text in ((2, "module_id: namespace/name/provider/version"), (3, "provider_doc_id: a number")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_terraform", 7)
+
+    def test_grafana(self):
+        """The grafana server over stdio as the image starts it (nine read tools, no resources or prompts; without
+        GRAFANA_URL every call says what to set, a hostile uid refused before anything is sent), then the offline
+        suite of tests/test_grafana.py - inside the image against a stand-in Grafana on loopback over TLS."""
+        answers = self.check_tools("grafana")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("grafana", session(("list_datasources", {}), ("get_dashboard_summary", {"uid": "../x"})),
+                      env={"GRAFANA_URL": ""})
+        for index, text in ((2, "GRAFANA_URL is not set"), (3, "is not valid")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_grafana", 8)
+
+    def test_reddit(self):
+        """The reddit server over stdio as the image starts it (four read tools, no resources or prompts; without its
+        app's credentials every call says what to set, a hostile subreddit refused before anything is sent), then the
+        offline suite of tests/test_reddit.py - inside the image against a stand-in Reddit on loopback."""
+        answers = self.check_tools("reddit")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("reddit", session(("browse_subreddit", {"subreddit": "python"}),
+                                        ("browse_subreddit", {"subreddit": "../api/v1/me"})),
+                      env={"REDDIT_CLIENT_ID": "", "REDDIT_CLIENT_SECRET": "", "REDDIT_USER_AGENT": ""})
+        for index, text in ((2, "REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT not set"),
+                            (3, "subreddit: 2-21 letters")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_reddit", 5)
+
+    def test_imap(self):
+        """The imap server over stdio as the image starts it (four read tools, no resources or prompts; without its
+        settings every call says what to set, an injected folder refused before anything is sent), then the offline
+        suite of tests/test_imap.py - inside the image against a stand-in IMAP server on loopback over TLS."""
+        answers = self.check_tools("imap")
+        self.assertNotIn("resources", answers[0]["result"]["capabilities"])
+        answers = rpc("imap", session(("list_folders", {}),
+                                      ("read_message", {"uid": 1, "folder": "INBOX\r\nA1 DELETE INBOX"})),
+                      env={"IMAP_HOST": "", "IMAP_USER": "", "IMAP_PASSWORD": ""})
+        for index, text in ((2, "IMAP_HOST, IMAP_USER, IMAP_PASSWORD not set"), (3, "folder:")):
+            self.assertTrue(answers[index]["result"]["isError"], index)
+            self.assertIn(text, answers[index]["result"]["content"][0]["text"])
+        self.offline_suite("test_imap", 7)
 
 
 def osint_mcp_installed():

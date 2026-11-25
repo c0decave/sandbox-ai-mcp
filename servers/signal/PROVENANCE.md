@@ -9,7 +9,7 @@
 | In it | libsignal-client **0.103.0** (Signal, AGPL-3.0, `LICENSES/libsignal-AGPL-3.0.txt`) with its native library `libsignal_jni_amd64.so`, SHA-256 `e0f4e783c25d0eea3252d9da36dd1dc9752c075dd5c10d1d3f30d9798346050b`; sqlite-jdbc **3.53.4.0** (Apache-2.0) with `libsqlitejdbc.so` (Linux x86_64), SHA-256 `aaad97362c429a34b47488c4a5a966ab090450edde70c2186d1a02c0e2d17cd0`; 77 more jars (`LICENSES/SOURCES.txt`) |
 | Java | Eclipse Temurin JRE **25.0.5+8** (GPL-2.0 with Classpath Exception; `/opt/java/legal`), `OpenJDK25U-jre_x64_linux_hotspot_25.0.5_8.tar.gz`, SHA-256 `6fac98f0c8202efc3135a9e9e42aa61963ec42d1c5cbb40caf231e7b14a24ef6` (GitHub release of 2026-10-22; the same value in its `.sha256.txt`); signal-cli 0.14 needs Java 25 |
 | Python packages | `mcp==1.30.0` and its dependencies (`httpx==0.28.1` among them, which signal-mcp's client uses), the lock of duckduckgo byte for byte (`requirements.txt`, wheels only, hashes) |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made); build stage `ca-certificates=20250419+deb13u1`, `git=1:2.47.3-0+deb13u1`, `python3=3.13.5-1` (not in the final image) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made); build stage `ca-certificates=20250419+deb13u1`, `git=1:2.47.3-0+deb13u1`, `python3=3.13.5-1` (not in the final image) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 | Platform | linux/amd64 only: signal-cli's release carries libsignal and SQLite for Linux x86_64 only |
 

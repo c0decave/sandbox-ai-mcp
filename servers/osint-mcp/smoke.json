@@ -44,6 +44,135 @@
       ]
     },
     {
+      "tool": "domain_whois",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "\"domain\": \"example.com\"",
+      "timeout": 60,
+      "upstream_limited": [
+        "rdap.org returned 429",
+        "rdap.org returned 5",
+        "timed out talking to rdap"
+      ]
+    },
+    {
+      "tool": "ip_whois",
+      "arguments": {
+        "ip": "1.1.1.1"
+      },
+      "expect": "\"range\": \"1.1.1.0 - 1.1.1.255\"",
+      "timeout": 60,
+      "upstream_limited": [
+        "returned 429",
+        "returned 503",
+        "timed out talking to"
+      ]
+    },
+    {
+      "tool": "shodan_internetdb",
+      "arguments": {
+        "ip": "1.1.1.1"
+      },
+      "expect": "\"ip\": \"1.1.1.1\"",
+      "timeout": 60,
+      "upstream_limited": [
+        "internetdb.shodan.io returned 429",
+        "internetdb.shodan.io returned 5",
+        "timed out talking to internetdb.shodan.io"
+      ]
+    },
+    {
+      "tool": "email_security",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "\"grade\": ",
+      "timeout": 60
+    },
+    {
+      "tool": "compare_domains",
+      "arguments": {
+        "domains": [
+          "example.com",
+          "example.org"
+        ]
+      },
+      "expect": "\"domain\": \"example.org\"",
+      "timeout": 120
+    },
+    {
+      "tool": "recon_domain",
+      "arguments": {
+        "domain": "example.com",
+        "include_subdomains": false
+      },
+      "expect": "\"mode\": \"with_direct_checks\"",
+      "timeout": 180
+    },
+    {
+      "tool": "recon_batch",
+      "arguments": {
+        "domains": [
+          "example.com",
+          "example.org"
+        ]
+      },
+      "expect": "\"count\": 2",
+      "timeout": 240
+    },
+    {
+      "tool": "investigate_site",
+      "arguments": {
+        "url": "https://example.com/",
+        "follow_legal": false
+      },
+      "expect": "\"url\": \"https://example.com/\"",
+      "timeout": 240
+    },
+    {
+      "tool": "wayback",
+      "arguments": {
+        "url": "example.com",
+        "limit": 3,
+        "newest_first": false
+      },
+      "expect": "\"archive_url\": \"https://web.archive.org/web/",
+      "timeout": 180,
+      "upstream_limited": [
+        "web.archive.org returned",
+        "timed out talking to web.archive.org",
+        "request to web.archive.org failed"
+      ]
+    },
+    {
+      "tool": "subdomains",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "\"subdomains\": [",
+      "timeout": 180,
+      "upstream_limited": [
+        "crt.sh returned",
+        "timed out talking to crt.sh",
+        "request to crt.sh failed"
+      ]
+    },
+    {
+      "tool": "certificate_history",
+      "arguments": {
+        "domain": "example.com",
+        "limit": 3
+      },
+      "expect": "\"certificates\": [",
+      "timeout": 180,
+      "upstream_limited": [
+        "crt.sh returned",
+        "timed out talking to crt.sh",
+        "request to crt.sh failed"
+      ]
+    },
+    {
       "tool": "http_headers",
       "arguments": {
         "url": "http://169.254.169.254/latest/meta-data/"

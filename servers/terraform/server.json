@@ -1,0 +1,30 @@
+{
+  "id": "mcp:terraform",
+  "name": "terraform",
+  "title": "Terraform Registry (providers, modules, policies)",
+  "description": "Up-to-date documentation from the public Terraform Registry for writing Terraform (the nine registry tools of HashiCorp's terraform-mcp-server 1.4.1, reviewed, as an own server): search_provider_docs and get_provider_details (a provider's resources, data sources, ephemeral resources, functions, guides - Markdown with arguments, attributes and examples, long documents in parts), get_latest_provider_version, get_provider_capabilities, search_modules, get_module_details (inputs, outputs, provider dependencies, resources, examples), get_latest_module_version, search_policies and get_policy_details (Sentinel policy sets with a policies.hcl). Only GET requests to registry.terraform.io, no token: nothing is planned, applied or read from HCP Terraform. Answers at most 24,000 characters.",
+  "category": "Infrastructure",
+  "tags": [
+    "terraform",
+    "opentofu",
+    "infrastructure-as-code",
+    "registry",
+    "documentation",
+    "devops"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/terraform",
+  "page": "https://github.com/hashicorp/terraform-mcp-server",
+  "license": "MIT (MCP server: sandbox-ai-mcp; the tools of hashicorp/terraform-mcp-server, MPL-2.0); MCP Python SDK: MIT; registry content: its publishers' terms",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-terraform",
+  "tag": "latest",
+  "network": "allowlist",
+  "hosts": [
+    "registry.terraform.io:443"
+  ],
+  "notes": "The names of the providers, modules and policies the agent looks up go to registry.terraform.io (HashiCorp): they say which infrastructure you work on. Nothing else is sent, no account is used, nothing is read or written locally. The documentation and READMEs were written by the providers' and modules' authors: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to registry.terraform.io over TCP through Tor; its CDN may slow down or refuse Tor exit addresses (not tested)."
+  }
+}

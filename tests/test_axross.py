@@ -114,7 +114,7 @@ class Axross(unittest.TestCase):
         for step in ("--require-hashes", "--only-binary=:all:", "pip uninstall -y -q invoke secretstorage jeepney",
                      "pip uninstall -y -q pip", "sha256sum --check --quiet --strict /opt/mcp/reviewed.sha256",
                      "comm -23 /tmp/all /tmp/keep", "cmp -s - /tmp/keep", "USER 10001:10001",
-                     'ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]',
+                     'ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]',
                      "mkdir -m 0755 /work /axross /ssh"):
             self.assertIn(step, text)
         self.assertRegex(text, r"debian:trixie-slim@sha256:[0-9a-f]{64}")

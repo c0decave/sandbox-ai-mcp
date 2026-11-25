@@ -22,6 +22,10 @@
         {
           "path": "docs/readme.txt",
           "text": "filesystem smoke test\n"
+        },
+        {
+          "path": "docs/pixel.svg",
+          "text": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>\n"
         }
       ]
     }
@@ -112,6 +116,48 @@
         "path": "/work/docs/plan.md"
       },
       "expect": "hardLinks: 1"
+    },
+    {
+      "tool": "read_file",
+      "arguments": {
+        "path": "/work/docs/plan.md"
+      },
+      "expect": "A second draft."
+    },
+    {
+      "tool": "read_multiple_files",
+      "arguments": {
+        "paths": [
+          "/work/docs/plan.md",
+          "/work/docs/readme.txt"
+        ]
+      },
+      "expect": "---\n/work/docs/readme.txt:\nfilesystem smoke test\n"
+    },
+    {
+      "tool": "list_directory_with_sizes",
+      "arguments": {
+        "path": "/work/docs"
+      },
+      "expect": "Total: 3 files, 0 directories"
+    },
+    {
+      "tool": "read_media_file",
+      "arguments": {
+        "path": "/work/docs/pixel.svg"
+      },
+      "expect": "",
+      "expect_ok": true
+    },
+    {
+      "tool": "read_multiple_files",
+      "arguments": {
+        "paths": [
+          "/work/docs/readme.txt",
+          "/etc/passwd"
+        ]
+      },
+      "expect": "/etc/passwd: Error - Access denied - path outside allowed directories: /etc/passwd not in /work"
     },
     {
       "tool": "read_text_file",

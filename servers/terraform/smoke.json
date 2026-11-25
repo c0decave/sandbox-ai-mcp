@@ -1,0 +1,140 @@
+{
+  "name": "terraform",
+  "network": "allowlist",
+  "hosts": [
+    "registry.terraform.io:443"
+  ],
+  "expect_tools": [
+    "get_latest_module_version",
+    "get_latest_provider_version",
+    "get_module_details",
+    "get_policy_details",
+    "get_provider_capabilities",
+    "get_provider_details",
+    "search_modules",
+    "search_policies",
+    "search_provider_docs"
+  ],
+  "calls": [
+    {
+      "tool": "get_latest_provider_version",
+      "arguments": {
+        "namespace": "hashicorp",
+        "name": "random"
+      },
+      "expect": "\"provider\": \"hashicorp/random\"",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_provider_capabilities",
+      "arguments": {
+        "namespace": "hashicorp",
+        "name": "random",
+        "version": "3.6.3"
+      },
+      "expect": "\"resources\": {\"count\": ",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "search_provider_docs",
+      "arguments": {
+        "provider_name": "random",
+        "provider_namespace": "hashicorp",
+        "service_slug": "password",
+        "provider_version": "3.6.3"
+      },
+      "expect": "\"provider_doc_id\": \"",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_provider_details",
+      "arguments": {
+        "provider_doc_id": "999999999999"
+      },
+      "expect": "provider document 999999999999 not found",
+      "expect_error": true
+    },
+    {
+      "tool": "search_modules",
+      "arguments": {
+        "module_query": "vpc"
+      },
+      "expect": "terraform-aws-modules/vpc/aws/",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_module_details",
+      "arguments": {
+        "module_id": "terraform-aws-modules/vpc/aws/5.0.0"
+      },
+      "expect": "\"name\": \"cidr\"",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_latest_module_version",
+      "arguments": {
+        "module_publisher": "terraform-aws-modules",
+        "module_name": "vpc",
+        "module_provider": "aws"
+      },
+      "expect": "\"latest_version\": \"",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "search_policies",
+      "arguments": {
+        "policy_query": "cis aws"
+      },
+      "expect": "\"terraform_policy_id\": \"policies/",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_policy_details",
+      "arguments": {
+        "terraform_policy_id": "policies/hashicorp/CIS-Policy-Set-for-AWS-Terraform/1.0.1"
+      },
+      "expect": "\"policies_hcl\": ",
+      "upstream_limited": [
+        "the Terraform Registry answered HTTP 429",
+        "the Terraform Registry answered HTTP 5",
+        "did not answer within"
+      ]
+    },
+    {
+      "tool": "get_module_details",
+      "arguments": {
+        "module_id": "../vpc/aws/5.0.0"
+      },
+      "expect": "module_id: namespace/name/provider/version",
+      "expect_error": true
+    }
+  ]
+}

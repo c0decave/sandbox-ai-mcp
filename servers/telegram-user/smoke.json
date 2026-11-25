@@ -52,5 +52,13 @@
       "expect": "since: a date like 2026-01-31",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "check_invite": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none",
+    "get_chat_info": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none",
+    "get_replies": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none",
+    "list_dialogs": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none",
+    "search_chats": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none",
+    "search_global": "needs a Telegram user account (TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION); CI has none"
+  }
 }

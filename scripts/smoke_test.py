@@ -30,6 +30,11 @@ Its ``"seed"`` puts things into it first: ``{"path": "notes/a.md", "text": "..."
 relative, without ``..``. A seeded fresh mount may leave out ``"writable"``: it is then mounted read-only, for a server
 that only reads its folder (code-search) and must never be given it writable, not even in its smoke run.
 
+A call with ``"expect_ok": true`` also fails on a tool error (the result's isError), for an answer without text to
+look for (an image, a file as a resource). Every tool of tools.json is called by the spec or named in its
+``"not_smoked"`` ({tool: why}: it needs an account or a key, changes something outside, needs a device; this script
+ignores it, tests/test_analysis_servers.py holds every spec to it).
+
 A spec may raise the limits for a server that needs more (``"memory": "2g"``, ``"pids": 512``, ``"cpus": 2``,
 ``"tmp": "768m"`` - the size of its /tmp, a tmpfs, so at most the memory): the run line then has these instead of
 512m, 128 and a 64m /tmp (and ``--cpus``), and the sandbox-ai runners put them into the definition, as ``mcp add``
@@ -52,9 +57,13 @@ checkout) start the server the way sandbox-ai does instead: its own ``mcp.image_
 the image, or its ``mcp_rootfs`` for the rootfs archive (``--rootfs FILE --rootfs-meta FILE``:
 checked against the SHA-256, unpacked, run per connection with bwrap), with what of the catalog entry their run
 line takes (server_options: ``"pid1": "server"`` of the ``server.json`` beside the spec, so exec runs as PID 1 there
-as under ``mcp add``: Podman without ``--init``, ``bwrap --as-pid-1``). ``--report FILE`` keeps
-the report; scripts/sign_catalog.py signs a catalog only when both reports of every server
-passed.
+as under ``mcp add``: Podman without ``--init``, ``bwrap --as-pid-1``). ``--runner sandbox-ai-podman-no-host-init``
+is sandbox-ai's Podman run line on a host without Podman's init binary (catatonit; SANDBOX_AI_INIT_BINARY=none for
+sandbox-ai's hostinit): the image must be started without ``--init``, on the init it brings itself (its ENTRYPOINT:
+tini), or as its own PID 1 ("pid1": "server"); a run line with ``--init``, or sandbox-ai refusing to start it, fails.
+The Podman reports say whether the run line had ``--init`` ("podman_init"). ``--report FILE`` keeps the report;
+scripts/sign_catalog.py signs a catalog only when the three reports of every server passed (Bubblewrap's where it
+has a rootfs).
 """
 
 from __future__ import annotations
@@ -170,7 +179,18 @@ def upstream_limits(spec: dict) -> None:
             raise ValueError(f"{call.get('tool')}: a call with expect_error cannot be upstream_limited")
 
 
-RUNNERS = ("axross", "sandbox-ai-podman", "sandbox-ai-bwrap")
+RUNNERS = ("axross", "sandbox-ai-podman", "sandbox-ai-bwrap", "sandbox-ai-podman-no-host-init")
+#: A host without Podman's init binary (catatonit, which Debian's and Ubuntu's podman do not install): sandbox-ai is
+#: told there is none (hostinit's SANDBOX_AI_INIT_BINARY=none) and must start the image without --init, on the init
+#: the image brings (its ENTRYPOINT: tini) or with the server as its own PID 1 ("pid1": "server").
+NO_HOST_INIT = "sandbox-ai-podman-no-host-init"
+
+
+def call_flags(spec: dict) -> None:
+    """ValueError for a call that both expects an error and expects none ("expect_ok")."""
+    for call in spec.get("calls", []):
+        if call.get("expect_ok") and call.get("expect_error"):
+            raise ValueError(f"{call.get('tool')}: expect_ok and expect_error exclude each other")
 
 
 def call_runners(spec: dict) -> None:
@@ -363,7 +383,9 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
     run line (mcp.image_command), or the rootfs archive checked, unpacked and run with bwrap (mcp_rootfs)."""
     import tempfile
     state = tempfile.mkdtemp(prefix="smoke-sandbox-ai-")
-    if runner != "sandbox-ai-podman":
+    if runner == NO_HOST_INIT:
+        os.environ["SANDBOX_AI_INIT_BINARY"] = "none"  # hostinit: this host has no init binary for --init
+    if runner not in ("sandbox-ai-podman", NO_HOST_INIT):
         # the rootfs store of the bwrap runner lives below XDG_DATA_HOME: a fresh one per smoke run. Never for
         # Podman: rootless podman keeps its images below XDG_DATA_HOME too, and a fresh one would not hold the image
         # the workflow has just pulled ("image not known").
@@ -376,9 +398,17 @@ def sandbox_ai_argv(runner: str, checkout: str, image: str, network: str, mounts
                   "mounts": [{"target": target, "host": host, "mode": "rw" if writable else "ro"}
                              for host, target, writable in mounts], **(resources or {})}
     environment = {**os.environ, **env}
-    if runner == "sandbox-ai-podman":
+    if runner in ("sandbox-ai-podman", NO_HOST_INIT):
         definition = mcp.validated_image({**definition, "image": image}, "smoke")
-        return image_command(mcp, definition), environment, {"image": image, **own}
+        argv = image_command(mcp, definition)
+        # (in the report: whether the run line has Podman's --init, the host's catatonit as PID 1)
+        facts = {"image": image, "podman_init": "--init" in argv, **own}
+        if runner == NO_HOST_INIT:
+            if "--init" in argv:
+                raise ValueError("sandbox-ai's run line has --init although this host has no init binary "
+                                 "(SANDBOX_AI_INIT_BINARY=none): the image brings no init sandbox-ai recognises")
+            facts["host_init"] = "none"
+        return argv, environment, facts
     rootfs_module = mcp.rootfs_module()
     meta = meta or {}
     tree = rootfs_module.install(os.path.abspath(rootfs), meta["sha256"])
@@ -449,6 +479,17 @@ class Session:
         return self.proc.stderr.read().decode("utf-8", "replace")
 
 
+def call_passed(call: dict, answer: dict, text: str, expect: str) -> bool:
+    """Whether a tools/call ANSWER (its TEXT) is what CALL expects: EXPECT in the text, and no JSON-RPC error - or,
+    with "expect_error", EXPECT in whatever came back. "expect_ok": also no tool error (the result's isError), for a
+    call whose answer has no text to look for (an image, a file as a resource)."""
+    if call.get("expect_error"):
+        return expect in text
+    if call.get("expect_ok") and (answer.get("result") or {}).get("isError"):
+        return False
+    return expect in text and "error" not in answer
+
+
 def result_text(message: dict) -> str:
     if "error" in message:
         return "JSON-RPC error: " + json.dumps(message["error"])
@@ -498,6 +539,7 @@ def main(argv=None) -> int:
         spec = json.load(handle)
     upstream_limits(spec)
     call_runners(spec)
+    call_flags(spec)
     resources = limits(spec)
     name = spec["name"]
     network = spec.get("network", "none")
@@ -534,9 +576,23 @@ def main(argv=None) -> int:
             with open(opts.rootfs_meta, encoding="utf-8") as handle:
                 meta = json.load(handle)
         read_fd = None
-        argv, environment, facts = sandbox_ai_argv(opts.runner, opts.sandbox_ai, opts.image, network, mounts,
-                                                   substitute(spec.get("env", {}), variables, missing),
-                                                   opts.rootfs, meta, {**resources, **server_options(opts.spec)})
+        try:
+            argv, environment, facts = sandbox_ai_argv(opts.runner, opts.sandbox_ai, opts.image, network, mounts,
+                                                       substitute(spec.get("env", {}), variables, missing),
+                                                       opts.rootfs, meta, {**resources, **server_options(opts.spec)})
+        except ValueError as exc:
+            # sandbox-ai refused to start it (no-host-init: an image without an init of its own): a failed report
+            report = {"name": name, "image": opts.image, "network": network, "runner": opts.runner, **resources,
+                      "checks": [], "skipped": [], "ok": False, "exception": f"ValueError: {exc}"}
+            print(json.dumps(report, indent=2))
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                print(annotation(report), flush=True)
+            if opts.report:
+                with open(opts.report, "w", encoding="utf-8") as handle:
+                    json.dump(report, handle, indent=2)
+            for folder in fresh:
+                shutil.rmtree(folder, ignore_errors=True)
+            return 1
     if opts.print_argv:
         print("argv:", json.dumps(argv))
     session = Session(argv, read_fd, environment)
@@ -578,9 +634,7 @@ def main(argv=None) -> int:
                 answer = session.request("tools/call", {"name": call["tool"], "arguments": arguments},
                                          call.get("timeout", 120))
                 text = result_text(answer)
-                passed = expect in text and "error" not in answer
-                if call.get("expect_error"):
-                    passed = expect in text
+                passed = call_passed(call, answer, text, expect)
                 limited = None if passed or "error" in answer else next((m for m in markers if m in text), None)
                 if limited is None or attempt > opts.upstream_retries:
                     break

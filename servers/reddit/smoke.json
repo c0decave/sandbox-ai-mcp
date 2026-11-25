@@ -1,0 +1,75 @@
+{
+  "name": "reddit",
+  "network": "none",
+  "env": {
+    "REDDIT_CLIENT_ID": "smokeClientId",
+    "REDDIT_CLIENT_SECRET": "smoke-secret",
+    "REDDIT_USER_AGENT": "linux:sandbox-ai-mcp-smoke:1.0 (by /u/nobody)"
+  },
+  "expect_tools": [
+    "browse_subreddit",
+    "get_post_details",
+    "search_reddit",
+    "user_analysis"
+  ],
+  "calls": [
+    {
+      "tool": "browse_subreddit",
+      "arguments": {
+        "subreddit": "python",
+        "sort": "top",
+        "time": "week",
+        "limit": 5
+      },
+      "expect": "cannot reach https://www.reddit.com",
+      "expect_error": true
+    },
+    {
+      "tool": "search_reddit",
+      "arguments": {
+        "query": "asyncio",
+        "subreddits": [
+          "python"
+        ],
+        "limit": 5
+      },
+      "expect": "cannot reach https://www.reddit.com",
+      "expect_error": true
+    },
+    {
+      "tool": "get_post_details",
+      "arguments": {
+        "url": "https://www.reddit.com/r/python/comments/1abc2d3/title/",
+        "max_top_comments": 3
+      },
+      "expect": "cannot reach https://www.reddit.com",
+      "expect_error": true
+    },
+    {
+      "tool": "user_analysis",
+      "arguments": {
+        "username": "spez",
+        "posts_limit": 3,
+        "comments_limit": 3
+      },
+      "expect": "cannot reach https://www.reddit.com",
+      "expect_error": true
+    },
+    {
+      "tool": "browse_subreddit",
+      "arguments": {
+        "subreddit": "../api/v1/me"
+      },
+      "expect": "subreddit: 2-21 letters",
+      "expect_error": true
+    },
+    {
+      "tool": "get_post_details",
+      "arguments": {
+        "url": "https://reddit.com.evil.example/r/x/comments/1abc2d3"
+      },
+      "expect": "url: a reddit.com or redd.it link",
+      "expect_error": true
+    }
+  ]
+}

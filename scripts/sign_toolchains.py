@@ -13,6 +13,12 @@ smoke-ID-ARCH-sandbox-ai-podman.json and ...-bwrap.json, ID the entry's recipe (
 version) -, passed, for exactly the entry's archive (sha256); that toolchains.json agrees with the recipes
 (scripts/make_toolchains.py --check); and that every toolchain an entry requires is in it. The key never leaves
 your machine. Standard library only (ssh-keygen).
+
+The "recipes" of toolchains.json (the toolchains built on the user's machine: the Android SDK) have no archive and
+no report of this repository's CI, which downloads nothing of them. For them the signature says: the recipe is the
+one of this repository (make_toolchains.py --check holds each to its toolchain.json: every download with its size
+and SHA-256), and its URLs, sizes and hashes are its publisher's - confirm that yourself before you sign (sandbox-ai's
+live check: `sandbox-ai live_check --only toolchain-live` adds android-sdk from this catalog and builds an app).
 """
 
 from __future__ import annotations
@@ -38,8 +44,9 @@ def problems_of(root: Path, reports: Path) -> list[str]:
     problems = make.check(root, None)
     if problems:
         return [f"toolchains.json is not current: {problem}" for problem in problems]
-    entries = json.loads((root / "toolchains.json").read_text(encoding="utf-8"))["toolchains"]
-    if not entries:
+    catalog = json.loads((root / "toolchains.json").read_text(encoding="utf-8"))
+    entries = catalog["toolchains"]
+    if not entries and not catalog.get("recipes"):
         return ["toolchains.json has no entry: nothing to vouch for"]
     if not reports.is_dir():
         return [f"{reports}: not a folder of smoke reports"]

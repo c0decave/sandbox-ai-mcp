@@ -6,7 +6,7 @@
 | In the image | only the 26 reviewed modules of `openosint/`, fetched at that commit and checked file by file against `openosint-files.sha256` (4,436 lines) |
 | MCP server | this repository, `src/server.py` (MIT, `LICENSES/axross-mcp-hub-MIT.txt`): the tools, argument checks, key redaction, size bound; OpenOSINT's own `mcp_server.py` is not in the image |
 | Python packages | `mcp==1.30.0`, `aiohttp==3.14.5`, `dnspython==2.9.0`, `python-dotenv==1.2.4`, `python-whois==0.9.6` (MIT, `LICENSES/python-whois-MIT.txt`), `requests==2.34.2` and their dependencies, hash-locked in `requirements.txt` (wheels only) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1`; build stage `git`, `ca-certificates` (not in the final image) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1`; build stage `git`, `ca-certificates` (not in the final image) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 **Upstream:** https://github.com/OpenOSINT/OpenOSINT (the server mcpservers.org lists as "openosint";

@@ -82,6 +82,126 @@
       "expect": "\"profiles\": []"
     },
     {
+      "tool": "list_backends",
+      "arguments": {},
+      "expect": "\"id\": \"local\""
+    },
+    {
+      "tool": "stat",
+      "arguments": {
+        "path": "docs/plan.txt"
+      },
+      "expect": "\"name\": \"plan.txt\", \"is_dir\": false, \"size\": 26"
+    },
+    {
+      "tool": "mkdir",
+      "arguments": {
+        "path": "build/out"
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "copy",
+      "arguments": {
+        "src": "docs/plan.txt",
+        "dst": "build/plan-copy.txt"
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "rename",
+      "arguments": {
+        "src": "build/plan-copy.txt",
+        "dst": "build/out/plan-moved.txt"
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "bulk_copy",
+      "arguments": {
+        "src": "docs",
+        "dst": "backup"
+      },
+      "expect": "\"dst\": \"/work/backup/plan.txt\", \"size\": 26, \"action\": \"copied\""
+    },
+    {
+      "tool": "symlink",
+      "arguments": {
+        "target": "plan.txt",
+        "link_path": "docs/plan-link"
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "hardlink",
+      "arguments": {
+        "target": "docs/plan.txt",
+        "link_path": "docs/plan-hard"
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "walk",
+      "arguments": {
+        "path": "build"
+      },
+      "expect": "\"path\": \"/work/build/out/plan-moved.txt\""
+    },
+    {
+      "tool": "recursive_checksum",
+      "arguments": {
+        "path": "backup"
+      },
+      "expect": "\"checksum\": \"2327f3c5c80afe46922fa0c5ed60c526693a03c95c51c4afdc1d9bd088b76333\""
+    },
+    {
+      "tool": "search",
+      "arguments": {
+        "needle": "plan"
+      },
+      "expect": "[]",
+      "expect_ok": true
+    },
+    {
+      "tool": "list_versions",
+      "arguments": {
+        "path": "docs/plan.txt"
+      },
+      "expect": "[]",
+      "expect_ok": true
+    },
+    {
+      "tool": "open_version_read",
+      "arguments": {
+        "path": "docs/plan.txt",
+        "version_id": "1"
+      },
+      "expect": "does not expose file version history",
+      "expect_error": true
+    },
+    {
+      "tool": "remove",
+      "arguments": {
+        "path": "build",
+        "recursive": true
+      },
+      "expect": "{\"ok\": true}",
+      "expect_ok": true
+    },
+    {
+      "tool": "remote_close",
+      "arguments": {
+        "backend": "profile:nowhere"
+      },
+      "expect": "no open backend 'profile:nowhere' in this session",
+      "expect_error": true
+    },
+    {
       "tool": "read_file",
       "arguments": {
         "path": "../etc/passwd"

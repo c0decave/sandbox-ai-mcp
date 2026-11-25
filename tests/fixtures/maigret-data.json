@@ -1,0 +1,40 @@
+{
+  "sites": {
+    "StatusSite": {"url": "{urlMain}u/{username}", "urlMain": "http://status.test/", "checkType": "status_code",
+                   "alexaRank": 5, "tags": ["coding"], "usernameClaimed": "alice", "usernameUnclaimed": "nobody7"},
+    "MessageSite": {"url": "http://message.test/profile/{username}", "urlMain": "http://message.test/",
+                    "checkType": "message", "presenseStrs": ["\"user_name\":"], "absenceStrs": ["User not found"],
+                    "alexaRank": 7, "tags": ["forum", "de"], "usernameClaimed": "alice",
+                    "usernameUnclaimed": "nobody7"},
+    "ProbeSite": {"url": "http://probe.test/{username}", "urlProbe": "http://api.probe.test/users/{username}",
+                  "urlMain": "http://probe.test/", "checkType": "status_code", "regexCheck": "^[a-z]+$",
+                  "alexaRank": 9, "tags": ["coding"], "usernameClaimed": "alice", "usernameUnclaimed": "nobody"},
+    "RedirectSite": {"url": "http://redirect.test/{username}", "urlMain": "http://redirect.test/",
+                     "checkType": "response_url", "tags": ["social"], "usernameClaimed": "alice",
+                     "usernameUnclaimed": "nobody7"},
+    "PostSite": {"url": "http://post.test/{username}", "urlProbe": "http://post.test/api", "urlMain": "http://post.test/",
+                 "checkType": "message", "requestMethod": "POST", "requestPayload": {"query": "{{ user(name: \"{username}\") }}"},
+                 "presenseStrs": ["\"name\""], "absenceStrs": ["null"], "tags": ["coding"],
+                 "usernameClaimed": "alice", "usernameUnclaimed": "nobody7"},
+    "ForumSite": {"urlMain": "http://forum.test", "engine": "Forum", "tags": ["forum"], "errors": {"Too busy": "Server busy"},
+                  "usernameClaimed": "alice", "usernameUnclaimed": "nobody7"},
+    "DisabledSite": {"url": "http://disabled.test/{username}", "urlMain": "http://disabled.test/", "checkType": "status_code",
+                     "disabled": true, "tags": ["coding"], "usernameClaimed": "a", "usernameUnclaimed": "b"},
+    "CookieSite": {"url": "http://cookie.test/{username}", "urlMain": "http://cookie.test/", "checkType": "status_code",
+                   "headers": {"Cookie": "session=abc"}, "tags": ["social"], "usernameClaimed": "a", "usernameUnclaimed": "b"},
+    "ActivationSite": {"url": "http://act.test/{username}", "urlMain": "http://act.test/", "checkType": "status_code",
+                       "activation": {"method": "x"}, "tags": ["social"], "usernameClaimed": "a", "usernameUnclaimed": "b"},
+    "TlsSite": {"url": "http://tls.test/{username}", "urlMain": "http://tls.test/", "checkType": "status_code",
+                "protection": ["tls_fingerprint"], "tags": ["social"], "usernameClaimed": "a", "usernameUnclaimed": "b"},
+    "OnionSite": {"url": "http://abc.onion/{username}", "urlMain": "http://abc.onion/", "checkType": "status_code",
+                  "protocol": "tor", "tags": ["tor"], "usernameClaimed": "a", "usernameUnclaimed": "b"},
+    "IdSite": {"url": "http://id.test/{username}", "urlMain": "http://id.test/", "checkType": "status_code",
+               "type": "gaia_id", "tags": ["social"], "usernameClaimed": "1", "usernameUnclaimed": "2"}
+  },
+  "engines": {
+    "Forum": {"name": "Forum", "site": {"url": "{urlMain}/members/?username={username}", "checkType": "message",
+                                        "absenceStrs": ["No such member"], "presenseStrs": ["member-profile"],
+                                        "errors": {"Maintenance": "Down for maintenance"}}}
+  },
+  "tags": ["coding", "de", "forum", "social", "tor"]
+}

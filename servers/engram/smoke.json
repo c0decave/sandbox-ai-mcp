@@ -51,6 +51,169 @@
       "expect": "brain"
     },
     {
+      "tool": "mem_suggest_topic_key",
+      "arguments": {
+        "type": "decision",
+        "title": "Smoke test storage choice"
+      },
+      "expect": "Suggested topic_key: decision/smoke-test-storage-choice"
+    },
+    {
+      "tool": "mem_update",
+      "arguments": {
+        "id": 1,
+        "expected_project": "brain",
+        "find": "SQLite with FTS5",
+        "replace": "SQLite with its FTS5 index"
+      },
+      "expect": "Memory updated: #1"
+    },
+    {
+      "tool": "mem_pin",
+      "arguments": {
+        "id": 1
+      },
+      "expect": "\"result\":\"Memory #1 pinned\""
+    },
+    {
+      "tool": "mem_unpin",
+      "arguments": {
+        "id": 1
+      },
+      "expect": "\"result\":\"Memory #1 unpinned\""
+    },
+    {
+      "tool": "mem_review",
+      "arguments": {
+        "action": "mark_reviewed",
+        "observation_id": 1
+      },
+      "expect": "Memory marked reviewed: #1"
+    },
+    {
+      "tool": "mem_review",
+      "arguments": {
+        "action": "list"
+      },
+      "expect": "\"result\":\"No memories need review.\""
+    },
+    {
+      "tool": "mem_save",
+      "arguments": {
+        "title": "Smoke test storage note",
+        "type": "discovery",
+        "content": "**What**: the memory is one SQLite file\n**Why**: FTS5 searches it offline\n**Where**: /data\n**Learned**: no network needed"
+      },
+      "expect": "Smoke test storage note"
+    },
+    {
+      "tool": "mem_compare",
+      "arguments": {
+        "memory_id_a": 1,
+        "memory_id_b": 2,
+        "relation": "related",
+        "confidence": 0.8,
+        "reasoning": "both describe the offline storage"
+      },
+      "expect": "{\"sync_id\":\"rel-"
+    },
+    {
+      "tool": "mem_judge",
+      "arguments": {
+        "judgment_id": "rel-unknown",
+        "relation": "related"
+      },
+      "expect": "relation \"rel-unknown\" not found",
+      "expect_error": true
+    },
+    {
+      "tool": "mem_judge_many",
+      "arguments": {
+        "judgments": [
+          {
+            "judgment_id": "rel-unknown",
+            "relation": "related"
+          }
+        ]
+      },
+      "expect": "\"judgment_id\":\"rel-unknown\",\"status\":\"error\""
+    },
+    {
+      "tool": "mem_consolidate",
+      "arguments": {
+        "ids_to_delete": [
+          1,
+          2
+        ],
+        "new_title": "Smoke test storage",
+        "new_content": "**What**: SQLite with FTS5 in /data",
+        "expected_project": "brain"
+      },
+      "expect": "\"source_ids\":[1,2]"
+    },
+    {
+      "tool": "mem_save_prompt",
+      "arguments": {
+        "content": "How does the memory work without a network?"
+      },
+      "expect": "Prompt saved: "
+    },
+    {
+      "tool": "mem_capture_passive",
+      "arguments": {
+        "content": "## Key Learnings:\n- FTS5 search works offline\n- one SQLite file per case"
+      },
+      "expect": "Passive capture complete: extracted=2 saved=2"
+    },
+    {
+      "tool": "mem_session_start",
+      "arguments": {
+        "id": "smoke-1"
+      },
+      "expect": "Session \\\"smoke-1\\\" started"
+    },
+    {
+      "tool": "mem_session_summary",
+      "arguments": {
+        "content": "## Goal\nSmoke test of the memory\n## Accomplished\n- saved and searched a decision",
+        "session_id": "smoke-1"
+      },
+      "expect": "Session summary saved for project"
+    },
+    {
+      "tool": "mem_context",
+      "arguments": {},
+      "expect": "## Memory from Previous Sessions"
+    },
+    {
+      "tool": "mem_doctor",
+      "arguments": {},
+      "expect": "\"check_id\":\"invalid_session_identity\""
+    },
+    {
+      "tool": "mem_session_end",
+      "arguments": {
+        "id": "smoke-1",
+        "summary": "smoke test done"
+      },
+      "expect": "Session \\\"smoke-1\\\" completed"
+    },
+    {
+      "tool": "mem_session_start",
+      "arguments": {
+        "id": "smoke-2"
+      },
+      "expect": "Session \\\"smoke-2\\\" started"
+    },
+    {
+      "tool": "mem_session_finalize",
+      "arguments": {
+        "session_id": "smoke-2",
+        "summary": "smoke test finalized"
+      },
+      "expect": "\"state\":\"finalized\""
+    },
+    {
       "tool": "mem_session_start",
       "arguments": {
         "id": "case-1",

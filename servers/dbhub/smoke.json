@@ -1,0 +1,91 @@
+{
+  "name": "dbhub",
+  "network": "none",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "env": {
+    "DBHUB_DSN": "sqlite:///work/shop.sqlite"
+  },
+  "expect_tools": [
+    "execute_sql",
+    "search_objects"
+  ],
+  "calls": [
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "SELECT c.name, sum(o.units) AS units FROM orders o JOIN customers c ON c.id = o.customer_id GROUP BY 1 ORDER BY 1"
+      },
+      "expect": "[[\"Ana\", 160], [\"Ben\", 245], [\"Chen\", 61]]"
+    },
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "PRAGMA table_info('customers')",
+        "max_rows": 10
+      },
+      "expect": "\"rowCount\": 3"
+    },
+    {
+      "tool": "search_objects",
+      "arguments": {
+        "object_type": "table"
+      },
+      "expect": "[{\"schema\": \"main\", \"name\": \"customers\"}, {\"schema\": \"main\", \"name\": \"orders\"}]"
+    },
+    {
+      "tool": "search_objects",
+      "arguments": {
+        "object_type": "index",
+        "detail_level": "full"
+      },
+      "expect": "CREATE INDEX orders_customer ON orders(customer_id)"
+    },
+    {
+      "tool": "search_objects",
+      "arguments": {
+        "object_type": "column",
+        "pattern": "%id",
+        "table": "orders",
+        "detail_level": "summary"
+      },
+      "expect": "{\"schema\": \"main\", \"table\": \"orders\", \"name\": \"customer_id\", \"type\": \"INTEGER\", \"nullable\": true}"
+    },
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "DELETE FROM orders"
+      },
+      "expect": "this server is read-only",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "WITH d AS (DELETE FROM orders RETURNING *) SELECT * FROM d"
+      },
+      "expect": "it contains DELETE",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "SELECT 1; DROP TABLE orders"
+      },
+      "expect": "one statement per call",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_sql",
+      "arguments": {
+        "sql": "PRAGMA query_only = OFF"
+      },
+      "expect": "a PRAGMA that sets a value",
+      "expect_error": true
+    }
+  ]
+}

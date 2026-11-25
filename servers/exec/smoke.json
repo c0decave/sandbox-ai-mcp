@@ -113,6 +113,31 @@
       "timeout": 120
     },
     {
+      "tool": "start_job",
+      "arguments": {
+        "command": "echo waiting; sleep 600"
+      },
+      "expect": "job 2 started"
+    },
+    {
+      "tool": "list_jobs",
+      "arguments": {},
+      "expect": "job 2: running"
+    },
+    {
+      "tool": "stop_job",
+      "arguments": {
+        "job_id": 2
+      },
+      "expect": "job 2: stopped by stop_job",
+      "timeout": 60
+    },
+    {
+      "tool": "list_jobs",
+      "arguments": {},
+      "expect": "job 2: stopped by stop_job"
+    },
+    {
       "tool": "run_command",
       "arguments": {
         "command": "ls",

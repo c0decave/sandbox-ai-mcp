@@ -1,0 +1,9 @@
+{
+  "tools": [
+    "execute_sql",
+    "search_objects"
+  ],
+  "read_only_tools": [
+    "search_objects"
+  ]
+}

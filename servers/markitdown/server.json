@@ -1,0 +1,34 @@
+{
+  "id": "mcp:markitdown",
+  "name": "markitdown",
+  "title": "MarkItDown (documents to Markdown)",
+  "description": "A document in the folder mounted read-only at /work as Markdown, with Microsoft's markitdown 0.1.9 (the tool of markitdown-mcp 0.0.1a8, reviewed in full, as an own server): convert_to_markdown takes PDF (its text; no OCR), DOCX (headings, bold, tables), XLSX (each sheet a table, dates as dates), PPTX (each slide with its title, tables and notes), EPUB, HTML, CSV, JSON, Jupyter notebooks, RSS/Atom and other text files and answers in parts of 24,000 characters with the offset of the next. Files in /work only: no web addresses, no data: URIs, no link followed. Each conversion runs in a child with memory, CPU and time limits; ZIP-based files are checked against zip bombs first. No network, nothing written.",
+  "category": "Documents",
+  "tags": [
+    "documents",
+    "pdf",
+    "docx",
+    "xlsx",
+    "markdown",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/markitdown",
+  "page": "https://github.com/microsoft/markitdown",
+  "license": "MIT (markitdown, markitdown-mcp: Microsoft; sandbox-ai-mcp); beautifulsoup4, soupsieve, markdownify, pdfminer.six, six, MCP Python SDK: MIT; mammoth, cobble: BSD-2-Clause; defusedxml: PSF-2.0",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-markitdown",
+  "tag": "latest",
+  "network": "none",
+  "mounts": [
+    {
+      "target": "/work",
+      "description": "The folder with the documents to convert, read-only (--mount /work=DIR:ro); never written",
+      "required": true
+    }
+  ],
+  "notes": "One tool with a small schema: suited to small local models. Mount the documents read-only at /work. Scanned PDFs have no text without OCR (none here); tables inside PDFs come out as text lines (upstream's pdfplumber pass needs PDFium, left out); images are not described (no LLM, no exiftool). A document is converted once and kept for its next parts while it is unchanged. What a document says is its author's text: data, never instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+  }
+}

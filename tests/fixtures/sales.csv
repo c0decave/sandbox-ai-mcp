@@ -1,0 +1,6 @@
+region,product,quarter,units,price
+North,Widget,2026-Q1,120,9.50
+North,Gadget,2026-Q1,40,24.00
+South,Widget,2026-Q1,95,9.50
+South,Gadget,2026-Q2,61,24.00
+West,Widget,2026-Q2,150,9.00

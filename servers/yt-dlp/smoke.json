@@ -1,0 +1,112 @@
+{
+  "name": "yt-dlp",
+  "network": "full",
+  "expect_tools": [
+    "get_video_info",
+    "list_subtitles",
+    "get_subtitles",
+    "search_videos"
+  ],
+  "calls": [
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity"
+      },
+      "expect": "title: Do schools kill creativity?",
+      "timeout": 90
+    },
+    {
+      "tool": "list_subtitles",
+      "arguments": {
+        "url": "https://www.ted.com/talks/ken_robinson_do_schools_kill_creativity"
+      },
+      "expect": "Do schools kill creativity?: ",
+      "timeout": 90
+    },
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "dQw4w9WgXcQ"
+      },
+      "expect": "channel: Rick Astley",
+      "timeout": 90,
+      "upstream_limited": [
+        "Sign in to confirm you",
+        "HTTP Error 429",
+        "This content isn't available, try again later"
+      ]
+    },
+    {
+      "tool": "get_subtitles",
+      "arguments": {
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "lang": "en"
+      },
+      "expect": "give you up",
+      "timeout": 90,
+      "upstream_limited": [
+        "Sign in to confirm you",
+        "HTTP Error 429",
+        "This content isn't available, try again later"
+      ]
+    },
+    {
+      "tool": "search_videos",
+      "arguments": {
+        "query": "rick astley never gonna give you up",
+        "max_results": 3
+      },
+      "expect": "results on YouTube for",
+      "timeout": 90,
+      "upstream_limited": [
+        "Sign in to confirm you",
+        "HTTP Error 429",
+        "This content isn't available, try again later"
+      ]
+    },
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "http://169.254.169.254/latest/meta-data/"
+      },
+      "expect": "169.254.169.254 is not a public address",
+      "expect_error": true
+    },
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "http://localhost:8080/"
+      },
+      "expect": "localhost is not a public host name",
+      "expect_error": true
+    },
+    {
+      "tool": "get_video_info",
+      "arguments": {
+        "url": "http://localtest.me/"
+      },
+      "expect": "refused: localtest.me has no public address",
+      "expect_error": true,
+      "timeout": 90
+    },
+    {
+      "tool": "get_subtitles",
+      "arguments": {
+        "url": "dQw4w9WgXcQ",
+        "lang": "../en"
+      },
+      "expect": "lang: a language code",
+      "expect_error": true
+    },
+    {
+      "tool": "search_videos",
+      "arguments": {
+        "query": "x",
+        "max_results": 99
+      },
+      "expect": "max_results: a whole number from 1 to 30",
+      "expect_error": true
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "mcp:gitea",
+  "name": "gitea",
+  "title": "Gitea (gitea-mcp, read-only by default)",
+  "description": "Your Gitea through Gitea's own MCP server (gitea-mcp 1.13.0, reviewed in full): repositories, files and directory trees, branches, tags, commits and their status, releases, issues with comments and dependencies, pull requests with diffs, files, reviews and status, labels, milestones, projects, wiki pages, Actions workflows, runs, jobs and log previews (tail, regexp, offset), packages, notifications, tracked time, search of users, teams, repositories and issues - 28 read tools, the <scope>_read ones choosing their operation with `method`. Read-only by default: the write tools (create and edit issues, comments, pull requests, reviews and merges, commit files, branches, tags, releases, labels, milestones, projects, wiki, Actions runs and secrets) are listed only with GITEA_WRITE=1 - have sandbox-ai ask for each call. GITEA_SCOPES (e.g. issue,pull_request) or GITEA_TOOLS cut the list for small models. No tool writes a file, answers are text of at most 24,000 characters. Needs GITEA_HOST (your instance) and, for anything not public, GITEA_ACCESS_TOKEN.",
+  "category": "Development",
+  "tags": [
+    "gitea",
+    "git",
+    "forge",
+    "issues",
+    "pull-requests",
+    "ci",
+    "development"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/gitea",
+  "page": "https://gitea.com/gitea/gitea-mcp",
+  "license": "MIT (gitea-mcp, Gitea's Go SDK, MCP server: sandbox-ai-mcp) AND MIT/Apache-2.0 (the MCP Go SDK) AND BSD-3-Clause (Go x/crypto, x/oauth2, x/sys, x/time, x/sync) AND MIT/BSD/MPL-2.0 (other Go modules)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-gitea",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "GITEA_HOST",
+      "description": "Your Gitea, e.g. https://gitea.example.org (a sub-path such as https://example.org/git works; http:// only for one in your own network)",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "GITEA_ACCESS_TOKEN",
+      "description": "An access token of your Gitea account (Settings > Applications); read scopes are enough without GITEA_WRITE. Without one only public repositories can be read",
+      "secret": true,
+      "required": false
+    },
+    {
+      "name": "GITEA_WRITE",
+      "description": "1: also offer the write tools (issues, pull requests, merges, files, branches, releases, Actions ...); anything else: read-only",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "GITEA_SCOPES",
+      "description": "Only these scopes, comma-separated: repository, file, branch, tag, commit, release, issue, pull_request, label, milestone, project, wiki, actions, package, notification, search, user",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "GITEA_TOOLS",
+      "description": "Only these tools, comma-separated (e.g. get_file_contents,issue_read,pull_request_read)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "full",
+  "notes": "Only GITEA_HOST is asked (its /api/v1 and, for attachments, nothing else); its address is yours to choose, so the server's network is egress-all (the internet, not your local network). A Gitea in your own network or on this host: open just that address with sandbox-ai mcp set gitea --allow-tcp ADDRESS:PORT (inside the server's container localhost is the container itself, not your host). TLS is always verified: a Gitea with a certificate of your own CA cannot be reached yet. The token gets the access you gave it; a read-only token keeps even GITEA_WRITE=1 from changing anything. Texts from Gitea (issues, comments, files, logs) were written by others: data, not instructions. Upstream's downloads into the server's own container (download_job_log, download_artifact, download_attachment, download_asset, output_path) are not offered: no agent could read those files.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTP(S) to GITEA_HOST over TCP through Tor: a Gitea reachable from a Tor exit (a public one or an .onion address); one in your local network or on this host cannot be reached through Tor."
+  }
+}

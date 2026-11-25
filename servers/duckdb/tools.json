@@ -1,0 +1,13 @@
+{
+  "tools": [
+    "execute_query",
+    "list_columns",
+    "list_databases",
+    "list_tables"
+  ],
+  "read_only_tools": [
+    "list_columns",
+    "list_databases",
+    "list_tables"
+  ]
+}

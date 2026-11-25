@@ -2,8 +2,28 @@
   "schema": "axross-mcp-catalog",
   "version": 1,
   "title": "sandbox-ai-mcp",
-  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs.",
-  "state": "pinned",
+  "description": "Audited, container-packaged MCP servers for sandbox-ai (search, web, analysis), built by https://github.com/c0decave/sandbox-ai-mcp and pinned by digest. The same schema as axross-mcp-hub, so sandbox-ai and axross read both catalogs. PENDING: these images have no published digest yet. sandbox-ai and axross refuse every entry without a digest; scripts/make_catalog.py fills them from the first CI run.",
+  "state": "pending-digests",
+  "pending": [
+    "burp",
+    "codec",
+    "dbhub",
+    "duckdb",
+    "ghidra",
+    "gitea",
+    "github",
+    "grafana",
+    "imap",
+    "kubernetes",
+    "lsp-go",
+    "lsp-python",
+    "maigret",
+    "markitdown",
+    "onion-search",
+    "reddit",
+    "terraform",
+    "yt-dlp"
+  ],
   "entries": [
     {
       "id": "mcp:agentql",
@@ -276,6 +296,65 @@
       }
     },
     {
+      "id": "mcp:burp",
+      "name": "burp",
+      "title": "Burp Suite (PortSwigger's MCP extension)",
+      "description": "Burp Suite as an MCP server through PortSwigger's official MCP extension 1.4.0 (GPL-3.0, built from the reviewed source without its prebuilt proxy jar): send HTTP/1.1 and HTTP/2 requests through Burp, read and search the proxy HTTP and WebSocket history and the Organizer, create Repeater tabs, send to Intruder, URL and Base64 encoding, Burp's project and user options as JSON, intercept and task engine on or off; with Burp Suite Professional also the scanner's issues and Burp Collaborator payloads and interactions. Two ways: host mode (sandbox-ai's default) - your own Burp, Community or Professional, loads this extension (sandbox-ai mcp burp extension) and sandbox-ai reaches it on 127.0.0.1:9876 from the host, this image is not run; container mode - your Burp jar (never part of this image) runs headless here, mounted read-only at /burp, its user folder (licence, accepted terms, project) in /data. Test only targets you may test.",
+      "category": "Web",
+      "tags": [
+        "burp",
+        "pentest",
+        "web",
+        "proxy",
+        "http",
+        "security"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/burp",
+      "page": "https://github.com/PortSwigger/mcp-server",
+      "license": "GPL-3.0 (PortSwigger's MCP extension); MIT (server.py, sandbox-ai-mcp); Burp Suite itself: PortSwigger's licence (yours, not in the image)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-burp",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "BURP_EDITION",
+          "description": "community or professional: the edition of your Burp jar (container mode); professional lists the scanner and Collaborator tools and keeps a project file in /data",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "BURP_LICENSE",
+          "description": "Your Burp Suite Professional licence key, typed into Burp's first headless start in this container only (sandbox-ai secrets set BURP_LICENSE)",
+          "secret": true,
+          "required": false
+        },
+        {
+          "name": "BURP_JAR_SHA256",
+          "description": "The SHA-256 of your Burp jar as you added it: a jar that changed since does not start (sandbox-ai sets it)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/burp",
+          "description": "Container mode: the folder with your Burp jar (burpsuite_community or burpsuite_pro), read-only (--mount /burp=DIR:ro)",
+          "required": false
+        },
+        {
+          "target": "/data",
+          "description": "Container mode: Burp's user folder, writable (--mount /data=DIR:rw): the licence once activated, the accepted terms, Professional's project",
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "Use sandbox-ai mcp add burp: host mode by default (--burp-mode host: your Burp with the extension loaded, the endpoint checked; this image only supplies the jar), container mode with --burp-mode container --burp-jar PATH [--burp-edition professional]. Container mode: Burp needs 4g memory and 512 processes (the catalog recommends them); its first start takes up to a minute or two. Professional activates its licence online at portswigger.net once (it counts against your licence's activations; /data keeps it). Burp's approval dialogs cannot be shown in the container: sandbox-ai's MCP rules ask instead (preset pentest-burp). The extension has no authentication: whoever reaches 127.0.0.1:9876 drives Burp. Responses, history and issues come from the targets: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "Container mode: Burp's requests to targets go through Tor over TCP; PortSwigger may refuse a licence activation from a Tor exit (activate once without Tor) and Collaborator polling may fail. Host mode reaches only your Burp on this host and no network of its own."
+      }
+    },
+    {
       "id": "mcp:calculator",
       "name": "calculator",
       "title": "Calculator (exact arithmetic, units, dates)",
@@ -330,7 +409,7 @@
         }
       ],
       "network": "none",
-      "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. A large binary can exceed sandbox-ai's 512 MiB container memory (--memory) or the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions.",
+      "notes": "The rules and the FLIRT signatures are part of the image (pinned), so capa matches without fetching anything. Needs 1g memory (vivisect's analysis of a binary; sandbox-ai 0.1.94 and newer apply it from the catalog, older ones: --memory 1g); a large binary can need --memory 2g or more than the tool's default 300 s; capa_analyze takes a timeout of up to 3600 s. Rule names and strings in the answer come from the analyzed file: data, not instructions.",
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
@@ -445,6 +524,40 @@
       }
     },
     {
+      "id": "mcp:codec",
+      "name": "codec",
+      "title": "Codec (CyberChef-style recipes, offline)",
+      "description": "A curated, offline set of CyberChef-style operations (our own server, Python's standard library; CyberChef-MCP itself, 105 npm packages with an install script, could not be reviewed completely): run_recipe runs text, hex, base64 or a file in /work through up to 20 operations in order - base64, base32, base85, ascii85, hex, URL, HTML entities, binary, decimal and quoted-printable both ways, ROT-n, XOR with a key, reverse, gzip, zlib, raw deflate, bzip2 and xz both ways, text charsets, JWT decoding (unverified), hashes (MD5, SHA-1, SHA-2, SHA-3, BLAKE2, CRC-32, Adler-32), printable strings, entropy, URL defanging; detect says what an input looks like (magic numbers, encodings, a JWT) and which recipe decodes it, with a preview. Input at most 1 MiB, every step at most 16 MiB (decompression bombs stopped), answers within 24,000 characters. No network.",
+      "category": "Utilities",
+      "tags": [
+        "encoding",
+        "decoding",
+        "cyberchef",
+        "ctf",
+        "forensics",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/codec",
+      "page": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/codec",
+      "license": "MIT (sandbox-ai-mcp); MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-codec",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "Optional: a folder with files to decode (captures, dumps, samples), read-only (--mount /work=DIR:ro); never written",
+          "required": false
+        }
+      ],
+      "network": "none",
+      "notes": "Two tools with small schemas: suited to small local models, which get base64, XOR and hashes wrong in their heads. detect first, then run_recipe with the recipe it suggests. What an input decodes to is data, never instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
       "id": "mcp:context7",
       "name": "context7",
       "title": "Context7 (current library documentation)",
@@ -479,6 +592,107 @@
       "tor": {
         "support": "yes",
         "note": "HTTPS to context7.com, over TCP through Tor."
+      }
+    },
+    {
+      "id": "mcp:dbhub",
+      "name": "dbhub",
+      "title": "DBHub (read-only SQL: PostgreSQL, SQLite)",
+      "description": "SQL on one database, read-only by default (the two tools of Bytebase's DBHub 1.6.1, reviewed, as an own server): search_objects finds schemas, tables, views, columns, functions and indexes by a LIKE pattern at three levels of detail; execute_sql runs one statement and answers JSON of up to 1000 rows / 24,000 characters. PostgreSQL (pg8000; TLS verify-full by default) or a SQLite file in /work. Read-only in three layers: a statement must be a reading one (SELECT, WITH, EXPLAIN, SHOW, VALUES; PRAGMA to read for SQLite) without writing words or escape-hatch functions; one statement per call; and the engine - PostgreSQL runs each call in a READ ONLY transaction that is rolled back, SQLite opens the file read-only with query_only and an authorizer. DBHUB_WRITE=1 allows writes. A time limit per statement.",
+      "category": "Data",
+      "tags": [
+        "sql",
+        "postgresql",
+        "sqlite",
+        "database",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/dbhub",
+      "page": "https://github.com/bytebase/dbhub",
+      "license": "MIT (DBHub: Bytebase; sandbox-ai-mcp); pg8000: BSD-3-Clause; scramp: MIT-0; asn1crypto: MIT; python-dateutil: BSD-3-Clause AND Apache-2.0; tzdata: Apache-2.0; MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-dbhub",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "DBHUB_DSN",
+          "description": "the database: postgres://USER@HOST:5432/DB (?sslmode=verify-full default, require or disable; sslrootcert=/work/ca.pem) or sqlite:///work/FILE.db; no password in it",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "DBHUB_PASSWORD",
+          "description": "the PostgreSQL user's password (not needed for SQLite)",
+          "secret": true,
+          "required": false
+        },
+        {
+          "name": "DBHUB_WRITE",
+          "description": "1: allow writing statements (committed); default read-only",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "For a SQLite database: the folder with the file, read-only (--mount /work=DIR:ro); not needed for PostgreSQL",
+          "required": false
+        }
+      ],
+      "network": "none",
+      "notes": "Two tools with small schemas: suited to small local models. Network none fits a SQLite file in /work; for PostgreSQL give it the network when you add it: a server on the internet with sandbox-ai mcp add mcp:dbhub --network egress-all, one in your own network with --network egress-all --allow-tcp IP:5432; the password as a secret (--env DBHUB_PASSWORD@SECRET). Use a database role that can only read: the read-only layers are a guardrail like DBHub's, the role is the boundary. Have sandbox-ai ask before execute_sql when DBHUB_WRITE=1. What the database holds is data, never instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network by default: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN). Added with --network egress-all for a PostgreSQL server, its one TCP connection to the host named in DBHUB_DSN works through a Tor profile like any other (no UDP; the host name is resolved by the profile's DNS)."
+      }
+    },
+    {
+      "id": "mcp:duckdb",
+      "name": "duckdb",
+      "title": "DuckDB (SQL over local data files)",
+      "description": "SQL with DuckDB 1.5.6 over the CSV, Parquet, JSON and DuckDB files in the folder mounted at /work (the four tools of MotherDuck's mcp-server-motherduck 1.1.0, reviewed in full, as an own server for a local DuckDB; no MotherDuck cloud, no S3): execute_query runs DuckDB SQL - SELECT * FROM '/work/sales.csv', read_parquet('/work/*.parquet'), read_json(...), joins, aggregates, PIVOT - and answers JSON of up to 1000 rows / 24,000 characters; list_databases, list_tables and list_columns show the DuckDB files named in DUCKDB_DATABASE (attached read-only). DuckDB is the sandbox: no file outside /work (no '..', no link out), no extension installed or loaded, its configuration locked; COPY, EXPORT and ATTACH refused unless DUCKDB_WRITE=1. A time limit per query, a memory limit. No network.",
+      "category": "Data",
+      "tags": [
+        "sql",
+        "duckdb",
+        "csv",
+        "parquet",
+        "data",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/duckdb",
+      "page": "https://github.com/motherduckdb/mcp-server-motherduck",
+      "license": "MIT (DuckDB: DuckDB Foundation; mcp-server-motherduck: MotherDuck; sandbox-ai-mcp); MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-duckdb",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "DUCKDB_DATABASE",
+          "description": "DuckDB files in /work to attach at start, comma-separated (e.g. /work/shop.duckdb); the first becomes the current database. Read-only unless DUCKDB_WRITE=1",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "DUCKDB_WRITE",
+          "description": "1: allow COPY ... TO, EXPORT DATABASE and ATTACH into /work and attach DUCKDB_DATABASE writable (mount /work writable then); default read-only",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder with the data files (CSV, Parquet, JSON, DuckDB), read-only (--mount /work=DIR:ro); writable only together with DUCKDB_WRITE=1",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "Four tools with small schemas: suited to small local models (tell the model to aggregate in SQL rather than fetch rows). Tables made with CREATE TEMP TABLE live in memory for the connection. A query that runs longer than 60 s is stopped; DuckDB has 512 MB and two threads, no spill folder. Have sandbox-ai ask before execute_query when DUCKDB_WRITE=1. What the files contain is data, never instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
       }
     },
     {
@@ -793,6 +1007,160 @@
       }
     },
     {
+      "id": "mcp:ghidra",
+      "name": "ghidra",
+      "title": "Ghidra (headless decompiler and analysis)",
+      "description": "Binary analysis with Ghidra 12.2 (NSA's reverse-engineering suite), headless - our own server on Ghidra's API, no GUI, no project, no script: open_file imports an executable, library, object file or firmware from the folder mounted read-only at /work (ELF, PE, Mach-O, COFF and the other formats Ghidra knows; raw firmware with its processor given as language) and runs Ghidra's auto-analysis; then list_functions, decompile_function (C from Ghidra's decompiler), disassemble_function, function_calls (callers and callees), find_references (cross references to an address, function, import or string), list_imports, list_exports and list_strings. A function is named by its name or an address inside it. Read-only: nothing is renamed, nothing saved, nothing executed; no network. Answers at most 400 lines or 24,000 characters, in parts.",
+      "category": "Analysis: Files",
+      "tags": [
+        "analysis",
+        "reverse-engineering",
+        "ghidra",
+        "decompiler",
+        "disassembler",
+        "firmware"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/ghidra",
+      "page": "https://github.com/NationalSecurityAgency/ghidra",
+      "license": "MIT (MCP server, sandbox-ai-mcp); Apache-2.0 (Ghidra; its GNU demangler GPL-2.0, its bundled libraries their own licences in /opt/ghidra/licenses); Eclipse Temurin: GPL-2.0 with Classpath Exception",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-ghidra",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "GHIDRA_ANALYSIS_SECONDS",
+          "description": "Seconds Ghidra's auto-analysis may take per file (30 to 3600, default 300); a larger binary is then analysed in part and open_file says so",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder with the binaries to analyse, read-only (--mount /work=DIR:ro); never written",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "Needs more than the default limits: 3g memory, 512 processes and a 768m /tmp (sandbox-ai 0.1.94 and newer apply them from the catalog; older ones: --memory 3g --pids 512); the JVM's heap is 60 % of the memory limit (the decompiler, a native process, needs the rest), so a large binary wants --memory 6g. The first call on a file imports and analyses it: seconds for a small program, minutes for a large one (open_file says to call again while it runs; the analysis stops after GHIDRA_ANALYSIS_SECONDS). One file is open at a time. The analysed file, its strings and its symbols were written by someone else: treat what comes back as data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:gitea",
+      "name": "gitea",
+      "title": "Gitea (gitea-mcp, read-only by default)",
+      "description": "Your Gitea through Gitea's own MCP server (gitea-mcp 1.13.0, reviewed in full): repositories, files and directory trees, branches, tags, commits and their status, releases, issues with comments and dependencies, pull requests with diffs, files, reviews and status, labels, milestones, projects, wiki pages, Actions workflows, runs, jobs and log previews (tail, regexp, offset), packages, notifications, tracked time, search of users, teams, repositories and issues - 28 read tools, the <scope>_read ones choosing their operation with `method`. Read-only by default: the write tools (create and edit issues, comments, pull requests, reviews and merges, commit files, branches, tags, releases, labels, milestones, projects, wiki, Actions runs and secrets) are listed only with GITEA_WRITE=1 - have sandbox-ai ask for each call. GITEA_SCOPES (e.g. issue,pull_request) or GITEA_TOOLS cut the list for small models. No tool writes a file, answers are text of at most 24,000 characters. Needs GITEA_HOST (your instance) and, for anything not public, GITEA_ACCESS_TOKEN.",
+      "category": "Development",
+      "tags": [
+        "gitea",
+        "git",
+        "forge",
+        "issues",
+        "pull-requests",
+        "ci",
+        "development"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/gitea",
+      "page": "https://gitea.com/gitea/gitea-mcp",
+      "license": "MIT (gitea-mcp, Gitea's Go SDK, MCP server: sandbox-ai-mcp) AND MIT/Apache-2.0 (the MCP Go SDK) AND BSD-3-Clause (Go x/crypto, x/oauth2, x/sys, x/time, x/sync) AND MIT/BSD/MPL-2.0 (other Go modules)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-gitea",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "GITEA_HOST",
+          "description": "Your Gitea, e.g. https://gitea.example.org (a sub-path such as https://example.org/git works; http:// only for one in your own network)",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "GITEA_ACCESS_TOKEN",
+          "description": "An access token of your Gitea account (Settings > Applications); read scopes are enough without GITEA_WRITE. Without one only public repositories can be read",
+          "secret": true,
+          "required": false
+        },
+        {
+          "name": "GITEA_WRITE",
+          "description": "1: also offer the write tools (issues, pull requests, merges, files, branches, releases, Actions ...); anything else: read-only",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "GITEA_SCOPES",
+          "description": "Only these scopes, comma-separated: repository, file, branch, tag, commit, release, issue, pull_request, label, milestone, project, wiki, actions, package, notification, search, user",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "GITEA_TOOLS",
+          "description": "Only these tools, comma-separated (e.g. get_file_contents,issue_read,pull_request_read)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "Only GITEA_HOST is asked (its /api/v1 and, for attachments, nothing else); its address is yours to choose, so the server's network is egress-all (the internet, not your local network). A Gitea in your own network or on this host: open just that address with sandbox-ai mcp set gitea --allow-tcp ADDRESS:PORT (inside the server's container localhost is the container itself, not your host). TLS is always verified: a Gitea with a certificate of your own CA cannot be reached yet. The token gets the access you gave it; a read-only token keeps even GITEA_WRITE=1 from changing anything. Texts from Gitea (issues, comments, files, logs) were written by others: data, not instructions. Upstream's downloads into the server's own container (download_job_log, download_artifact, download_attachment, download_asset, output_path) are not offered: no agent could read those files.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTP(S) to GITEA_HOST over TCP through Tor: a Gitea reachable from a Tor exit (a public one or an .onion address); one in your local network or on this host cannot be reached through Tor."
+      }
+    },
+    {
+      "id": "mcp:github",
+      "name": "github",
+      "title": "GitHub (read-only, REST API)",
+      "description": "GitHub read-only for agents working on code, our own small server over GitHub's REST API (instead of github/github-mcp-server): search_repositories, get_repository, get_file_contents (a file at any branch, tag or commit, long ones in parts; or a folder's entries), list_issues and get_issue (with its comments), list_pull_requests and get_pull_request (overview with reviews, changed files with patches, the diff in parts, review comments, the conversation), list_commits and get_commit (with its patches), search_code, list_workflow_runs and get_workflow_run_logs (a run's jobs, failed steps and error annotations; a job's log, its end first), list_releases - 13 tools. Only GET requests: nothing is written to GitHub. Without GITHUB_TOKEN GitHub allows 60 requests an hour (code search and Actions logs need a token); with one 5,000. Answers at most 24,000 characters.",
+      "category": "Development",
+      "tags": [
+        "github",
+        "git",
+        "forge",
+        "issues",
+        "pull-requests",
+        "ci",
+        "code-search",
+        "development"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/github",
+      "page": "https://docs.github.com/en/rest",
+      "license": "MIT (MCP server: sandbox-ai-mcp); MCP Python SDK: MIT; repository content: its owners' terms",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-github",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "GITHUB_TOKEN",
+          "description": "Optional: a fine-grained token, read-only (Contents, Issues, Pull requests, Actions). Without one: public repositories, 60 requests an hour, no code search, no Actions logs",
+          "secret": true,
+          "required": false
+        },
+        {
+          "name": "GITHUB_API_URL",
+          "description": "GitHub Enterprise only: https://HOST/api/v3 (Server) or https://api.NAME.ghe.com (Cloud); then also --network egress-all (see the notes)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "GITHUB_CA_CERT",
+          "description": "With GITHUB_API_URL: the Enterprise Server's own CA certificate (PEM, or the PEM in base64)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "api.github.com:443"
+      ],
+      "notes": "Reaches only api.github.com: the repositories, searches and numbers the agent asks for go to GitHub. The token (optional) is sent only to the API's own address, never to the storage a redirect leads to, never into an answer or a log; give it read-only permissions (a fine-grained token), then even a misled agent changes nothing. Actions job logs lie on GitHub's storage (productionresultssaN.blob.core.windows.net), which the allowlist cannot name: for logs, sandbox-ai mcp set github --network egress-all (the server itself still follows redirects only to GitHub's hosts). GitHub Enterprise: GITHUB_API_URL and --network egress-all; one in your own network also --allow-tcp ADDRESS:443. Issues, comments, code, commit messages, logs and release notes were written by others: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to api.github.com over TCP through Tor works; without a token the 60 requests an hour are counted per address, and a Tor exit's are shared with everyone using it (often used up): give GITHUB_TOKEN. An Enterprise Server in your own network cannot be reached through Tor (not tested behind Tor here)."
+      }
+    },
+    {
       "id": "mcp:gowitness",
       "name": "gowitness",
       "title": "Web screenshots (gowitness, Chromium)",
@@ -825,6 +1193,124 @@
       "tor": {
         "support": "yes",
         "note": "Chromium over TCP through Tor (QUIC falls back to TCP), .onion URLs included; some sites challenge or refuse Tor exits."
+      }
+    },
+    {
+      "id": "mcp:grafana",
+      "name": "grafana",
+      "title": "Grafana (read-only: dashboards, Prometheus, Loki, alerts)",
+      "description": "Your Grafana, read-only (read tools of grafana/mcp-grafana 2.3.0, reviewed, as an own server): search_dashboards, get_dashboard_summary (variables and every panel with its datasource and queries), list_datasources, query_prometheus (PromQL, range or instant; at most 50 series of 120 points), list_prometheus_metric_names, list_prometheus_label_values, query_loki_logs (LogQL, newest lines first), list_loki_label_values and list_alert_rules (firing first). Queries go through Grafana's datasource proxy with the service account's rights. Only GET requests: no dashboard, datasource, alert or annotation is changed. Answers at most 24,000 characters. Needs GRAFANA_URL and a service-account token (Viewer role).",
+      "category": "Infrastructure",
+      "tags": [
+        "grafana",
+        "prometheus",
+        "loki",
+        "observability",
+        "monitoring",
+        "alerts"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/grafana",
+      "page": "https://github.com/grafana/mcp-grafana",
+      "license": "MIT (MCP server: sandbox-ai-mcp; the tools of grafana/mcp-grafana, Apache-2.0); MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-grafana",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "GRAFANA_URL",
+          "description": "Your Grafana, e.g. https://grafana.example.org (http:// only for one in your own network: the token then travels unencrypted)",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+          "description": "A service account's token (Administration > Service accounts, role Viewer): it decides what can be read",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "GRAFANA_ORG_ID",
+          "description": "An organisation other than the token's default (its number)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "GRAFANA_CA_CERT",
+          "description": "Your own CA's certificate (PEM, or the PEM in base64) for a Grafana whose certificate it signed",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "Only GRAFANA_URL is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A Grafana in your own network or on this host: open just its address with sandbox-ai mcp set grafana --allow-tcp ADDRESS:3000 (inside the server's container localhost is the container itself). TLS is always verified (GRAFANA_CA_CERT for a private CA). Give the service account the Viewer role: a Viewer can still run any query its datasources allow, so what the datasources hold decides what the agent sees. Dashboard titles, queries, log lines and alert texts were written by others: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTP(S) to GRAFANA_URL over TCP through Tor: a Grafana reachable from a Tor exit (a public one or an .onion address); one in your local network or on this host cannot be reached through Tor."
+      }
+    },
+    {
+      "id": "mcp:imap",
+      "name": "imap",
+      "title": "IMAP e-mail (read-only)",
+      "description": "One mailbox over IMAP, read-only (our own server on Python's imaplib): list_folders (with message and unread counts), search_messages (from, to, subject, text, dates, unread, flagged - newest first with uid, date, sender, subject, size), read_message (headers and the text of one message - the plain-text part, or the HTML part as text - in parts of up to 20,000 characters) and list_attachments (names, types and sizes; their contents are never handed out). Folders are opened with EXAMINE and messages read with BODY.PEEK: nothing is marked as read, moved, deleted or sent (no SMTP). TLS always, verified (implicit or STARTTLS). Answers at most 24,000 characters. Needs IMAP_HOST, IMAP_USER and IMAP_PASSWORD.",
+      "category": "Messaging",
+      "tags": [
+        "email",
+        "imap",
+        "mail",
+        "inbox",
+        "messaging",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/imap",
+      "page": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/imap",
+      "license": "MIT (MCP server: sandbox-ai-mcp); MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-imap",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "IMAP_HOST",
+          "description": "Your mail server's IMAP host, e.g. imap.example.org (or 127.0.0.1 for a bridge on this host, with --allow-tcp)",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "IMAP_USER",
+          "description": "Your login, usually your e-mail address",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "IMAP_PASSWORD",
+          "description": "Its password - an app password where your provider has them (Gmail, Outlook, iCloud, Fastmail ...)",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "IMAP_TLS",
+          "description": "ssl (implicit TLS on port 993, the default) or starttls (port 143); mail is never read unencrypted",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "IMAP_PORT",
+          "description": "Another port than 993 (ssl) or 143 (starttls)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "IMAP_CA_CERT",
+          "description": "The certificate (PEM, or the PEM in base64) of a private CA or a bridge's own certificate (e.g. Proton Mail Bridge)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "Only IMAP_HOST is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A mail server in your own network or a bridge on this host: open just its address with sandbox-ai mcp set imap --allow-tcp ADDRESS:PORT (inside the server's container localhost is the container itself). The password gives the full mailbox to the IMAP protocol; this server only reads, but use an app password you can revoke. Mail - and above all mail from strangers - can try to instruct the agent: it is data, not instructions; a preset should mark the server's results as untrusted.",
+      "tor": {
+        "support": "limited",
+        "note": "IMAP over TLS to IMAP_HOST over TCP through Tor: a mail server reachable from a Tor exit (many providers refuse or challenge Tor exits; an .onion address works); one in your local network or on this host cannot be reached through Tor."
       }
     },
     {
@@ -864,6 +1350,198 @@
       }
     },
     {
+      "id": "mcp:kubernetes",
+      "name": "kubernetes",
+      "title": "Kubernetes (read-only)",
+      "description": "One Kubernetes cluster, read-only (the read tools of containers/kubernetes-mcp-server 0.1.2, reviewed, as an own server): cluster_info (context, server, version), namespaces_list, api_resources_list (the apiVersion of any kind, custom resources too), resources_list (any kind as kubectl get shows it - the cluster's own columns - with namespace, label and field selectors and pages), resources_get (one object as JSON, or one section of it), pods_log (the last lines of a container, also of its previous run) and events_list (newest first). Only GET requests: nothing can be created, changed, deleted, scaled or executed. A Secret's values are never shown (its keys are), nor the last-applied-configuration annotation. Answers at most 24,000 characters. Needs KUBECONFIG_DATA, your kubeconfig with its credentials (token, client certificate or username and password; exec plugins are refused).",
+      "category": "Infrastructure",
+      "tags": [
+        "kubernetes",
+        "k8s",
+        "cluster",
+        "devops",
+        "logs",
+        "infrastructure"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/kubernetes",
+      "page": "https://github.com/containers/kubernetes-mcp-server",
+      "license": "MIT (MCP server: sandbox-ai-mcp; the tools of containers/kubernetes-mcp-server, Apache-2.0); PyYAML: MIT; MCP Python SDK: MIT",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-kubernetes",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "KUBECONFIG_DATA",
+          "description": "Your kubeconfig with its credentials, best one line of base64: kubectl config view --minify --flatten --raw | base64 -w0. A read-only service-account token is best",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "KUBERNETES_CONTEXT",
+          "description": "The kubeconfig's context to use (default: its current-context)",
+          "secret": false,
+          "required": false
+        },
+        {
+          "name": "KUBERNETES_NAMESPACE",
+          "description": "The default namespace of resources_get and pods_log (default: the context's, else default)",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "network": "full",
+      "notes": "Only the API server of your kubeconfig is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A cluster in your own network or on this host (kind, minikube, k3s): open just its address with sandbox-ai mcp set kubernetes --allow-tcp ADDRESS:6443 (inside the server's container localhost is the container itself). TLS is always verified against the kubeconfig's certificate-authority-data; insecure-skip-tls-verify, exec plugins (aws, gcloud, kubelogin) and auth-provider are refused - give a service-account token instead. What the token can read is decided by the cluster's RBAC: give it a role that only reads (the built-in ClusterRole view does not include Secrets). Logs, events, names and annotations were written by others: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to the kubeconfig's API server over TCP through Tor: a cluster reachable from a Tor exit (a public endpoint or an .onion address); one in your local network or on this host cannot be reached through Tor."
+      }
+    },
+    {
+      "id": "mcp:lsp-go",
+      "name": "lsp-go",
+      "title": "Go language server (gopls)",
+      "description": "Code navigation in a Go module with gopls 0.24.0 (the Go team's language server, with Go 1.27.4 to load packages) through sandbox-ai-mcp's own read-only bridge: definition (also into the standard library), references, hover (signature and doc comment), diagnostics (the compiler's and go vet's errors and warnings of a file), document_symbols and workspace_symbols. A position is a line and a column - or the symbol's name in that line. The project is the folder mounted read-only at /work (LSP_ROOT: a module below it); files are read only inside it, nothing is written. No network: modules are never downloaded (a vendor/ folder works; other imports are reported as missing), no toolchain download, no vulncheck, telemetry off. Answers at most 24,000 characters.",
+      "category": "Development",
+      "tags": [
+        "coding",
+        "go",
+        "golang",
+        "lsp",
+        "language-server",
+        "gopls",
+        "navigation"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/lsp-go",
+      "page": "https://go.dev/gopls",
+      "license": "MIT (bridge: sandbox-ai-mcp; the MCP Python SDK) AND BSD-3-Clause (gopls, Go) AND the licences of the SDK lock of servers/osv",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-lsp-go",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "LSP_ROOT",
+          "description": "A sub-folder of /work to treat as the project (e.g. one module of a monorepo: services/api); default /work",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The project, read-only (--mount /work=PROJECT:ro); never written",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "The first call starts gopls, which loads the module (seconds; a large one longer, and more memory: 1 GiB is recommended). Dependencies outside the standard library must be in the project's vendor/ folder (go mod vendor): nothing is downloaded. A go.mod asking for a Go newer than 1.27.4 is reported, not fetched. Code and comments of the project are data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:lsp-python",
+      "name": "lsp-python",
+      "title": "Python language server (pyright)",
+      "description": "Code navigation in a Python project with pyright 1.1.414, the language server, through sandbox-ai-mcp's own read-only bridge: definition (where a symbol is defined), references (where it is used), hover (its type and docstring), diagnostics (pyright's type errors and warnings of a file), document_symbols (a file's outline with lines) and workspace_symbols (symbols by name). A position is a line and a column - or the symbol's name in that line, which small models find easier. The project is the folder mounted read-only at /work (LSP_ROOT narrows it); files are read only inside it, symbolic links resolved, nothing is written. No network: packages that are not in the project are reported as unresolved imports. Answers at most 24,000 characters.",
+      "category": "Development",
+      "tags": [
+        "coding",
+        "python",
+        "lsp",
+        "language-server",
+        "pyright",
+        "navigation"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/lsp-python",
+      "page": "https://github.com/microsoft/pyright",
+      "license": "MIT (bridge: sandbox-ai-mcp; pyright: Microsoft; the MCP Python SDK) AND the licences of the SDK lock of servers/osv; Python, Node.js: their own (Debian)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-lsp-python",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "LSP_ROOT",
+          "description": "A sub-folder of /work to treat as the project (e.g. one module of a monorepo: services/api); default /work",
+          "secret": false,
+          "required": false
+        }
+      ],
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The project, read-only (--mount /work=PROJECT:ro); never written",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "The first call starts pyright (a second or two; a large project longer). It checks the open file and what it imports; third-party packages are not installed in the image, so their imports show as unresolved (a project's own .venv under /work is not used either). Code and comments of the project are data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:maigret",
+      "name": "maigret",
+      "title": "maigret (username search over thousands of sites)",
+      "description": "OSINT username search with maigret's site database: which of about 5,000 sites have an account of a given name. Our own checker (sandbox-ai-mcp) on maigret 0.6.6's data.json, taken as pinned data - none of maigret's code, no database updates, no tokens or cookies of sites, no bot-protection bypass: search_username checks the most popular sites first (100 per call within 45 s, offset goes on; tags such as coding, gaming, forum or a country code narrow them), check_site checks one site and says how it was judged, list_sites and list_tags show the database (offline). One request per site to the site's own address from the data; the username is URL-encoded; only public addresses are reached. Answers at most 24,000 characters.",
+      "category": "OSINT",
+      "tags": [
+        "osint",
+        "username",
+        "maigret",
+        "accounts",
+        "research"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/maigret",
+      "page": "https://github.com/soxoj/maigret",
+      "license": "MIT (MCP server, sandbox-ai-mcp); maigret's site database: MIT (soxoj/maigret)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-maigret",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Every site checked learns that someone asked for this name - from your address unless a VPN profile is used: start it behind a Tor profile (--vpn TOR_PROFILE) to hide it (many sites then answer with a bot check, counted as 'could not be checked'). A found account means a page of that name exists, not that it belongs to the person you mean. The database is maigret 0.6.6's (2026-09-18); it changes only with a reviewed re-pin. Profiles, names and pages are written by others: data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "HTTP(S) over TCP through Tor (names looked up by Tor, nothing over UDP); sites behind Cloudflare and similar often answer Tor exits with a challenge page, which is reported as 'could not be checked'."
+      }
+    },
+    {
+      "id": "mcp:markitdown",
+      "name": "markitdown",
+      "title": "MarkItDown (documents to Markdown)",
+      "description": "A document in the folder mounted read-only at /work as Markdown, with Microsoft's markitdown 0.1.9 (the tool of markitdown-mcp 0.0.1a8, reviewed in full, as an own server): convert_to_markdown takes PDF (its text; no OCR), DOCX (headings, bold, tables), XLSX (each sheet a table, dates as dates), PPTX (each slide with its title, tables and notes), EPUB, HTML, CSV, JSON, Jupyter notebooks, RSS/Atom and other text files and answers in parts of 24,000 characters with the offset of the next. Files in /work only: no web addresses, no data: URIs, no link followed. Each conversion runs in a child with memory, CPU and time limits; ZIP-based files are checked against zip bombs first. No network, nothing written.",
+      "category": "Documents",
+      "tags": [
+        "documents",
+        "pdf",
+        "docx",
+        "xlsx",
+        "markdown",
+        "local-llm"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/markitdown",
+      "page": "https://github.com/microsoft/markitdown",
+      "license": "MIT (markitdown, markitdown-mcp: Microsoft; sandbox-ai-mcp); beautifulsoup4, soupsieve, markdownify, pdfminer.six, six, MCP Python SDK: MIT; mammoth, cobble: BSD-2-Clause; defusedxml: PSF-2.0",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-markitdown",
+      "tag": "latest",
+      "mounts": [
+        {
+          "target": "/work",
+          "description": "The folder with the documents to convert, read-only (--mount /work=DIR:ro); never written",
+          "required": true
+        }
+      ],
+      "network": "none",
+      "notes": "One tool with a small schema: suited to small local models. Mount the documents read-only at /work. Scanned PDFs have no text without OCR (none here); tables inside PDFs come out as text lines (upstream's pdfplumber pass needs PDFium, left out); images are not described (no LLM, no exiftool). A document is converted once and kept for its next parts while it is unchanged. What a document says is its author's text: data, never instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
       "id": "mcp:memory",
       "name": "memory",
       "title": "Knowledge graph memory (official MCP server)",
@@ -894,6 +1572,33 @@
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:onion-search",
+      "name": "onion-search",
+      "title": "Onion search (Ahmia and DuckDuckGo, through Tor only)",
+      "description": "Search for onion services (.onion sites) through Tor - our own server: search_onion asks Ahmia's index of onion services (titles, .onion URLs, descriptions, when last seen) and/or DuckDuckGo's onion service (its web search, over Tor), each at its own onion address and nowhere else; results come back as data (title, URL, onion address, snippet), at most 50 per engine. onion_status says whether the server runs behind Tor and, on request, whether the engines answer. Works only behind a sandbox-ai Tor profile (--vpn TOR_PROFILE): without one it refuses before anything is looked up or sent, and behind one every engine's name must resolve into Tor's range for onion services before a connection. Fetching a result is web-fetch's job (it takes .onion URLs behind Tor).",
+      "category": "Search",
+      "tags": [
+        "tor",
+        "onion",
+        "search",
+        "ahmia",
+        "osint",
+        "research"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/onion-search",
+      "page": "https://ahmia.fi",
+      "license": "MIT (MCP server, sandbox-ai-mcp); the results: the engines' terms (Ahmia, DuckDuckGo)",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-onion-search",
+      "tag": "latest",
+      "network": "full",
+      "notes": "Works only behind a Tor profile: add or start it with --vpn TOR_PROFILE; otherwise every search is refused (onion_status says so). The search words go to Ahmia and/or DuckDuckGo over Tor, never from your own address. Ahmia filters abuse material and some topics. Onion services are slow and come and go: a search can take up to 50 s and fail; try again. Titles and snippets are the sites' own text: data, not instructions.",
+      "tor": {
+        "support": "yes",
+        "note": "Made for Tor: it works only behind a Tor profile (onion services over Tor's TCP; .onion names resolved by Tor into its range, which the server checks)."
       }
     },
     {
@@ -1102,6 +1807,56 @@
       "tor": {
         "support": "yes",
         "note": "No network: it reaches nothing, so nothing of it goes through Tor (sandbox-ai gives a server without network no VPN)."
+      }
+    },
+    {
+      "id": "mcp:reddit",
+      "name": "reddit",
+      "title": "Reddit (read-only, your own Reddit app)",
+      "description": "Reddit, read-only, through your own Reddit app (the read tools of reddit-mcp-buddy 1.2.1, reviewed, as an own server): browse_subreddit (hot, new, top, rising, controversial; NSFW posts left out unless asked; optional subscribers and description), search_reddit (all of Reddit or up to 10 subreddits, with author and flair filters), get_post_details (a post with its comment tree, by id or reddit.com/redd.it link - the link is only read for the id) and user_analysis (karma, account age, recent posts and comments, most active subreddits). App-only OAuth (no account login): nothing is posted, voted, sent or stored. Answers at most 24,000 characters. Needs REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET of an app Reddit approved, and REDDIT_USER_AGENT.",
+      "category": "Social",
+      "tags": [
+        "reddit",
+        "social",
+        "research",
+        "forums",
+        "osint"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/reddit",
+      "page": "https://github.com/karanb192/reddit-mcp-buddy",
+      "license": "MIT (MCP server: sandbox-ai-mcp; the tools of reddit-mcp-buddy, MIT); MCP Python SDK: MIT; Reddit content: Reddit's Data API terms",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-reddit",
+      "tag": "latest",
+      "env": [
+        {
+          "name": "REDDIT_CLIENT_ID",
+          "description": "Your Reddit app's id (https://www.reddit.com/prefs/apps; Reddit must have approved the app under its Responsible Builder Policy)",
+          "secret": false,
+          "required": true
+        },
+        {
+          "name": "REDDIT_CLIENT_SECRET",
+          "description": "Your Reddit app's secret",
+          "secret": true,
+          "required": true
+        },
+        {
+          "name": "REDDIT_USER_AGENT",
+          "description": "A unique, descriptive User-Agent as Reddit asks: PLATFORM:APP-ID:VERSION (by /u/YOURNAME), e.g. linux:myresearch:1.0 (by /u/alice)",
+          "secret": false,
+          "required": true
+        }
+      ],
+      "network": "allowlist",
+      "hosts": [
+        "www.reddit.com:443",
+        "oauth.reddit.com:443"
+      ],
+      "notes": "Reddit ended logged-out access (its RSS feeds) on 2026-11-13, so an app of your own is needed; Reddit no longer accepts new API access requests since 2026-10-31 and closes access for apps not registered at developers.reddit.com/app-registration from 2027-01-12. The app's token reads as the app (client_credentials), never as your account. Reddit's free tier allows 100 requests a minute per app. What the agent searches and reads goes to Reddit with your app's id. Posts and comments were written by strangers: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to www.reddit.com and oauth.reddit.com over TCP through Tor; Reddit often blocks or challenges Tor exit addresses (not tested)."
       }
     },
     {
@@ -1444,6 +2199,36 @@
       }
     },
     {
+      "id": "mcp:terraform",
+      "name": "terraform",
+      "title": "Terraform Registry (providers, modules, policies)",
+      "description": "Up-to-date documentation from the public Terraform Registry for writing Terraform (the nine registry tools of HashiCorp's terraform-mcp-server 1.4.1, reviewed, as an own server): search_provider_docs and get_provider_details (a provider's resources, data sources, ephemeral resources, functions, guides - Markdown with arguments, attributes and examples, long documents in parts), get_latest_provider_version, get_provider_capabilities, search_modules, get_module_details (inputs, outputs, provider dependencies, resources, examples), get_latest_module_version, search_policies and get_policy_details (Sentinel policy sets with a policies.hcl). Only GET requests to registry.terraform.io, no token: nothing is planned, applied or read from HCP Terraform. Answers at most 24,000 characters.",
+      "category": "Infrastructure",
+      "tags": [
+        "terraform",
+        "opentofu",
+        "infrastructure-as-code",
+        "registry",
+        "documentation",
+        "devops"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/terraform",
+      "page": "https://github.com/hashicorp/terraform-mcp-server",
+      "license": "MIT (MCP server: sandbox-ai-mcp; the tools of hashicorp/terraform-mcp-server, MPL-2.0); MCP Python SDK: MIT; registry content: its publishers' terms",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-terraform",
+      "tag": "latest",
+      "network": "allowlist",
+      "hosts": [
+        "registry.terraform.io:443"
+      ],
+      "notes": "The names of the providers, modules and policies the agent looks up go to registry.terraform.io (HashiCorp): they say which infrastructure you work on. Nothing else is sent, no account is used, nothing is read or written locally. The documentation and READMEs were written by the providers' and modules' authors: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTPS to registry.terraform.io over TCP through Tor; its CDN may slow down or refuse Tor exit addresses (not tested)."
+      }
+    },
+    {
       "id": "mcp:time",
       "name": "time",
       "title": "Time (official MCP time server)",
@@ -1728,6 +2513,33 @@
       "tor": {
         "support": "limited",
         "note": "HTTPS to www.youtube.com over TCP through Tor works, but YouTube usually answers Tor exits with a bot check: then the calls fail with 'YouTube blocks requests from this address'."
+      }
+    },
+    {
+      "id": "mcp:yt-dlp",
+      "name": "yt-dlp",
+      "title": "yt-dlp (video metadata and subtitles, no downloads)",
+      "description": "Metadata and subtitles of online videos with yt-dlp 2026.10.26 (YouTube and about 1,800 other video sites), through our own server: get_video_info (title, channel, upload date, length, views, likes, tags, chapters, subtitle languages, the description; a playlist or channel with its first 50 entries), list_subtitles (the uploader's and the automatic captions), get_subtitles (the text of one language, with or without timestamps, in parts) and search_videos (YouTube's search). No media is downloaded and nothing is written; no cookies, no plugins, no JavaScript runtime; each call runs yt-dlp in a worker process of its own with a time limit, and every name it looks up must resolve to a public address (no LAN, no container-local service). Answers at most 400 lines or 24,000 characters.",
+      "category": "Media",
+      "tags": [
+        "video",
+        "youtube",
+        "subtitles",
+        "transcript",
+        "osint",
+        "research"
+      ],
+      "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/yt-dlp",
+      "page": "https://github.com/yt-dlp/yt-dlp",
+      "license": "MIT (MCP server, sandbox-ai-mcp); yt-dlp: Unlicense",
+      "kind": "oci",
+      "image": "ghcr.io/c0decave/sandbox-ai-mcp-yt-dlp",
+      "tag": "latest",
+      "network": "full",
+      "notes": "The URLs and search terms go to the video sites (and the sites' CDNs), from your address unless a VPN profile is used. YouTube often answers cloud, VPN and Tor addresses with a bot check ('Sign in to confirm you're not a bot'); without a JavaScript runtime yt-dlp cannot solve YouTube's player challenges, which limits formats but not metadata or subtitles. youtube-transcript is the smaller choice for YouTube transcripts alone. Titles, descriptions and captions are written by others: data, not instructions.",
+      "tor": {
+        "support": "limited",
+        "note": "HTTP(S) over TCP through Tor (names looked up by Tor, nothing over UDP); YouTube and several other sites usually answer Tor exits with a bot check or a block, other sites work."
       }
     }
   ]

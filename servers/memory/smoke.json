@@ -113,6 +113,47 @@
       "expect_error": true
     },
     {
+      "tool": "delete_observations",
+      "arguments": {
+        "deletions": [
+          {
+            "entityName": "Example Shipping Ltd",
+            "observations": [
+              "registered in Tallinn in 2019"
+            ]
+          }
+        ]
+      },
+      "expect": "Observations deleted successfully"
+    },
+    {
+      "tool": "delete_relations",
+      "arguments": {
+        "relations": [
+          {
+            "from": "J. Example",
+            "to": "Example Shipping Ltd",
+            "relationType": "directs"
+          }
+        ]
+      },
+      "expect": "Relations deleted successfully"
+    },
+    {
+      "tool": "delete_entities",
+      "arguments": {
+        "entityNames": [
+          "J. Example"
+        ]
+      },
+      "expect": "Entities deleted successfully"
+    },
+    {
+      "tool": "read_graph",
+      "arguments": {},
+      "expect": "\"observations\": [\n        \"VAT number seen on an invoice dated 2024-03-01\"\n      ]\n    }\n  ],\n  \"relations\": []"
+    },
+    {
       "tool": "read_file",
       "arguments": {
         "path": "/etc/passwd"

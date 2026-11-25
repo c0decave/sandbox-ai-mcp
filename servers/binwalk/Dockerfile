@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
       org.opencontainers.image.licenses="MIT"
 # binwalk plus the extractors it calls for common firmware formats
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3=3.13.5-1 python3-venv=3.13.5-1 \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 python3=3.13.5-1 python3-venv=3.13.5-1 \
       binwalk=2.4.3+dfsg1-2+deb13u1 xxd=2:9.1.1230-2+deb13u2 \
       7zip=25.01+dfsg-1~deb13u2 squashfs-tools=1:4.6.1-1 cpio=2.15+dfsg-2 unzip=6.0-29+deb13u1 \
       lzop=1.04-2 xz-utils=5.8.1-1+deb13u2 bzip2=1.0.8-6 \
@@ -31,4 +31,6 @@ ENV HOME=/tmp \
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
-ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]

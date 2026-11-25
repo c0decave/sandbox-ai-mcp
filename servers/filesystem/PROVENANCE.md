@@ -216,3 +216,6 @@ balanced-match on everything the server reaches, the SDK and zod by servers/memo
 no backdoor or telemetry. Two findings that matter for sandbox-ai are handled by entry.mjs (allowed directories =
 the mounted folders; roots off); the unanchored reads of 2.1.0 (finding 1) reach only the container's own files and
 are fixed in 2.3.0, to be re-pinned from 2026-11-25. Fit to sign once CI has built it and both smoke reports pass.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

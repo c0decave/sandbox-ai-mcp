@@ -263,11 +263,11 @@ class MakeCatalogTest(unittest.TestCase):
     def test_digests_of_unknown_servers_are_refused(self):
         path = self.hub.root / "digests.json"
         data = json.loads(path.read_text())
-        data["images"]["ghidra"] = D1
+        data["images"]["no-such-server"] = D1
         path.write_text(json.dumps(data))
         code, text = self.hub.run()
         self.assertEqual(code, 1)
-        self.assertIn("do not exist: ghidra", text)
+        self.assertIn("do not exist: no-such-server", text)
 
     def test_a_name_that_differs_from_its_folder_is_refused(self):
         data = self.hub.server("duckduckgo")

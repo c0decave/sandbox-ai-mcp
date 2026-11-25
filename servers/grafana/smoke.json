@@ -1,0 +1,119 @@
+{
+  "name": "grafana",
+  "network": "none",
+  "env": {
+    "GRAFANA_URL": "http://127.0.0.1:9",
+    "GRAFANA_SERVICE_ACCOUNT_TOKEN": "smoke-token"
+  },
+  "expect_tools": [
+    "get_dashboard_summary",
+    "list_alert_rules",
+    "list_datasources",
+    "list_loki_label_values",
+    "list_prometheus_label_values",
+    "list_prometheus_metric_names",
+    "query_loki_logs",
+    "query_prometheus",
+    "search_dashboards"
+  ],
+  "calls": [
+    {
+      "tool": "search_dashboards",
+      "arguments": {
+        "query": "web"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/search",
+      "expect_error": true
+    },
+    {
+      "tool": "get_dashboard_summary",
+      "arguments": {
+        "uid": "web1"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/dashboards/uid/web1",
+      "expect_error": true
+    },
+    {
+      "tool": "list_datasources",
+      "arguments": {
+        "type": "prometheus"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources",
+      "expect_error": true
+    },
+    {
+      "tool": "query_prometheus",
+      "arguments": {
+        "datasource_uid": "prom",
+        "expr": "sum(rate(http_requests_total[5m]))",
+        "start": "now-6h"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources/proxy/uid/prom/api/v1/query_range",
+      "expect_error": true
+    },
+    {
+      "tool": "list_prometheus_metric_names",
+      "arguments": {
+        "datasource_uid": "prom",
+        "contains": "http"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources/proxy/uid/prom/api/v1/label/__name__/values",
+      "expect_error": true
+    },
+    {
+      "tool": "list_prometheus_label_values",
+      "arguments": {
+        "datasource_uid": "prom",
+        "label": "job"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources/proxy/uid/prom/api/v1/label/job/values",
+      "expect_error": true
+    },
+    {
+      "tool": "query_loki_logs",
+      "arguments": {
+        "datasource_uid": "loki",
+        "logql": "{app=\"web\"} |= \"error\"",
+        "limit": 20
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources/proxy/uid/loki/loki/api/v1/query_range",
+      "expect_error": true
+    },
+    {
+      "tool": "list_loki_label_values",
+      "arguments": {
+        "datasource_uid": "loki",
+        "label": "app"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/datasources/proxy/uid/loki/loki/api/v1/label/app/values",
+      "expect_error": true
+    },
+    {
+      "tool": "list_alert_rules",
+      "arguments": {
+        "state": "firing"
+      },
+      "expect": "cannot reach http://127.0.0.1:9/api/prometheus/grafana/api/v1/rules",
+      "expect_error": true
+    },
+    {
+      "tool": "get_dashboard_summary",
+      "arguments": {
+        "uid": "../api/admin/users"
+      },
+      "expect": "uid: '../api/admin/users' is not valid",
+      "expect_error": true
+    },
+    {
+      "tool": "query_prometheus",
+      "arguments": {
+        "datasource_uid": "prom",
+        "expr": "up",
+        "start": "now",
+        "end": "now-1h"
+      },
+      "expect": "start must be before end",
+      "expect_error": true
+    }
+  ]
+}

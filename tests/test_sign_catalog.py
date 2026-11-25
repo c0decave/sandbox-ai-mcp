@@ -82,6 +82,8 @@ class SignCatalog(unittest.TestCase):
                              {"check": "tools/call web_search", "ok": True}]}
         if runner.endswith("bwrap"):
             report["rootfs_sha256"] = SHA
+        if runner == sign.NO_HOST_INIT:  # (smoke_test.py: started without --init, as on a host without catatonit)
+            report.update(host_init="none", podman_init=False)
         report.update(changes)
         folder = folder or self.reports
         folder.mkdir(parents=True, exist_ok=True)
@@ -116,6 +118,23 @@ class SignCatalog(unittest.TestCase):
         self.assertFalse((self.root / "catalog.json.sig").exists())
         self.assertFalse((self.root / "rootfs.json.sig").exists())
 
+    def test_nothing_is_signed_without_a_start_without_the_hosts_init(self):
+        """The third report: sandbox-ai's Podman run line on a host without Podman's init binary (catatonit) - the
+        image started without --init, on its own init. Missing, failed, or a run line that had --init: no signature."""
+        self.report("sandbox-ai-podman")
+        self.report("sandbox-ai-bwrap")
+        self.assertEqual(self.run_sign(), 1, "the no-host-init report is missing")
+        self.assertTrue(any("smoke-duckduckgo-sandbox-ai-podman-no-host-init.json" in p
+                            for p in sign.problems_of(self.root, self.reports)))
+        self.report(sign.NO_HOST_INIT, ok=False, exception="ValueError: MCP server smoke needs Podman's --init")
+        self.assertEqual(self.run_sign(), 1)
+        self.report(sign.NO_HOST_INIT, podman_init=True)
+        self.assertEqual(self.run_sign(), 1, "its run line had --init: the host's init was used")
+        self.report(sign.NO_HOST_INIT, host_init=None)
+        self.assertEqual(self.run_sign(), 1, "not told that the host has no init")
+        self.report(sign.NO_HOST_INIT)
+        self.assertEqual(self.run_sign(), 0)
+
     def test_a_server_without_rootfs_is_signed_for_podman_alone(self):
         """A server whose Bubblewrap smoke test failed is published without a rootfs: its Podman report is enough,
         and rootfs.json vouches for no Bubblewrap form of it."""
@@ -128,6 +147,7 @@ class SignCatalog(unittest.TestCase):
         self.assertEqual(self.run_sign(), 1, "no Podman report yet")
         self.report("sandbox-ai-bwrap", ok=False, checks=[{"check": "tools/call web_search", "ok": False}])
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.assertEqual(self.run_sign(), 0, "a failed Bubblewrap report does not matter without a rootfs")
         rootfs = json.loads((self.root / "rootfs.json").read_text())
         self.assertNotIn("duckduckgo", rootfs.get("rootfs", {}))
@@ -137,6 +157,7 @@ class SignCatalog(unittest.TestCase):
         has no egress proxy), so that report is taken; a server with network none is never vouched for
         with any network."""
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         self.assertEqual(self.run_sign(), 0)
         (self.root / "catalog.json.sig").unlink()
@@ -151,6 +172,7 @@ class SignCatalog(unittest.TestCase):
 
     def test_no_signature_for_a_rootfs_the_catalog_does_not_publish(self):
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         document = json.loads((self.root / "rootfs.json").read_text())
         document["rootfs"]["web-fetch"] = dict(document["rootfs"]["duckduckgo"])
@@ -168,6 +190,7 @@ class SignCatalog(unittest.TestCase):
         """gh run download RUN -n catalog -D DIR: the reports are in DIR/ci-digests; --reports DIR finds them."""
         nested = self.reports / "ci-digests"
         self.report("sandbox-ai-podman", folder=nested)
+        self.report(sign.NO_HOST_INIT, folder=nested)
         self.report("sandbox-ai-bwrap", folder=nested)
         self.assertEqual(self.run_sign(), 0)
         self.report("sandbox-ai-bwrap", folder=self.reports / "another-run")
@@ -176,6 +199,7 @@ class SignCatalog(unittest.TestCase):
 
     def test_signed_and_verified(self):
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         self.assertEqual(self.run_sign(), 0)
         self.assertEqual(sign.main(["--root", str(self.root), "--verify", "--signers", str(self.signers)]), 0)
@@ -184,6 +208,7 @@ class SignCatalog(unittest.TestCase):
 
     def test_a_stale_catalog_is_not_signed(self):
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         catalog = self.root / "catalog.json"
         catalog.write_text(catalog.read_text().replace("DuckDuckGo search", "Something else"))
@@ -192,6 +217,7 @@ class SignCatalog(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("SANDBOX_AI_CHECKOUT"), "SANDBOX_AI_CHECKOUT names a sandbox-ai checkout")
     def test_sandbox_ai_takes_the_signature(self):
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         self.assertEqual(self.run_sign(), 0)
         mcp = load_sandbox_ai()
@@ -211,6 +237,7 @@ class SignCatalog(unittest.TestCase):
         """sandbox-ai fetches catalog.json, catalog.json.sig, rootfs.json and rootfs.json.sig from main of
         github.com/c0decave/sandbox-ai-mcp: the files sign_catalog.py writes at the top of the repository."""
         self.report("sandbox-ai-podman")
+        self.report(sign.NO_HOST_INIT)
         self.report("sandbox-ai-bwrap")
         self.assertEqual(self.run_sign(), 0)
         mcp = load_sandbox_ai()

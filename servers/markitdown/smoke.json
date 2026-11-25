@@ -1,0 +1,91 @@
+{
+  "name": "markitdown",
+  "network": "none",
+  "memory": "1g",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "expect_tools": [
+    "convert_to_markdown"
+  ],
+  "calls": [
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "sample.docx"
+      },
+      "expect": "| North | 4200 |"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "/work/sample.pdf"
+      },
+      "expect": "Total due: 1,250.00 EUR",
+      "timeout": 120
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "file:///work/sample.xlsx"
+      },
+      "expect": "| Widget \\| large | 17 | 2026-11-01 |"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "sample.pptx"
+      },
+      "expect": "### Notes:\nMention the budget first"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "sample.epub"
+      },
+      "expect": "# Chapter One"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "notes.html"
+      },
+      "expect": "[login bug](https://example.com/issue/7)"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "sales.csv",
+        "offset": 0
+      },
+      "expect": "| West | Widget | 2026-Q2 | 150 | 9.00 |"
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "../etc/passwd"
+      },
+      "expect": "'..' is not allowed",
+      "expect_error": true
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "http://169.254.169.254/latest/meta-data/"
+      },
+      "expect": "no web addresses",
+      "expect_error": true
+    },
+    {
+      "tool": "convert_to_markdown",
+      "arguments": {
+        "uri": "hello"
+      },
+      "expect": "this kind of file is not converted",
+      "expect_error": true
+    }
+  ]
+}

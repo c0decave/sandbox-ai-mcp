@@ -72,12 +72,13 @@ We aim to acknowledge a report within 7 days and to publish a fixed image, with 
   writing outside `/tmp` (or the client's roots); tools a web page defines offered to the agent; the server's own
   process running JavaScript from a tool argument; Chromium and the bundled Puppeteer, Lighthouse and DevTools
   frontend themselves are upstream's;
+- burp: `BURP_LICENSE` reaching a tool answer, a log line or anything but Burp's stdin in its container; a Burp jar other than the mounted one (or one whose SHA-256 differs from `BURP_JAR_SHA256`) started; the extension's port reachable from outside the server's container; the config-editing tools or Burp's approval dialogs switched by anything but `-Dsandbox.ai.burp.mcp=container`; a build that ships the prebuilt proxy jar or a runtime jar that differs from Maven Central's. PortSwigger's extension and Burp Suite themselves are upstream's (the extension's endpoint has no authentication by design: whoever reaches 127.0.0.1:9876 of its machine drives Burp);
 - the Dockerfiles and the published images `ghcr.io/c0decave/sandbox-ai-mcp-*` (a pinned
   component with a known vulnerability, a wrong user, a missing pin);
 - `scripts/make_catalog.py` and `catalog.json` (anything that could make sandbox-ai or axross pull
   an image other than the one reviewed).
 
-Vulnerabilities of upstream components (Playwright MCP, Context7 MCP, Chrome DevTools MCP, the MCP filesystem server,
+Vulnerabilities of upstream components (PortSwigger's MCP extension, Burp Suite, Playwright MCP, Context7 MCP, Chrome DevTools MCP, the MCP filesystem server,
 Chromium, pyghidra-mcp, Ghidra, Telethon, radare2, r2mcp, capa, binwalk and its extractors, jadx, CFR, OpenJDK, the
 Python packages) belong
 upstream, unless the packaging here makes them reachable in a way upstream does not. A crash of an analysis tool on a

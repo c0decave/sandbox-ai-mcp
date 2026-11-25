@@ -80,6 +80,108 @@
       "expect": "/work/notes/plan.md"
     },
     {
+      "tool": "mkdir",
+      "arguments": {
+        "path": "build/out"
+      },
+      "expect": "\"action\": \"created\",\n  \"made_folders\""
+    },
+    {
+      "tool": "append_file",
+      "arguments": {
+        "path": "notes/log.txt",
+        "text": "first\n"
+      },
+      "expect": "the file did not exist: created it"
+    },
+    {
+      "tool": "append_file",
+      "arguments": {
+        "path": "notes/log.txt",
+        "text": "third\n"
+      },
+      "expect": "\"sha256\": \"ff2d48b6ddeab747a6ab4d0341d204fac20cae884b96eb01a7965ff56663da15\""
+    },
+    {
+      "tool": "insert_lines",
+      "arguments": {
+        "path": "notes/log.txt",
+        "line": 2,
+        "text": "second"
+      },
+      "expect": "\"sha256\": \"f5c962601b413ccda2fc14d64d98479d9fc74c90c2dde15f25ee9922e57f5074\""
+    },
+    {
+      "tool": "delete_lines",
+      "arguments": {
+        "path": "notes/log.txt",
+        "start": 3,
+        "end": 3
+      },
+      "expect": "\"sha256\": \"dbea9325179efe46ea2add94f7b6b745ca983fabb208dc6d34aa064623d7ee23\""
+    },
+    {
+      "tool": "apply_patch",
+      "arguments": {
+        "path": "notes/log.txt",
+        "patch": "--- a/notes/log.txt\n+++ b/notes/log.txt\n@@ -1,2 +1,2 @@\n first\n-second\n+second, patched\n"
+      },
+      "expect": "\"sha256\": \"de8bf1949c4d1acfc4ebcc6add1dd69f788a9e0f7d1c09c946347f2aa8a37724\""
+    },
+    {
+      "tool": "copy",
+      "arguments": {
+        "src": "notes/log.txt",
+        "dst": "build/out/log.txt"
+      },
+      "expect": "\"to\": \"/work/build/out/log.txt\""
+    },
+    {
+      "tool": "diff",
+      "arguments": {
+        "path_a": "notes/log.txt",
+        "path_b": "docs/readme.txt"
+      },
+      "expect": "\"identical\": false,\n  \"lines_added\": 1,\n  \"lines_removed\": 2"
+    },
+    {
+      "tool": "move",
+      "arguments": {
+        "src": "build/out/log.txt",
+        "dst": "build/log-moved.txt"
+      },
+      "expect": "\"to\": \"/work/build/log-moved.txt\""
+    },
+    {
+      "tool": "stat",
+      "arguments": {
+        "path": "build/log-moved.txt"
+      },
+      "expect": "\"size\": 22,\n  \"sha256\": \"de8bf1949c4d1acfc4ebcc6add1dd69f788a9e0f7d1c09c946347f2aa8a37724\""
+    },
+    {
+      "tool": "checksum",
+      "arguments": {
+        "path": "notes/log.txt"
+      },
+      "expect": "\"checksum\": \"de8bf1949c4d1acfc4ebcc6add1dd69f788a9e0f7d1c09c946347f2aa8a37724\""
+    },
+    {
+      "tool": "glob",
+      "arguments": {
+        "pattern": "**/*.txt"
+      },
+      "expect": "\"/work/build/log-moved.txt\",\n    \"/work/docs/readme.txt\",\n    \"/work/notes/log.txt\""
+    },
+    {
+      "tool": "list_dir",
+      "arguments": {
+        "path": "/work",
+        "depth": 2
+      },
+      "expect": "\"path\": \"/work/build/log-moved.txt\",\n      \"type\": \"file\",\n      \"size\": 22"
+    },
+    {
       "tool": "write_file",
       "arguments": {
         "path": "notes/plan.md",

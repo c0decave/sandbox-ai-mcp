@@ -1,0 +1,138 @@
+{
+  "name": "lsp-go",
+  "network": "none",
+  "memory": "1g",
+  "tmp": "256m",
+  "mounts": [
+    {
+      "target": "/work",
+      "fresh": true,
+      "seed": [
+        {
+          "path": "go.mod",
+          "text": "module example.com/smoke\n\ngo 1.22\n"
+        },
+        {
+          "path": "main.go",
+          "text": "package main\n\nimport (\n\t\"fmt\"\n\n\t\"example.com/smoke/shapes\"\n)\n\nfunc main() {\n\tcircles := []shapes.Circle{{Radius: 1}, {Radius: 2.5}}\n\tfmt.Println(shapes.TotalArea(circles))\n\tvar broken int = \"not a number\"\n}\n"
+        },
+        {
+          "path": "shapes/shapes.go",
+          "text": "// Package shapes is the smoke test's library.\npackage shapes\n\n// Circle is a circle with a radius.\ntype Circle struct {\n\tRadius float64\n}\n\n// Area is the area of the circle.\nfunc (c Circle) Area() float64 {\n\treturn 3.14159 * c.Radius * c.Radius\n}\n\n// TotalArea adds up the areas.\nfunc TotalArea(circles []Circle) float64 {\n\ttotal := 0.0\n\tfor _, c := range circles {\n\t\ttotal += c.Area()\n\t}\n\treturn total\n}\n"
+        },
+        {
+          "path": "escape.go",
+          "symlink": "/etc/passwd"
+        },
+        {
+          "path": "deps/deps.go",
+          "text": "package deps\n\nimport \"github.com/not/downloaded\"\n\nvar X = downloaded.Y\n"
+        }
+      ]
+    }
+  ],
+  "expect_tools": [
+    "definition",
+    "diagnostics",
+    "document_symbols",
+    "hover",
+    "references",
+    "workspace_symbols"
+  ],
+  "calls": [
+    {
+      "tool": "document_symbols",
+      "arguments": {
+        "file": "shapes/shapes.go"
+      },
+      "expect": "\"name\": \"TotalArea\""
+    },
+    {
+      "tool": "definition",
+      "arguments": {
+        "file": "main.go",
+        "line": 11,
+        "symbol": "TotalArea"
+      },
+      "expect": "\"text\": \"func TotalArea(circles []Circle) float64 {\""
+    },
+    {
+      "tool": "references",
+      "arguments": {
+        "file": "shapes/shapes.go",
+        "line": 5,
+        "symbol": "Circle"
+      },
+      "expect": "\"file\": \"main.go\""
+    },
+    {
+      "tool": "hover",
+      "arguments": {
+        "file": "main.go",
+        "line": 11,
+        "symbol": "TotalArea"
+      },
+      "expect": "func shapes.TotalArea(circles []shapes.Circle) float64"
+    },
+    {
+      "tool": "diagnostics",
+      "arguments": {
+        "file": "main.go"
+      },
+      "expect": "declared and not used: broken"
+    },
+    {
+      "tool": "workspace_symbols",
+      "arguments": {
+        "query": "TotalArea"
+      },
+      "expect": "\"file\": \"shapes/shapes.go\""
+    },
+    {
+      "tool": "definition",
+      "arguments": {
+        "file": "main.go",
+        "line": 11,
+        "symbol": "Println"
+      },
+      "expect": "/usr/local/go/src/fmt/print.go"
+    },
+    {
+      "tool": "diagnostics",
+      "arguments": {
+        "file": "deps/deps.go"
+      },
+      "expect": "github.com/not/downloaded"
+    },
+    {
+      "tool": "definition",
+      "arguments": {
+        "file": "../../etc/passwd",
+        "line": 1,
+        "column": 1
+      },
+      "expect": "is outside the project",
+      "expect_error": true
+    },
+    {
+      "tool": "hover",
+      "arguments": {
+        "file": "escape.go",
+        "line": 1,
+        "column": 1
+      },
+      "expect": "is outside the project",
+      "expect_error": true
+    },
+    {
+      "tool": "hover",
+      "arguments": {
+        "file": "main.go",
+        "line": 999,
+        "column": 1
+      },
+      "expect": "line: 1 to",
+      "expect_error": true
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 | As installed | the PyPI wheel `osint_mcp_server-0.3.0-py3-none-any.whl` (uploaded 2026-10-05T18:12Z by upstream's tag workflow), sha256 `299a0c3f26c39bdf506a4493b48e033f8a83c6d68edfb48b3c92b9eeffd9c71b`, byte for byte the tag's `src/osint_mcp/` (`diff -r` of the wheel against the tag's tarball: identical; the wheel adds only its `dist-info` with two console scripts, `osint-mcp` and `osint-mcp-server`, not used here) |
 | Started by | `src/server.py` of this repository (MIT): tightens upstream's address check (finding 1), behind sandbox-ai's Tor profile sends every DNS lookup over TCP (finding 9), then runs upstream's `osint_mcp.server.main()` unchanged |
 | Python packages | `osint-mcp-server==0.3.0` and `mcp==2.3.0` (the MCP Python SDK 2.x, MIT, 2026-10-02) with their dependencies, 41 pins hash-locked in `requirements.txt` (39 install on Linux) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (the same as web-fetch) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (the same as web-fetch) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 **Name on PyPI:** the package is `osint-mcp-server`. `osint-mcp` on PyPI is someone else's project

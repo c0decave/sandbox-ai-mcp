@@ -35,6 +35,11 @@ line, Trivy, push to `ghcr.io/c0decave/sandbox-ai-mcp-NAME`, then with a checkou
 
 - `smoke-NAME-sandbox-ai-podman.json`: the pushed `IMAGE@DIGEST` started with sandbox-ai's own `podman run` line
   (`mcp.image_command`), `tools/list` compared with `servers/NAME/tools.json`, the smoke calls;
+- `smoke-NAME-sandbox-ai-podman-no-host-init.json` (the step "no-host-init"): the same, as on a host without
+  Podman's init binary (catatonit, which Debian's and Ubuntu's podman do not install): sandbox-ai is told there is
+  none (`SANDBOX_AI_INIT_BINARY=none`) and starts the image without `--init`, on the init the image brings (Debian's
+  `tini -s` as its ENTRYPOINT) or with the server as its own PID 1 (`"pid1": "server"`: exec). The report says so
+  (`"host_init": "none"`, `"podman_init": false`); a run line with `--init`, or sandbox-ai refusing to start it, fails;
 - `rootfs-NAME.tar.gz` and `rootfs-NAME.json` from that very image (`scripts/rootfs.py`);
 - `smoke-NAME-sandbox-ai-bwrap.json`: the archive checked, unpacked and run with sandbox-ai's Bubblewrap runner
   (`mcp_rootfs`), with its `rootfs_sha256`;
@@ -46,12 +51,18 @@ rootfs out and the server is published for Podman alone).
 
 The `catalog` job (only for `main`) runs once the tests passed, also when some image jobs failed:
 `scripts/ci_results.py` takes the servers whose job passed and whose reports `sign_catalog.py` would take
-(Podman always, Bubblewrap where the job kept the rootfs; for the digest and rootfs that job pushed); every other
+(Podman and Podman without the host's init always, Bubblewrap where the job kept the rootfs; for the digest and
+rootfs that job pushed); every other
 server is named in an annotation and left out: `make_catalog.py --only ...` makes it pending in `catalog.json`
 (no digest) and drops it from `rootfs.json`.
 It turns the digests and rootfs files of those servers into `catalog.json`, `rootfs.json` and `digests.json` and
 uploads them with all smoke reports as the artifact `catalog` (the reports in its folder `ci-digests/`). With no
 server passed there is no catalog (the job fails).
+
+Every tool a server offers is called by its `smoke.json`, or named in the spec's `"not_smoked"` with the reason (it
+needs an account or a key, sends or changes something outside, needs a device, or a third-party service too unreliable
+to hold an image back on); `tests/test_analysis_servers.py` fails for a tool in neither. A call that only answers with
+an image or a file says `"expect_ok": true`: a tool error fails it although its text is not checked.
 
 A real call whose upstream service rate-limits it (DuckDuckGo answers runners with HTTP 202) is retried with
 backoff and then marked `"skipped": "upstream rate-limited"` in the report (`smoke.json`: `"upstream_limited"`,
@@ -63,8 +74,8 @@ every report needs. `sign_catalog.py` names such calls before it signs, and refu
 anything else or has a failed check.
 
 `sign_catalog.py` refuses unless `catalog.json` and `rootfs.json` are what `servers/*/server.json` and
-`digests.json` give (`make_catalog.py --check`) and every entry with a digest has both reports, passed, of the
-right runner, with `tools.json` matched, for the pinned `IMAGE@DIGEST` and the `rootfs.json` SHA-256. It also
+`digests.json` give (`make_catalog.py --check`) and every entry with a digest has its reports (Podman, Podman
+without the host's init, Bubblewrap where `rootfs.json` has its rootfs), passed, of the right runner, with `tools.json` matched, for the pinned `IMAGE@DIGEST` and the `rootfs.json` SHA-256. It also
 refuses when
 
 - a report made no tool call at all (`tools/call ...`): a handshake and a tool list say nothing about the tool,

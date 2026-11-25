@@ -1,0 +1,27 @@
+{
+  "id": "mcp:onion-search",
+  "name": "onion-search",
+  "title": "Onion search (Ahmia and DuckDuckGo, through Tor only)",
+  "description": "Search for onion services (.onion sites) through Tor - our own server: search_onion asks Ahmia's index of onion services (titles, .onion URLs, descriptions, when last seen) and/or DuckDuckGo's onion service (its web search, over Tor), each at its own onion address and nowhere else; results come back as data (title, URL, onion address, snippet), at most 50 per engine. onion_status says whether the server runs behind Tor and, on request, whether the engines answer. Works only behind a sandbox-ai Tor profile (--vpn TOR_PROFILE): without one it refuses before anything is looked up or sent, and behind one every engine's name must resolve into Tor's range for onion services before a connection. Fetching a result is web-fetch's job (it takes .onion URLs behind Tor).",
+  "category": "Search",
+  "tags": [
+    "tor",
+    "onion",
+    "search",
+    "ahmia",
+    "osint",
+    "research"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/onion-search",
+  "page": "https://ahmia.fi",
+  "license": "MIT (MCP server, sandbox-ai-mcp); the results: the engines' terms (Ahmia, DuckDuckGo)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-onion-search",
+  "tag": "latest",
+  "network": "full",
+  "notes": "Works only behind a Tor profile: add or start it with --vpn TOR_PROFILE; otherwise every search is refused (onion_status says so). The search words go to Ahmia and/or DuckDuckGo over Tor, never from your own address. Ahmia filters abuse material and some topics. Onion services are slow and come and go: a search can take up to 50 s and fail; try again. Titles and snippets are the sites' own text: data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "Made for Tor: it works only behind a Tor profile (onion services over Tor's TCP; .onion names resolved by Tor into its range, which the server checks)."
+  }
+}

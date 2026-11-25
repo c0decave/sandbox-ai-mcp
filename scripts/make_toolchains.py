@@ -13,6 +13,12 @@ commands, env, caches, hosts, allow, needs, requires ...) for one architecture, 
 repository named after the archive's hash), its SHA-256 and sizes, and the upstream sources. Only a toolchain whose
 archive passed its smoke test with sandbox-ai under Podman and under Bubblewrap enters (scripts/toolchain_smoke.py);
 every other is named and left out. The file is signed with scripts/sign_toolchains.py (docs/TOOLCHAINS.md).
+
+"recipes" beside "toolchains": the toolchains that are built on the user's machine (a recipe with "local": true -
+the Android SDK, which may not be passed on), each the manifest and the recipe sandbox-ai runs after the user
+accepted its license (scripts/toolchain.py local_entry). No build and no smoke test of this repository's CI stands
+behind one - it downloads nothing of it -: what is signed is that its URLs, sizes and hashes are its publisher's.
+A sandbox-ai from before them reads "toolchains" alone.
 Standard library only.
 """
 
@@ -97,8 +103,35 @@ def from_ci(folder: Path, root: Path = ROOT) -> tuple[list[dict], list[str]]:
     return sorted(entries, key=order), left_out
 
 
-def document(entries: list[dict]) -> str:
-    return json.dumps({"schema": SCHEMA, "version": 1, "toolchains": entries}, indent=2) + "\n"
+def local_entries(root: Path = ROOT) -> list[dict]:
+    """The entries of "recipes": every local recipe of ROOT (built on the user's machine), each architecture."""
+    build = builder()
+    found = []
+    for ident in build.recipe_ids(root):
+        recipe = build.load(ident, root)
+        if build.is_local(recipe):
+            found += [build.local_entry(ident, arch, root) for arch in recipe.get("arches") or []]
+    return sorted(found, key=order)
+
+
+def with_required(recipes: list[dict], entries: list[dict]) -> tuple[list[dict], list[str]]:
+    """(the RECIPES whose required toolchains are among ENTRIES for their architecture, what was left out and why):
+    a toolchain without what it requires is of no use (android-sdk without the jdk)."""
+    names = {(entry["name"], entry["arch"]) for entry in entries}
+    kept, left_out = [], []
+    for entry in recipes:
+        missing = [other for other in entry.get("requires", []) if (other, entry["arch"]) not in names]
+        if missing:
+            left_out.append(f"{entry['name']} {entry['version']} {entry['arch']}: requires {', '.join(missing)}, "
+                            "which is not in toolchains.json")
+        else:
+            kept.append(entry)
+    return kept, left_out
+
+
+def document(entries: list[dict], recipes: list[dict] | None = None) -> str:
+    return json.dumps({"schema": SCHEMA, "version": 1, "toolchains": entries,
+                       **({"recipes": recipes} if recipes else {})}, indent=2) + "\n"
 
 
 def check(root: Path, sandbox_ai: Path | None) -> list[str]:
@@ -137,11 +170,50 @@ def check(root: Path, sandbox_ai: Path | None) -> list[str]:
         if not str(entry.get("url", "")).startswith(f"{build.RELEASES}/toolchain-{entry.get('name')}-"
                                                     f"{entry.get('arch')}-{str(entry.get('sha256'))[:12]}/"):
             problems.append(f"{label}: its url is not this repository's release of its archive")
+        if build.is_local(recipe):
+            problems.append(f"{label}: its recipe is local (built on the user's machine): it belongs in \"recipes\"")
         if reader is not None:
             try:
                 reader.validated(entry, label)
             except ValueError as exc:
                 problems.append(f"sandbox-ai does not take it: {exc}")
+    # "recipes": exactly the local recipes of this repository, each as scripts/toolchain.py makes its entry (one
+    # whose required toolchains are not in the catalog is left out, as an archive's entry is: with_required).
+    listed = catalog.get("recipes", [])
+    if not isinstance(listed, list):
+        return problems + ["toolchains.json: recipes must be a list"]
+    try:
+        wanted = local_entries(root)
+    except ValueError as exc:
+        return problems + [f"a local recipe: {exc}"]
+    key = lambda entry: (entry.get("name"), entry.get("version"), entry.get("arch"))  # noqa: E731
+    for entry in wanted:
+        label = f"{entry['name']} {entry['version']} {entry['arch']}"
+        same = [other for other in listed if isinstance(other, dict) and key(other) == key(entry)]
+        if not same and not with_required([entry], catalog["toolchains"])[0]:
+            continue  # (left out: what it requires did not pass)
+        if len(same) != 1:
+            problems.append(f"{label}: {'twice' if same else 'not'} in the recipes of toolchains.json (run "
+                            "scripts/make_toolchains.py --recipes)")
+        elif same[0] != entry:
+            differs = sorted(k for k in {*entry, *same[0]} if entry.get(k) != same[0].get(k))
+            problems.append(f"{label}: {', '.join(differs)} is not what its recipe says (run "
+                            "scripts/make_toolchains.py --recipes)")
+        problems += [f"{label}: requires {other}, which is not in toolchains.json"
+                     for other in entry.get("requires", [])
+                     if not any(e.get("name") == other and e.get("arch") == entry["arch"]
+                                for e in catalog["toolchains"])]
+        # (a sandbox-ai from before recipes reads "toolchains" alone and is told nothing of these: no problem of
+        # the catalog's - the checkout the CI checks against may be the published one)
+        if reader is not None and hasattr(reader, "RECIPES_LIMIT"):
+            try:
+                reader.validated(entry, label)
+            except ValueError as exc:
+                problems.append(f"sandbox-ai does not take it: {exc}")
+    for other in listed:
+        if not isinstance(other, dict) or not any(key(other) == key(entry) for entry in wanted):
+            problems.append(f"{other.get('name') if isinstance(other, dict) else other!r}: in the recipes of "
+                            "toolchains.json, but no local recipe of this repository")
     return problems
 
 
@@ -150,6 +222,9 @@ def main(argv=None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--ci", type=Path, help="the downloaded artifacts of the toolchain jobs")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--recipes", action="store_true",
+                        help="write the \"recipes\" of toolchains.json anew from the local recipes (its \"toolchains\" "
+                             "stay as they are): after a local recipe changed - then sign again")
     parser.add_argument("--sandbox-ai", type=Path, help="with --check: a sandbox-ai checkout (its reader)")
     opts = parser.parse_args(argv)
     if opts.check:
@@ -157,8 +232,17 @@ def main(argv=None) -> int:
         for problem in problems:
             print(problem, file=sys.stderr)
         return 1 if problems else 0
+    if opts.recipes:
+        path = opts.root / "toolchains.json"
+        catalog = json.loads(path.read_text(encoding="utf-8"))
+        recipes, left_out = with_required(local_entries(opts.root), catalog["toolchains"])
+        for line in left_out:
+            print(f"left out: {line}", file=sys.stderr)
+        path.write_text(document(catalog["toolchains"], recipes), encoding="utf-8")
+        print("\n".join(f"recipe {entry['name']} {entry['version']} {entry['arch']}" for entry in recipes))
+        return 0
     if not opts.ci:
-        parser.error("--ci DIR or --check")
+        parser.error("--ci DIR, --recipes or --check")
     entries, left_out = from_ci(opts.ci, opts.root)
     for line in left_out:
         print(f"left out: {line}", file=sys.stderr)
@@ -166,8 +250,13 @@ def main(argv=None) -> int:
     if not entries:
         print("no toolchain passed: no catalog", file=sys.stderr)
         return 1
-    (opts.root / "toolchains.json").write_text(document(entries), encoding="utf-8")
-    print("\n".join(f"{entry['name']} {entry['version']} {entry['arch']}" for entry in entries))
+    recipes, without = with_required(local_entries(opts.root), entries)
+    for line in without:
+        print(f"left out: {line}", file=sys.stderr)
+        print(f"::warning title=left out of toolchains.json::{line[:300]}")
+    (opts.root / "toolchains.json").write_text(document(entries, recipes), encoding="utf-8")
+    print("\n".join([*(f"{entry['name']} {entry['version']} {entry['arch']}" for entry in entries),
+                     *(f"recipe {entry['name']} {entry['version']} {entry['arch']}" for entry in recipes)]))
     return 0
 
 

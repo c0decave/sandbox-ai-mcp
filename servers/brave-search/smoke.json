@@ -21,5 +21,8 @@
       "expect": "count: an integer",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "news_search": "needs a Brave Search API key (BRAVE_API_KEY) and spends its paid quota"
+  }
 }

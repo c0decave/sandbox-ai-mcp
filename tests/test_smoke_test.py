@@ -254,9 +254,26 @@ class SmokeTest(unittest.TestCase):
     def test_smalis_build_and_signing_run_only_with_sandbox_ais_run_lines(self):
         spec = json.loads((ROOT / "servers/smali/smoke.json").read_text())
         limited = [(c["tool"], c["runners"]) for c in spec["calls"] if "runners" in c]
-        self.assertEqual(limited, [("apktool_build", ["sandbox-ai-podman", "sandbox-ai-bwrap"]),
-                                   ("sign_apk", ["sandbox-ai-podman", "sandbox-ai-bwrap"])])
+        sandbox_ai = ["sandbox-ai-podman", "sandbox-ai-bwrap", "sandbox-ai-podman-no-host-init"]
+        self.assertEqual(limited, [("apktool_build", sandbox_ai), ("sign_apk", sandbox_ai)])
         smoke.call_runners(spec)
+
+    def test_expect_ok_fails_a_tool_error_without_text_to_look_for(self):
+        """A call whose answer has no text (filesystem's read_media_file: an image) says "expect_ok": a tool error
+        (isError) fails it, though "" is in any text."""
+        ok = {"result": {"content": [{"type": "image", "data": "PHN2Zy8+", "mimeType": "image/svg+xml"}]}}
+        failed = {"result": {"isError": True, "content": [{"type": "text", "text": "ENOENT: no such file"}]}}
+        rpc = {"error": {"code": -32602, "message": "Tool x not found"}}
+        call = {"tool": "read_media_file", "expect": "", "expect_ok": True}
+        self.assertTrue(smoke.call_passed(call, ok, smoke.result_text(ok), ""))
+        self.assertFalse(smoke.call_passed(call, failed, smoke.result_text(failed), ""))
+        self.assertFalse(smoke.call_passed(call, rpc, smoke.result_text(rpc), ""))
+        self.assertTrue(smoke.call_passed({"expect": ""}, failed, smoke.result_text(failed), ""), "as before")
+        self.assertTrue(smoke.call_passed({"expect": "ENOENT", "expect_error": True}, failed, "ENOENT: no such", "ENOENT"))
+        with self.assertRaises(ValueError):
+            smoke.call_flags({"calls": [{"tool": "x", "expect_ok": True, "expect_error": True}]})
+        for name in sorted(p.parent.name for p in (ROOT / "servers").glob("*/smoke.json")):
+            smoke.call_flags(json.loads((ROOT / "servers" / name / "smoke.json").read_text()))
 
     def test_annotations_on_github_actions(self):
         import contextlib
@@ -491,6 +508,7 @@ class CatalogOfWhatPassed(unittest.TestCase):
             checks.append({"check": "tools/call web_search", "ok": True})  # the refused call
             report = {"name": name, "image": pinned, "runner": runner, "network": "full", "ok": True,
                       "checks": checks, **({"rootfs_sha256": SHA} if runner.endswith("bwrap") else {}),
+                      **({"host_init": "none", "podman_init": False} if runner == sign.NO_HOST_INIT else {}),
                       **report_changes}
             if runner.endswith("bwrap") and not bwrap:
                 report.update(ok=False, exception="RuntimeError: initialize: the server closed stdout (exit 1)")
@@ -549,7 +567,7 @@ class CatalogOfWhatPassed(unittest.TestCase):
         pinned = f"ghcr.io/c0decave/sandbox-ai-mcp-duckduckgo@{DIGEST}"
         problems = lambda: sign.server_problems(self.ci, "duckduckgo", pinned, SHA, "allowlist")  # noqa: E731
         self.assertEqual(problems(), [])
-        self.assertEqual(len(sign.skipped_calls(self.ci, ["duckduckgo"])), 2)
+        self.assertEqual(len(sign.skipped_calls(self.ci, ["duckduckgo"])), 3)  # one per runner
         self.artifact("duckduckgo", checks=[{"check": "tools/list", "ok": True}, {"check": "tools/call x", "ok": True},
                                             {"check": "tools.json", "ok": True, "skipped": "upstream rate-limited"}])
         self.assertIn("skipped a check other than a tool call", problems()[0])

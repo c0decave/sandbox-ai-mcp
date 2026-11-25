@@ -1,0 +1,32 @@
+{
+  "tools": [
+    "actions_config_read",
+    "actions_run_read",
+    "branch_read",
+    "commit_read",
+    "get_dir_contents",
+    "get_file_contents",
+    "get_gitea_mcp_server_version",
+    "get_me",
+    "get_repository_tree",
+    "get_user_orgs",
+    "issue_read",
+    "label_read",
+    "list_issues",
+    "list_pull_requests",
+    "milestone_read",
+    "notification_read",
+    "package_read",
+    "project_read",
+    "pull_request_read",
+    "release_read",
+    "repo_read",
+    "search_issues",
+    "search_org_teams",
+    "search_repos",
+    "search_users",
+    "tag_read",
+    "timetracking_read",
+    "wiki_read"
+  ]
+}

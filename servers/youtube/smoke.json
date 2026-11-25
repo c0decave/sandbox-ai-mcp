@@ -100,5 +100,9 @@
       "expect": "path: a .jpeg, .jpg, .png file",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "update_metadata": "needs a YouTube OAuth refresh token and changes a video of the channel",
+    "upload_captions": "needs a YouTube OAuth refresh token and uploads captions to a video of the channel"
+  }
 }

@@ -25,6 +25,34 @@
       "timeout": 120
     },
     {
+      "tool": "search_whois",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "WHOIS results for 'example.com'",
+      "timeout": 120
+    },
+    {
+      "tool": "search_dns",
+      "arguments": {
+        "domain": "example.com"
+      },
+      "expect": "[DNS] Domain: example.com",
+      "timeout": 60
+    },
+    {
+      "tool": "search_github",
+      "arguments": {
+        "query": "octocat"
+      },
+      "expect": "[GitHub] Login: octocat",
+      "timeout": 120,
+      "upstream_limited": [
+        "GitHub rate limit exceeded",
+        "GitHub API error HTTP 5"
+      ]
+    },
+    {
       "tool": "search_rdap",
       "arguments": {
         "domain": "localhost"
@@ -56,5 +84,13 @@
       "expect": "[key_required] HIBP_API_KEY",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "search_abuseipdb": "needs an AbuseIPDB API key (ABUSEIPDB_API_KEY), which CI does not have",
+    "search_ip2location": "needs an IP2Location.io API key (IP2LOCATION_API_KEY), which CI does not have",
+    "search_dorks_live": "needs a Bright Data SERP API key (BRIGHTDATA_API_KEY); each of its five queries is billed",
+    "search_footprint": "needs a Bright Data SERP API key (BRIGHTDATA_API_KEY); each query is billed",
+    "search_gdelt_geo": "downloads up to six hours of GDELT news archives (tens of MB) per run and answers with the day's news: neither small nor deterministic enough for a smoke run",
+    "search_paste": "psbdmp.ws, a free paste index, is often unreachable: a run would fail on its outage, not on this server"
+  }
 }

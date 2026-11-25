@@ -6,7 +6,7 @@
 | Service | Telegram's MTProto API (the protocol of the official apps), as a user account |
 | Python packages | `mcp==1.30.0` (the same lock as telegram) and `telethon==1.45.0` (MIT, PyPI, 2026-09-10) with `pyaes==1.6.1` (MIT), `rsa==4.9.1` (Apache-2.0), `pyasn1==0.6.5` (BSD-2-Clause; 2026-10-27, re-locked on 2026-11-17 from 0.6.4: it fixes four quadratic-time decoding advisories, GHSA-2qm8-x737-gmw5, -mm57-4v3p-rchx, -9m75-vc3g-4x39, -fm9c-5rcf-2q5p; Telethon decodes with it only RSA public keys, its built-in ones and the CDN keys Telegram sends over the encrypted connection, so no outside input reached it before either), hash-locked in `requirements.txt` |
 | Build only | `setuptools==84.2.1`, hash-locked in `requirements-build.txt`, removed from the image after the build |
-| Debian packages | `python3=3.13.5-1` (no ca-certificates: nothing here speaks TLS) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1` (no ca-certificates: nothing here speaks TLS) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## Why an own server, and why a user account

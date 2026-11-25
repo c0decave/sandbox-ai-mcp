@@ -46,9 +46,15 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
       org.opencontainers.image.title="sandbox-ai-mcp-radare2" \
       org.opencontainers.image.description="radare2 6.2.4 with the official r2mcp 1.9.0 MCP server (stdio)" \
       org.opencontainers.image.licenses="MIT AND LGPL-3.0-only"
+# tini (Debian's), the init of the ENTRYPOINT
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt /var/log/apt /var/log/dpkg.log
 COPY --from=build /opt/radare2 /opt/radare2
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-radare2/
+COPY r2mcp-run /opt/radare2/bin/r2mcp-run
 RUN echo /opt/radare2/lib > /etc/ld.so.conf.d/radare2.conf && ldconfig \
+ && chmod 0755 /opt/radare2/bin/r2mcp-run \
  && useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp \
  && mkdir -p /work \
  && /opt/radare2/bin/r2mcp -v
@@ -64,42 +70,7 @@ ENV HOME=/tmp \
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /work
-# -s /work : open_file only accepts files under /work (the folder the user mounts), no URI (patch 0001)
-# -g none  : radare2's own sandbox (cfg.sandbox) allows no exec, socket, network or disk writes
-# -N       : no MCP prompts (r2mcp would load *.r2ai.md from ./prompts, i.e. from /work)
-# -e ...   : exactly these 32 tools (tools.json): one page of tools/list; the debugger, search, hexdump
-#            and sql tools r2mcp would also accept are refused
-# no -r    : the raw run_command / run_javascript / run_script tools stay off
-ENTRYPOINT ["/opt/radare2/bin/r2mcp", "-s", "/work", "-g", "none", "-N", \
-            "-e", "analyze", \
-            "-e", "calculate", \
-            "-e", "close_file", \
-            "-e", "decompile_function", \
-            "-e", "disassemble", \
-            "-e", "disassemble_function", \
-            "-e", "get_current_address", \
-            "-e", "get_function_prototype", \
-            "-e", "list_all_strings", \
-            "-e", "list_classes", \
-            "-e", "list_decompilers", \
-            "-e", "list_entrypoints", \
-            "-e", "list_exports", \
-            "-e", "list_files", \
-            "-e", "list_functions", \
-            "-e", "list_functions_tree", \
-            "-e", "list_imports", \
-            "-e", "list_libraries", \
-            "-e", "list_memory_maps", \
-            "-e", "list_methods", \
-            "-e", "list_sections", \
-            "-e", "list_strings", \
-            "-e", "list_symbols", \
-            "-e", "open_file", \
-            "-e", "rename_flag", \
-            "-e", "rename_function", \
-            "-e", "set_comment", \
-            "-e", "set_function_prototype", \
-            "-e", "show_function_details", \
-            "-e", "show_info", \
-            "-e", "use_decompiler", \
-            "-e", "xrefs_to"]
+# r2mcp-run: r2mcp with its flags (-s /work, -g none, -N and exactly the 32 tools of tools.json; see the file).
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/radare2/bin/r2mcp-run"]

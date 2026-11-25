@@ -45,6 +45,24 @@
       "expect": "00000000:"
     },
     {
+      "tool": "list_extractions",
+      "arguments": {},
+      "expect": "\"filename\": \"firmware.bin\""
+    },
+    {
+      "tool": "list_active_scans",
+      "arguments": {},
+      "expect": "\"count\": 0,\n  \"max_concurrent\": 2"
+    },
+    {
+      "tool": "get_scan_results",
+      "arguments": {
+        "scan_id": "00000000"
+      },
+      "expect": "Scan '00000000' not found",
+      "expect_error": true
+    },
+    {
       "tool": "binwalk_scan",
       "arguments": {
         "filepath": "/etc/passwd"

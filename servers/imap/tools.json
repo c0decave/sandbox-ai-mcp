@@ -1,0 +1,14 @@
+{
+  "tools": [
+    "list_attachments",
+    "list_folders",
+    "read_message",
+    "search_messages"
+  ],
+  "read_only_tools": [
+    "list_attachments",
+    "list_folders",
+    "read_message",
+    "search_messages"
+  ]
+}

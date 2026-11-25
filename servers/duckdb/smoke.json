@@ -1,0 +1,93 @@
+{
+  "name": "duckdb",
+  "network": "none",
+  "memory": "1g",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "env": {
+    "DUCKDB_DATABASE": "/work/shop.duckdb"
+  },
+  "expect_tools": [
+    "execute_query",
+    "list_columns",
+    "list_databases",
+    "list_tables"
+  ],
+  "calls": [
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "SELECT region, sum(units) AS units FROM '/work/sales.csv' GROUP BY ALL ORDER BY region"
+      },
+      "expect": "[[\"North\", 160], [\"South\", 156], [\"West\", 150]]"
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "SELECT count(*) AS n, max(price) AS top FROM read_parquet('/work/sales.parquet')"
+      },
+      "expect": "[[5, 24.0]]"
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "SELECT user FROM read_json('/work/events.jsonl') WHERE action = 'upload'",
+        "max_rows": 10
+      },
+      "expect": "[[\"ana\"]]"
+    },
+    {
+      "tool": "list_databases",
+      "arguments": {},
+      "expect": "{\"name\": \"shop\", \"readOnly\": true, \"type\": \"duckdb\", \"current\": true}"
+    },
+    {
+      "tool": "list_tables",
+      "arguments": {},
+      "expect": "\"comment\": \"Orders by region and quarter\""
+    },
+    {
+      "tool": "list_columns",
+      "arguments": {
+        "table": "big_orders"
+      },
+      "expect": "\"objectType\": \"view\""
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "SELECT * FROM read_csv('/etc/passwd')"
+      },
+      "expect": "Permission Error",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "COPY orders TO '/work/out.csv'"
+      },
+      "expect": "this server is read-only",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "INSTALL httpfs"
+      },
+      "expect": "extensions are never installed or loaded",
+      "expect_error": true
+    },
+    {
+      "tool": "execute_query",
+      "arguments": {
+        "sql": "SET enable_external_access = true"
+      },
+      "expect": "the configuration has been locked",
+      "expect_error": true
+    }
+  ]
+}

@@ -62,6 +62,307 @@
     {
       "tool": "browser_navigate",
       "arguments": {
+        "url": "data:text/html,%3Ctitle%3Esmoke%20form%3C%2Ftitle%3E%3Ch1%20id%3Dh%3EForm%3C%2Fh1%3E%3Cinput%20id%3Dname%20aria-label%3DName%3E%3Cselect%20id%3Dcolor%20aria-label%3DColor%3E%3Coption%20value%3Dred%3ERed%3C%2Foption%3E%3Coption%20value%3Dblue%3EBlue%3C%2Foption%3E%3C%2Fselect%3E%3Cinput%20id%3Dagree%20type%3Dcheckbox%20aria-label%3DAgree%3E%3Cbutton%20id%3Dgo%20onclick%3D%22document.getElementById%28%27h%27%29.textContent%3D%27Clicked%20%27%2Bdocument.getElementById%28%27name%27%29.value%22%3EGo%3C%2Fbutton%3E%3Cdiv%20id%3Dhov%20onmouseover%3D%22this.textContent%3D%27hovered%27%22%3Ehover%20me%3C%2Fdiv%3E%3Cdiv%20id%3Dsrc%20draggable%3Dtrue%20ondragstart%3D%22event.dataTransfer.setData%28%27text%2Fplain%27%2C%27dragged%27%29%22%3Edrag%20me%3C%2Fdiv%3E%3Cdiv%20id%3Ddst%20style%3D%27height%3A40px%27%20ondragover%3D%22event.preventDefault%28%29%22%20ondrop%3D%22event.preventDefault%28%29%3Bthis.textContent%3D%27dropped%20%27%2Bevent.dataTransfer.getData%28%27text%2Fplain%27%29%22%3Edrop%20here%3C%2Fdiv%3E%3Cdiv%20id%3Ddst2%20style%3D%27height%3A40px%27%20ondragover%3D%22event.preventDefault%28%29%22%20ondrop%3D%22event.preventDefault%28%29%3Bthis.textContent%3D%27dropped%20%27%2Bevent.dataTransfer.getData%28%27text%2Fplain%27%29%22%3Edrop%20data%20here%3C%2Fdiv%3E%3Cinput%20id%3Dkey%20aria-label%3DKey%20onkeydown%3D%22this.dataset.k%3Devent.key%22%3E%3Cbutton%20id%3Ddlg%20onclick%3D%22document.getElementById%28%27h%27%29.textContent%3D%27confirm%20%27%2Bconfirm%28%27Sure%3F%27%29%22%3EAsk%3C%2Fbutton%3E%3Cinput%20id%3Dfile%20type%3Dfile%20aria-label%3DFile%3E%3Cscript%3Econsole.log%28%27smoke%20console%20line%27%29%3C%2Fscript%3E"
+      },
+      "expect": "Page Title: smoke form",
+      "timeout": 120
+    },
+    {
+      "tool": "browser_find",
+      "arguments": {
+        "text": "hover me"
+      },
+      "expect": "hover me"
+    },
+    {
+      "tool": "browser_type",
+      "arguments": {
+        "target": "#name",
+        "text": "Ada"
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_click",
+      "arguments": {
+        "target": "#go"
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_wait_for",
+      "arguments": {
+        "text": "Clicked Ada"
+      },
+      "expect": "Waited for Clicked Ada"
+    },
+    {
+      "tool": "browser_hover",
+      "arguments": {
+        "target": "#hov"
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_select_option",
+      "arguments": {
+        "target": "#color",
+        "values": [
+          "blue"
+        ]
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => document.getElementById('hov').textContent + '|' + document.getElementById('color').value"
+      },
+      "expect": "\"hovered|blue\""
+    },
+    {
+      "tool": "browser_drag",
+      "arguments": {
+        "startTarget": "#src",
+        "endTarget": "#dst"
+      },
+      "expect": "dragTo(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => document.getElementById('dst').textContent"
+      },
+      "expect": "\"dropped dragged\""
+    },
+    {
+      "tool": "browser_drop",
+      "arguments": {
+        "target": "#dst2",
+        "data": {
+          "text/plain": "from outside"
+        }
+      },
+      "expect": ".drop(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => document.getElementById('dst2').textContent"
+      },
+      "expect": "\"dropped from outside\""
+    },
+    {
+      "tool": "browser_fill_form",
+      "arguments": {
+        "fields": [
+          {
+            "name": "Name",
+            "type": "textbox",
+            "target": "#name",
+            "value": "Grace"
+          },
+          {
+            "name": "Agree",
+            "type": "checkbox",
+            "target": "#agree",
+            "value": "true"
+          },
+          {
+            "name": "Color",
+            "type": "combobox",
+            "target": "#color",
+            "value": "Red"
+          }
+        ]
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => [document.getElementById('name').value, document.getElementById('agree').checked, document.getElementById('color').value].join('|')"
+      },
+      "expect": "\"Grace|true|red\""
+    },
+    {
+      "tool": "browser_click",
+      "arguments": {
+        "target": "#key"
+      },
+      "expect": "### Ran Playwright code",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_press_key",
+      "arguments": {
+        "key": "ArrowLeft"
+      },
+      "expect": "keyboard.press(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => document.getElementById('key').dataset.k"
+      },
+      "expect": "\"ArrowLeft\""
+    },
+    {
+      "tool": "browser_emulate_media",
+      "arguments": {
+        "colorScheme": "dark"
+      },
+      "expect": "emulateMedia(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'"
+      },
+      "expect": "\"dark\""
+    },
+    {
+      "tool": "browser_resize",
+      "arguments": {
+        "width": 800,
+        "height": 600
+      },
+      "expect": "setViewportSize(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => innerWidth + 'x' + innerHeight"
+      },
+      "expect": "\"800x600\""
+    },
+    {
+      "tool": "browser_console_messages",
+      "arguments": {
+        "level": "info"
+      },
+      "expect": "smoke console line"
+    },
+    {
+      "tool": "browser_click",
+      "arguments": {
+        "target": "#dlg"
+      },
+      "expect": "browser_handle_dialog"
+    },
+    {
+      "tool": "browser_handle_dialog",
+      "arguments": {
+        "accept": true
+      },
+      "expect": "",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_evaluate",
+      "arguments": {
+        "function": "() => document.getElementById('h').textContent"
+      },
+      "expect": "\"confirm true\""
+    },
+    {
+      "tool": "browser_click",
+      "arguments": {
+        "target": "#file"
+      },
+      "expect": "browser_file_upload"
+    },
+    {
+      "tool": "browser_file_upload",
+      "arguments": {},
+      "expect": "fileChooser.setFiles(",
+      "expect_ok": true
+    },
+    {
+      "tool": "browser_tabs",
+      "arguments": {
+        "action": "new",
+        "url": "data:text/html,<title>second tab</title>"
+      },
+      "expect": "[second tab]"
+    },
+    {
+      "tool": "browser_tabs",
+      "arguments": {
+        "action": "list"
+      },
+      "expect": "- 1: (current) [second tab]"
+    },
+    {
+      "tool": "browser_tabs",
+      "arguments": {
+        "action": "select",
+        "index": 0
+      },
+      "expect": "- 0: (current) [smoke form]"
+    },
+    {
+      "tool": "browser_tabs",
+      "arguments": {
+        "action": "close",
+        "index": 1
+      },
+      "expect": "- 0: (current) [smoke form]"
+    },
+    {
+      "tool": "browser_navigate",
+      "arguments": {
+        "url": "data:text/html,%3C%21DOCTYPE%20html%3E%3Ctitle%3Enetwork%20page%3C%2Ftitle%3E%3Cscript%3Efetch%28%27http%3A%2F%2F127.0.0.1%3A9%2Fsmoke%27%29.catch%28%28%29%3D%3E%7Bdocument.body.textContent%3D%27fetch%20failed%27%7D%29%3C%2Fscript%3E"
+      },
+      "expect": "Page Title: network page",
+      "timeout": 120
+    },
+    {
+      "tool": "browser_wait_for",
+      "arguments": {
+        "text": "fetch failed"
+      },
+      "expect": "Waited for fetch failed"
+    },
+    {
+      "tool": "browser_network_requests",
+      "arguments": {
+        "static": false
+      },
+      "expect": "1. [GET] http://127.0.0.1:9/smoke => [FAILED] net::ERR_UNSAFE_PORT"
+    },
+    {
+      "tool": "browser_network_request",
+      "arguments": {
+        "index": 1
+      },
+      "expect": "#1 [GET] http://127.0.0.1:9/smoke\n\n  General\n    status:    [FAILED] net::ERR_UNSAFE_PORT"
+    },
+    {
+      "tool": "browser_navigate_back",
+      "arguments": {},
+      "expect": "Page Title: smoke form"
+    },
+    {
+      "tool": "browser_run_code_unsafe",
+      "arguments": {
+        "code": "async (page) => { return await page.title() + ' / ' + await page.locator('#h').textContent(); }"
+      },
+      "expect": "\"smoke form / Form\""
+    },
+    {
+      "tool": "browser_navigate",
+      "arguments": {
         "url": "file:///etc/passwd"
       },
       "expect": "Access to \"file:\" protocol is blocked",
@@ -75,6 +376,12 @@
       },
       "expect": "outside allowed roots",
       "expect_error": true
+    },
+    {
+      "tool": "browser_close",
+      "arguments": {},
+      "expect": "No open tabs",
+      "expect_ok": true
     }
   ]
 }

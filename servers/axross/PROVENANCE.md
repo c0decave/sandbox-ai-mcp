@@ -7,7 +7,7 @@
 | What runs | `src/server.py` of this repository (MIT): fixes the root, the groups, the folders, the keyring, refuses every module not reviewed, then runs upstream's `core.mcp_cli.main` unchanged |
 | Kept in the image | **65 files, 42,294 lines** of the package (`reviewed.sha256`, each checked by SHA-256 when the image is built); the other 194 files (118,970 lines of Python and the data under `resources/`) are deleted, and `src/server.py` refuses to import any module outside the list |
 | Python packages | 22 pins hash-locked in `requirements.txt` (19 on Linux); `invoke`, `secretstorage` and `jeepney` are uninstalled again in the image (below) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (as every Python server here) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (as every Python server here) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## Pinning rule

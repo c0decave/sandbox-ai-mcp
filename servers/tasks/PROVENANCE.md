@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` (MIT, `LICENSES/`), written for this repository and reviewed in full (below) |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line); the server imports nothing else but the standard library |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as web-fetch's) |
 
 **Pinning rule:** no new third-party release: the lock, the Debian versions and the base digest are web-fetch's.

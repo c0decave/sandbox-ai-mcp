@@ -1,0 +1,8 @@
+{
+  "tools": [
+    "check_site",
+    "list_sites",
+    "list_tags",
+    "search_username"
+  ]
+}

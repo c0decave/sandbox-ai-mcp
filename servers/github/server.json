@@ -1,0 +1,52 @@
+{
+  "id": "mcp:github",
+  "name": "github",
+  "title": "GitHub (read-only, REST API)",
+  "description": "GitHub read-only for agents working on code, our own small server over GitHub's REST API (instead of github/github-mcp-server): search_repositories, get_repository, get_file_contents (a file at any branch, tag or commit, long ones in parts; or a folder's entries), list_issues and get_issue (with its comments), list_pull_requests and get_pull_request (overview with reviews, changed files with patches, the diff in parts, review comments, the conversation), list_commits and get_commit (with its patches), search_code, list_workflow_runs and get_workflow_run_logs (a run's jobs, failed steps and error annotations; a job's log, its end first), list_releases - 13 tools. Only GET requests: nothing is written to GitHub. Without GITHUB_TOKEN GitHub allows 60 requests an hour (code search and Actions logs need a token); with one 5,000. Answers at most 24,000 characters.",
+  "category": "Development",
+  "tags": [
+    "github",
+    "git",
+    "forge",
+    "issues",
+    "pull-requests",
+    "ci",
+    "code-search",
+    "development"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/github",
+  "page": "https://docs.github.com/en/rest",
+  "license": "MIT (MCP server: sandbox-ai-mcp); MCP Python SDK: MIT; repository content: its owners' terms",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-github",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "GITHUB_TOKEN",
+      "description": "Optional: a fine-grained token, read-only (Contents, Issues, Pull requests, Actions). Without one: public repositories, 60 requests an hour, no code search, no Actions logs",
+      "secret": true,
+      "required": false
+    },
+    {
+      "name": "GITHUB_API_URL",
+      "description": "GitHub Enterprise only: https://HOST/api/v3 (Server) or https://api.NAME.ghe.com (Cloud); then also --network egress-all (see the notes)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "GITHUB_CA_CERT",
+      "description": "With GITHUB_API_URL: the Enterprise Server's own CA certificate (PEM, or the PEM in base64)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "allowlist",
+  "hosts": [
+    "api.github.com:443"
+  ],
+  "notes": "Reaches only api.github.com: the repositories, searches and numbers the agent asks for go to GitHub. The token (optional) is sent only to the API's own address, never to the storage a redirect leads to, never into an answer or a log; give it read-only permissions (a fine-grained token), then even a misled agent changes nothing. Actions job logs lie on GitHub's storage (productionresultssaN.blob.core.windows.net), which the allowlist cannot name: for logs, sandbox-ai mcp set github --network egress-all (the server itself still follows redirects only to GitHub's hosts). GitHub Enterprise: GITHUB_API_URL and --network egress-all; one in your own network also --allow-tcp ADDRESS:443. Issues, comments, code, commit messages, logs and release notes were written by others: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to api.github.com over TCP through Tor works; without a token the 60 requests an hour are counted per address, and a Tor exit's are shared with everyone using it (often used up): give GITHUB_TOKEN. An Enterprise Server in your own network cannot be reached through Tor (not tested behind Tor here)."
+  }
+}

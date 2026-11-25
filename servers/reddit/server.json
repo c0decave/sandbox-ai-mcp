@@ -1,0 +1,50 @@
+{
+  "id": "mcp:reddit",
+  "name": "reddit",
+  "title": "Reddit (read-only, your own Reddit app)",
+  "description": "Reddit, read-only, through your own Reddit app (the read tools of reddit-mcp-buddy 1.2.1, reviewed, as an own server): browse_subreddit (hot, new, top, rising, controversial; NSFW posts left out unless asked; optional subscribers and description), search_reddit (all of Reddit or up to 10 subreddits, with author and flair filters), get_post_details (a post with its comment tree, by id or reddit.com/redd.it link - the link is only read for the id) and user_analysis (karma, account age, recent posts and comments, most active subreddits). App-only OAuth (no account login): nothing is posted, voted, sent or stored. Answers at most 24,000 characters. Needs REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET of an app Reddit approved, and REDDIT_USER_AGENT.",
+  "category": "Social",
+  "tags": [
+    "reddit",
+    "social",
+    "research",
+    "forums",
+    "osint"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/reddit",
+  "page": "https://github.com/karanb192/reddit-mcp-buddy",
+  "license": "MIT (MCP server: sandbox-ai-mcp; the tools of reddit-mcp-buddy, MIT); MCP Python SDK: MIT; Reddit content: Reddit's Data API terms",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-reddit",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "REDDIT_CLIENT_ID",
+      "description": "Your Reddit app's id (https://www.reddit.com/prefs/apps; Reddit must have approved the app under its Responsible Builder Policy)",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "REDDIT_CLIENT_SECRET",
+      "description": "Your Reddit app's secret",
+      "secret": true,
+      "required": true
+    },
+    {
+      "name": "REDDIT_USER_AGENT",
+      "description": "A unique, descriptive User-Agent as Reddit asks: PLATFORM:APP-ID:VERSION (by /u/YOURNAME), e.g. linux:myresearch:1.0 (by /u/alice)",
+      "secret": false,
+      "required": true
+    }
+  ],
+  "network": "allowlist",
+  "hosts": [
+    "www.reddit.com:443",
+    "oauth.reddit.com:443"
+  ],
+  "notes": "Reddit ended logged-out access (its RSS feeds) on 2026-11-13, so an app of your own is needed; Reddit no longer accepts new API access requests since 2026-10-31 and closes access for apps not registered at developers.reddit.com/app-registration from 2027-01-12. The app's token reads as the app (client_credentials), never as your account. Reddit's free tier allows 100 requests a minute per app. What the agent searches and reads goes to Reddit with your app's id. Posts and comments were written by strangers: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTPS to www.reddit.com and oauth.reddit.com over TCP through Tor; Reddit often blocks or challenges Tor exit addresses (not tested)."
+  }
+}

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Ahmia</title></head>
+<body class="main">
+<!-- Ahmia's front page (index_tor.html of ahmia/ahmia-site, BSD-3-Clause), rendered by hand for the tests: the search
+     form carries a hidden field whose name and value change every minute. -->
+<div id="ahmiaMainContent"><div id="ahmiaSearchArea">
+<form id="otherForm" action="/elsewhere"><input type="hidden" name="not_this" value="x"></form>
+<form id="searchForm" class="autocomplete" action="/search/" method="get">
+  <input id="id_q" type="search" name="q" title="q">
+  <input type="hidden" name="1a2b3c" value="d4e5f6">
+  <input type="submit" value="Search">
+</form>
+</div></div>
+</body></html>

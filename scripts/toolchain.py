@@ -28,10 +28,14 @@ are data, never a shell:
       FILE must carry a good signature of a key of KEYS (a fetched key file or keyring); with "fingerprints" only
       of one of those keys. Nothing of a file is used before the step that verifies it.
   {"unpack": FILE, "to": DIR, "strip": N, "only": [PREFIX, ...], "merge": [DIR, ...]}
-      a tar archive (any compression) or zip into the prefix, without trusting it: no path that leaves it, no
-      device, no set-user-ID bit, no link target outside. "strip" drops leading path parts, "only" takes the
-      members below these paths (after strip), "merge" lifts the content of these folders into "to" (Rust's
-      components).
+      a tar archive (any compression), zip (a Python wheel too) or 7z into the prefix, without trusting it: no path
+      that leaves it, no device, no set-user-ID bit, no link target outside. "strip" drops leading path parts,
+      "only" takes the members below these paths (after strip), "merge" lifts the content of these folders into
+      "to" (Rust's components). A 7z archive (Qt's) is read by bsdtar (libarchive), which only turns it into a tar
+      stream: every file is written by this script, with the same checks.
+  {"copy": FILE, "to": PATH, "mode": "644"}       a fetched, verified file as it is (a license text)
+  {"replace": PATH, "line": START, "with": TEXT}  every line of the text file PATH that begins with START becomes
+      TEXT (what Qt's installer does to mkspecs/qconfig.pri); refused when no line does
   {"write": PATH, "text": TEXT, "mode": "755"}    a small file of ours (a wrapper script)
   {"link": PATH, "to": TARGET}                    a relative symbolic link inside the prefix
   {"move": PATH, "to": PATH}, {"remove": [GLOB, ...]}, {"chmod": PATH, "mode": "755"}
@@ -47,11 +51,21 @@ architecture (upstream builds aarch64 on a newer system than x86_64): the entry 
 
 `check` validates every toolchain.json without downloading: the keys, the pins of each architecture, the release
 dates, and the versions of each name (its lines, its newest). Standard library only (gpg for a "gpg" step, xz for the archive when it is there).
+
+A recipe with "local": true is never built here: its tools may not be passed on (the Android SDK: section 3.4 of the
+Android Software Development Kit License Agreement forbids copying and redistributing it), so there is no archive
+of ours. The catalog publishes the recipe itself - toolchains.json "recipes": the manifest and "recipe": {"terms",
+"vars", "steps"} - and sandbox-ai runs it on the user's machine after they accepted the license ("terms":
+`sandbox-ai toolchain add NAME [--accept-android-sdk-license]`; sandbox-ai's sandbox/toolchain_recipes.py). Its steps
+are fetch (https, with "size", "sha256" - and "sha1" where the publisher lists one - and "released"), unpack (zip:
+"to", "strip"), write, link and chmod, nothing else; "vars" are plain texts; "unpacked" says how large the tree gets
+(nothing here measures it). `check` holds it to that; `build` refuses it; `ids --built` lists the others.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
 import fnmatch
 import hashlib
@@ -80,8 +94,17 @@ NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")
 LINE = re.compile(r"[0-9]{1,6}(?:\.[0-9]{1,6}){0,2}")  # the start of a version an older recipe is picked by
 MANIFEST_KEYS = ("name", "version", "title", "description", "license", "homepage", "commands", "env", "caches",
                  "hosts", "allow", "needs", "requires")
-KEYS = frozenset({*MANIFEST_KEYS, "arches", "vars", "build", "optional", "smoke", "notes"})
-VERBS = ("fetch", "gpg", "unpack", "write", "link", "move", "remove", "chmod")
+# "smoke_apt": Debian packages the smoke test's image and machine get beyond the agent images' base (a compiler of
+# the image variant a preset names: the toolchain itself does not bring it).
+KEYS = frozenset({*MANIFEST_KEYS, "arches", "vars", "build", "optional", "smoke", "smoke_apt", "notes", "local",
+                  "terms", "unpacked"})
+VERBS = ("fetch", "gpg", "unpack", "copy", "write", "link", "move", "remove", "chmod", "replace")
+LOCAL_VERBS = ("fetch", "unpack", "write", "link", "chmod")  # what sandbox-ai runs on the user's machine
+LOCAL_STEP_KEYS = {"fetch": {"fetch", "url", "size", "sha256", "sha1", "released"}, "unpack": {"unpack", "to", "strip"},
+                   "write": {"write", "text", "mode"}, "link": {"link", "to"}, "chmod": {"chmod", "mode"}}
+TERMS = ("android-sdk-license",)  # the licenses sandbox-ai knows how to ask for (its toolchain_recipes.TERMS)
+SEVEN_ZIP = b"7z\xbc\xaf\x27\x1c"
+APT_PACKAGE = re.compile(r"[a-z0-9][a-z0-9+.-]{0,99}")
 GLIBC_LIBRARIES = frozenset({"libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1", "libutil.so.1",
                              "libresolv.so.2", "libanl.so.1", "libmvec.so.1", "ld-linux-x86-64.so.2",
                              "ld-linux-aarch64.so.1", "linux-vdso.so.1"})
@@ -190,6 +213,128 @@ def versions_problems(root: Path = ROOT) -> list[str]:
     return found
 
 
+def is_local(recipe: dict) -> bool:
+    """RECIPE is built on the user's machine (its tools may not be passed on): published as a recipe, no archive."""
+    return recipe.get("local") is True
+
+
+def built_ids(root: Path = ROOT) -> list[str]:
+    """The IDs of the recipes this repository builds and publishes as archives: all but the local ones."""
+    return [ident for ident in recipe_ids(root) if not is_local(load(ident, root))]
+
+
+def local_problems(recipe: dict, today: datetime.date) -> list[str]:
+    """What is wrong with a recipe that is built on the user's machine, without a download."""
+    found = []
+    arches = recipe.get("arches") if isinstance(recipe.get("arches"), list) else []
+    if recipe.get("terms") is not None and recipe["terms"] not in TERMS:
+        found.append(f"terms {recipe.get('terms')!r} is no license sandbox-ai knows ({', '.join(TERMS)})")
+    unpacked = recipe.get("unpacked")
+    if isinstance(unpacked, bool) or not isinstance(unpacked, int) or unpacked <= 0:
+        found.append("unpacked must say how many bytes its tree takes (nothing here measures it)")
+    variables = recipe.get("vars", {})
+    if not isinstance(variables, dict) or not all(isinstance(key, str) and isinstance(value, str)
+                                                  for key, value in variables.items()):
+        found.append("vars of a local recipe are plain texts")
+        variables = {}
+    for key in ("optional", "smoke"):
+        if key in recipe:
+            found.append(f"{key} is for a recipe that is built and run here")
+    steps = recipe.get("build")
+    if not isinstance(steps, list) or not steps:
+        return found + ["build must be a list of steps"]
+    fetched, unpacked_files = set(), set()
+    for index, step in enumerate(steps, 1):
+        verbs = [verb for verb in VERBS if isinstance(step, dict) and verb in step]
+        if len(verbs) != 1 or verbs[0] not in LOCAL_VERBS:
+            found.append(f"step {index}: exactly one of {', '.join(LOCAL_VERBS)} (what sandbox-ai runs)")
+            continue
+        verb = verbs[0]
+        unknown = sorted(set(step) - LOCAL_STEP_KEYS[verb])
+        if unknown:
+            found.append(f"step {index}: {verb} has no key {unknown[0]!r}")
+        for arch in arches:
+            for key in ("url", "to", "text", verb):
+                if isinstance(step.get(key), str):
+                    try:
+                        substituted(step[key], {**recipe, "vars": variables}, arch)
+                    except Refused as exc:
+                        found.append(f"step {index}: {exc}")
+        if verb == "fetch":
+            name = step["fetch"]
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,63}", name) or \
+                    name in fetched:
+                found.append(f"step {index}: fetch names a file, each once")
+            fetched.add(name)
+            if not str(step.get("url", "")).startswith("https://"):
+                found.append(f"step {index}: {step.get('url')} is not https")
+            size = step.get("size")
+            if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+                found.append(f"step {index}: {name} needs its size in bytes")
+            if not re.fullmatch(r"[0-9a-f]{64}", str(step.get("sha256"))):
+                found.append(f"step {index}: {name} needs its sha256 (of a download somebody made and checked)")
+            if "sha1" in step and not re.fullmatch(r"[0-9a-f]{40}", str(step["sha1"])):
+                found.append(f"step {index}: sha1 of {name} is not a hash")
+            try:
+                age = (today - datetime.date.fromisoformat(step.get("released"))).days
+                if age < MIN_AGE_DAYS:
+                    found.append(f"step {index}: {name} was released {step['released']}, {age} days before {today}: "
+                                 f"releases are pinned once they are {MIN_AGE_DAYS} days old")
+            except (TypeError, ValueError):
+                found.append(f"step {index}: {name} must say when it was released (YYYY-MM-DD)")
+        elif verb == "unpack":
+            if step["unpack"] not in fetched or step["unpack"] in unpacked_files:
+                found.append(f"step {index}: {step['unpack']} is unpacked once, after its fetch")
+            unpacked_files.add(step["unpack"])
+            strip = step.get("strip", 0)
+            if isinstance(strip, bool) or not isinstance(strip, int) or not 0 <= strip <= 8:
+                found.append(f"step {index}: strip is 0 to 8")
+        elif verb in ("write", "chmod") and step.get("mode", "644") not in ("644", "755"):
+            found.append(f"step {index}: mode is 644 or 755")
+    unused = sorted(fetched - unpacked_files)
+    if unused:
+        found.append(f"fetched and never unpacked: {', '.join(unused)}")
+    return found
+
+
+def local_recipe(recipe: dict) -> dict:
+    """What sandbox-ai runs of a local RECIPE, in the form its reader checks and hashes (every key written out):
+    {"terms": ID or None, "vars": {...}, "steps": [...]} - the fetches without "released" (ours to check, not its)."""
+    steps = []
+    for step in recipe["build"]:
+        if "fetch" in step:
+            steps.append({key: step[key] for key in ("fetch", "url", "size", "sha256", "sha1") if key in step})
+        elif "unpack" in step:
+            steps.append({"unpack": step["unpack"], "to": step.get("to", "."), "strip": step.get("strip", 0)})
+        elif "write" in step:
+            steps.append({"write": step["write"], "text": step["text"], "mode": step.get("mode", "644")})
+        elif "link" in step:
+            steps.append({"link": step["link"], "to": step["to"]})
+        else:
+            steps.append({"chmod": step["chmod"], "mode": step["mode"]})
+    return {"terms": recipe.get("terms"), "vars": dict(sorted((recipe.get("vars") or {}).items())), "steps": steps}
+
+
+def local_digest(name: str, version: str, arch: str, recipe: dict) -> str:
+    """The SHA-256 that names the tree of a local recipe in sandbox-ai's store (its toolchain_recipes.digest: the
+    same bytes hashed): one changed URL, hash or text is another recipe."""
+    document = json.dumps({"name": name, "version": version, "arch": arch, "recipe": recipe}, sort_keys=True,
+                          separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(document.encode("ascii")).hexdigest()
+
+
+def local_entry(ident: str, arch: str, root: Path = ROOT) -> dict:
+    """The entry of toolchains.json "recipes" of the local recipe IDENT for ARCH: its manifest, the recipe, the
+    SHA-256 that names it, what it downloads ("size") and what its tree takes ("unpacked")."""
+    recipe = load(ident, root)
+    if not is_local(recipe) or arch not in (recipe.get("arches") or []):
+        raise Refused(f"{ident}: no local recipe for {arch}")
+    made = local_recipe(recipe)
+    return {**manifest(recipe, arch), "sha256": local_digest(recipe["name"], recipe["version"], arch, made),
+            "size": sum(step["size"] for step in made["steps"] if "fetch" in step), "unpacked": recipe["unpacked"],
+            "sources": [], "recipe": made}
+
+
 def for_arch(value, arch: str, what: str):
     """VALUE, or its entry for ARCH when it is a map by architecture."""
     if isinstance(value, dict):
@@ -244,6 +389,11 @@ def problems_of(recipe: dict, today: datetime.date) -> list[str]:
             found.append(str(exc))
     if not isinstance(recipe.get("commands"), dict) or not recipe["commands"]:
         found.append("commands must map command names to files below the prefix")
+    if is_local(recipe):  # run by sandbox-ai on the user's machine: its own, smaller set of steps
+        return [f"{name}: {problem}" for problem in found + local_problems(recipe, today)]
+    for key in ("local", "terms", "unpacked"):
+        if key in recipe:
+            found.append(f"{key} is for a recipe with \"local\": true")
     steps = recipe.get("build")
     if not isinstance(steps, list) or not steps:
         return found + ["build must be a list of steps"]
@@ -299,10 +449,18 @@ def problems_of(recipe: dict, today: datetime.date) -> list[str]:
                 found.append(f"step {index}: the keys {step.get('keys')} are pinned neither by a hash nor by "
                              "fingerprints")
             verified.add(step.get("gpg"))
-        elif verb == "unpack":
-            used.add(step["unpack"])
-            if step["unpack"] not in verified:
-                found.append(f"step {index}: {step['unpack']} is unpacked before a hash or a signature vouched for it")
+        elif verb in ("unpack", "copy"):
+            used.add(step[verb])
+            if step[verb] not in verified:
+                found.append(f"step {index}: {step[verb]} is used before a hash or a signature vouched for it")
+        elif verb == "replace":
+            if not all(isinstance(step.get(key), str) and step[key] for key in ("replace", "line")) or \
+                    not isinstance(step.get("with"), str) or "\n" in step["line"] + step["with"]:
+                found.append(f"step {index}: replace PATH needs \"line\" (how the lines begin) and \"with\" (one line)")
+    packages = recipe.get("smoke_apt", [])
+    if not isinstance(packages, list) or not all(isinstance(value, str) and APT_PACKAGE.fullmatch(value)
+                                                 for value in packages):
+        found.append("smoke_apt must be a list of Debian package names")
     if not any(isinstance(step, dict) and step.get("released") for step in steps):
         found.append("no fetch step says when its release was made (released)")
     named = {value for step in steps if isinstance(step, dict)
@@ -471,7 +629,9 @@ def unpack(archive: Path, top: Path, strip: int = 0, only=()) -> None:
                     with source.open(info) as stream:
                         write_member(path, stream, mode)
         return
-    with tarfile.open(archive, mode="r:*") as source:
+    with open(archive, "rb") as stream:
+        seven_zip = stream.read(len(SEVEN_ZIP)) == SEVEN_ZIP
+    with tar_of(archive, seven_zip) as source:
         for member in source:
             parts = safe_relative(member.name, strip)
             if parts is None or not wanted(parts, only):
@@ -495,6 +655,37 @@ def unpack(archive: Path, top: Path, strip: int = 0, only=()) -> None:
                 shutil.copyfile(origin, path)
                 os.chmod(path, stat.S_IMODE(origin.stat().st_mode))
             # devices, FIFOs and anything else are left out
+
+
+@contextlib.contextmanager
+def tar_of(archive: Path, seven_zip: bool = False, run=subprocess.Popen):
+    """ARCHIVE as a tarfile to read member by member. A 7z archive goes through bsdtar (libarchive), which decodes
+    it and writes a tar stream to a pipe: it writes no file, and what it decoded is unpacked like any tar."""
+    if not seven_zip:
+        with tarfile.open(archive, mode="r:*") as source:
+            yield source
+        return
+    bsdtar = shutil.which("bsdtar")
+    if not bsdtar:
+        raise Refused(f"{archive.name} is a 7z archive: bsdtar (libarchive-tools) is needed to read it")
+    process = run([bsdtar, "-c", "-f", "-", "--format", "pax", f"@{archive}"], stdin=subprocess.DEVNULL,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        with tarfile.open(fileobj=process.stdout, mode="r|") as source:
+            yield source
+            for _ in source:  # (to the end of the stream: bsdtar's status then says whether it read everything)
+                pass
+    except tarfile.TarError as exc:
+        process.kill()
+        raise Refused(f"{archive.name}: bsdtar could not read it "
+                      f"({process.stderr.read().decode('utf-8', 'replace').strip()[-300:] or exc})") from None
+    finally:
+        process.stdout.close()
+        errors = process.stderr.read().decode("utf-8", "replace").strip()
+        process.stderr.close()
+        status = process.wait()
+    if status != 0:
+        raise Refused(f"{archive.name}: bsdtar could not read it ({errors[-300:] or status})")
 
 
 def inside(tree: Path, value: str) -> Path:
@@ -590,6 +781,25 @@ def run_steps(recipe: dict, arch: str, tree: Path, downloads: Path, opener=None,
                         merge(part, target)
             else:
                 unpack(fetched(name), target, int(step.get("strip", 0)), [text(v) for v in step.get("only", [])])
+        elif "copy" in step:
+            name = step["copy"]
+            if name not in verified:
+                raise Refused(f"step {index}: {name} is copied before a hash or a signature vouched for it")
+            path = inside(tree, text(step["to"]))
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.is_symlink() or path.is_dir():
+                raise Refused(f"step {index}: {text(step['to'])} is a folder or a link")
+            shutil.copyfile(fetched(name), path)
+            os.chmod(path, 0o755 if step.get("mode") == "755" else 0o644)
+        elif "replace" in step:
+            path = inside(tree, text(step["replace"]))
+            if path.is_symlink() or not path.is_file():
+                raise Refused(f"step {index}: {text(step['replace'])} is no file of the tree")
+            start, lines = text(step["line"]), path.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not any(line.startswith(start) for line in lines):
+                raise Refused(f"step {index}: {text(step['replace'])} has no line that begins with {start!r}")
+            path.write_text("".join(text(step["with"]) + "\n" if line.startswith(start) else line for line in lines),
+                            encoding="utf-8")
         elif "write" in step:
             path = inside(tree, text(step["write"]))
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -753,6 +963,29 @@ def needs_problems(recipe: dict, found: dict, arch: str) -> list[str]:
 # --- the archive -----------------------------------------------------------------------------------------------
 
 
+def python_path_problems(recipe: dict, tree: Path) -> list[str]:
+    """What is wrong with the folder a toolchain puts on Python's module path (env PYTHONPATH={prefix}/FOLDER, which
+    sandbox-ai takes only so): it must be a folder of the tree, and nothing in it may be named as a module of
+    Python's standard library, sitecustomize or usercustomize - every Python process of the sandbox would load it
+    instead of its own."""
+    value = (recipe.get("env") or {}).get("PYTHONPATH")
+    if value is None:
+        return []
+    if not re.fullmatch(r"\{prefix\}(?:/[A-Za-z0-9_+@-][A-Za-z0-9._+@-]*)+", value):
+        return [f"env PYTHONPATH is {value!r}: only one folder of the toolchain's own tree ({{prefix}}/FOLDER)"]
+    folder = tree / value[len("{prefix}/"):]
+    if folder.is_symlink() or not folder.is_dir():
+        return [f"env PYTHONPATH names {value}, which is no folder of the tree"]
+    standard = getattr(sys, "stdlib_module_names", frozenset({"os", "sys", "site", "json", "re", "io", "abc", "ssl",
+                                                              "types", "typing", "codecs", "encodings",
+                                                              "importlib", "collections", "subprocess"}))
+    shadows = sorted(entry.name for entry in folder.iterdir()
+                     if entry.name.split(".")[0] in standard or entry.name.split(".")[0] in ("sitecustomize",
+                                                                                              "usercustomize"))
+    return [f"{value} holds {', '.join(shadows[:5])}: a module of that name is Python's own (or runs at every "
+            "start of Python)"] if shadows else []
+
+
 def tree_size(tree: Path) -> int:
     return sum(path.lstat().st_size for path in tree.rglob("*") if path.is_file() and not path.is_symlink())
 
@@ -798,6 +1031,9 @@ def build(ident: str, arch: str, out: Path, downloads: Path | None = None, today
     """The recipe IDENT (NAME or NAME@LINE) for ARCH: OUT/toolchain-IDENT-ARCH.tar.xz and .json."""
     recipe = load(ident, root)
     name = recipe["name"]
+    if is_local(recipe):
+        raise Refused(f"{name} is built on the user's machine (\"local\": its tools may not be passed on): there is "
+                      "no archive to build here; toolchains.json publishes its recipe (scripts/make_toolchains.py)")
     today = today or datetime.date.today()
     problems = problems_of(recipe, today)
     if arch not in (recipe.get("arches") or []):
@@ -816,7 +1052,7 @@ def build(ident: str, arch: str, out: Path, downloads: Path | None = None, today
     if not_runnable:
         raise Refused(f"{name}: {not_runnable[0]} is not executable")
     found = measured(tree, arch, recipe.get("optional") or [])
-    problems = needs_problems(recipe, found, arch)
+    problems = needs_problems(recipe, found, arch) + python_path_problems(recipe, tree)
     if problems:
         raise Refused(f"{name}: " + "; ".join(problems))
     archive = out / f"toolchain-{ident}-{arch}.tar.xz"
@@ -827,7 +1063,7 @@ def build(ident: str, arch: str, out: Path, downloads: Path | None = None, today
              "url": f"{RELEASES}/toolchain-{name}-{arch}-{sha[:12]}/toolchain-{name}-{arch}.tar.xz", "sha256": sha,
              "size": archive.stat().st_size, "unpacked": tree_size(tree), "sources": sources}
     meta = {"entry": entry, "measured": {key: found[key] for key in ("glibc", "libraries", "optional")},
-            "smoke": recipe.get("smoke") or []}
+            "smoke": recipe.get("smoke") or [], "smoke_apt": recipe.get("smoke_apt") or []}
     (out / f"toolchain-{ident}-{arch}.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return meta
 
@@ -863,6 +1099,7 @@ def main(argv=None) -> int:
     checker.add_argument("--root", type=Path, default=ROOT)
     lister = commands.add_parser("ids")
     lister.add_argument("--root", type=Path, default=ROOT)
+    lister.add_argument("--built", action="store_true", help="only those built here (not the local recipes)")
     needer = commands.add_parser("requires")
     needer.add_argument("name", metavar="ID")
     needer.add_argument("--root", type=Path, default=ROOT)
@@ -870,7 +1107,7 @@ def main(argv=None) -> int:
     today = datetime.date.fromisoformat(opts.date) if getattr(opts, "date", None) else datetime.date.today()
     try:
         if opts.command == "ids":
-            print("\n".join(recipe_ids(opts.root)))
+            print("\n".join(built_ids(opts.root) if opts.built else recipe_ids(opts.root)))
             return 0
         if opts.command == "requires":
             print(" ".join(requires(opts.name, opts.root)))

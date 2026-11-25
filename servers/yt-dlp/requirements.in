@@ -1,0 +1,4 @@
+mcp==1.30.0
+# yt-dlp without extras: pure Python, no dependency (its own urllib networking; no requests, curl-cffi, websockets,
+# yt-dlp-ejs or deno)
+yt-dlp==2026.10.26

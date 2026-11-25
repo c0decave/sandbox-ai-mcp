@@ -1,0 +1,109 @@
+{
+  "name": "maigret",
+  "network": "full",
+  "expect_tools": [
+    "search_username",
+    "check_site",
+    "list_sites",
+    "list_tags"
+  ],
+  "calls": [
+    {
+      "tool": "list_tags",
+      "arguments": {},
+      "expect": "of 5897 sites are checked by this server"
+    },
+    {
+      "tool": "list_sites",
+      "arguments": {
+        "name_filter": "github"
+      },
+      "expect": "GitHub  https://www.github.com/  #10  [business, coding, networking]"
+    },
+    {
+      "tool": "list_sites",
+      "arguments": {
+        "name_filter": "twitter"
+      },
+      "expect": "not checked: needs maigret's activation (tokens fetched from the site)"
+    },
+    {
+      "tool": "list_sites",
+      "arguments": {
+        "tag": "coding"
+      },
+      "expect": "with tag coding"
+    },
+    {
+      "tool": "check_site",
+      "arguments": {
+        "username": "blue",
+        "site": "GitHub"
+      },
+      "expect": "GitHub: found - HTTP 200",
+      "upstream_limited": [
+        "GitHub: error - Access denied",
+        "GitHub: error - Rate limited",
+        "GitHub: error - Server"
+      ]
+    },
+    {
+      "tool": "check_site",
+      "arguments": {
+        "username": "noonewouldeverusethis7",
+        "site": "GitHub"
+      },
+      "expect": "GitHub: not found - HTTP 404",
+      "upstream_limited": [
+        "GitHub: error - Access denied",
+        "GitHub: error - Rate limited",
+        "GitHub: error - Server"
+      ]
+    },
+    {
+      "tool": "search_username",
+      "arguments": {
+        "username": "blue",
+        "limit": 20,
+        "tags": "coding"
+      },
+      "expect": "'blue' on sites 1-20 of ",
+      "timeout": 90
+    },
+    {
+      "tool": "search_username",
+      "arguments": {
+        "username": "../admin"
+      },
+      "expect": "username: letters, digits",
+      "expect_error": true
+    },
+    {
+      "tool": "search_username",
+      "arguments": {
+        "username": "blue",
+        "tags": "no-such-tag"
+      },
+      "expect": "tags: unknown no-such-tag",
+      "expect_error": true
+    },
+    {
+      "tool": "check_site",
+      "arguments": {
+        "username": "blue",
+        "site": "Twitter"
+      },
+      "expect": "Twitter is not checked by this server",
+      "expect_error": true
+    },
+    {
+      "tool": "check_site",
+      "arguments": {
+        "username": "blue",
+        "site": "NoSuchSite"
+      },
+      "expect": "no site 'NoSuchSite' in maigret's database",
+      "expect_error": true
+    }
+  ]
+}

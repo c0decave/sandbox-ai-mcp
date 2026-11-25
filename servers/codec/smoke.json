@@ -1,0 +1,104 @@
+{
+  "name": "codec",
+  "network": "none",
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "expect_tools": [
+    "detect",
+    "run_recipe"
+  ],
+  "calls": [
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          "from_base64",
+          "gunzip",
+          {
+            "op": "xor",
+            "key": "41"
+          }
+        ],
+        "input": "H4sIAAAAAAAC/1PXVVCzsiw0llPQV5VTs9YwtAEANRtaJBIAAAA="
+      },
+      "expect": "flag{x0r_and_gzip}"
+    },
+    {
+      "tool": "detect",
+      "arguments": {
+        "input": "H4sIAAAAAAAC/1PXVVCzsiw0llPQV5VTs9YwtAEANRtaJBIAAAA="
+      },
+      "expect": "\"then_looks_like\": [\n     \"gzip\"\n    ]"
+    },
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          {
+            "op": "hash",
+            "algorithm": "sha256"
+          }
+        ],
+        "input": "abc"
+      },
+      "expect": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          "jwt_decode"
+        ],
+        "input": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJhbmEifQ."
+      },
+      "expect": "\"sub\": \"ana\""
+    },
+    {
+      "tool": "detect",
+      "arguments": {
+        "path": "/work/firmware.bin"
+      },
+      "expect": "bits per byte (6041 bytes"
+    },
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          {
+            "op": "strings",
+            "min_length": 8
+          }
+        ],
+        "path": "hello"
+      },
+      "expect": "MCPHUB-TEST-MARKER"
+    },
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          "reverse"
+        ],
+        "path": "../etc/passwd"
+      },
+      "expect": "no '..'",
+      "expect_error": true
+    },
+    {
+      "tool": "run_recipe",
+      "arguments": {
+        "recipe": [
+          "from_base64",
+          "bunzip2"
+        ],
+        "input": "QlpoOTFBWSZTWdCQ7vEAiIjAAMACAAggADDMBSmmhCENhEIQ8XckU4UJDQkO7xA="
+      },
+      "expect": "unpacks to more than 16 MiB",
+      "expect_error": true
+    }
+  ]
+}

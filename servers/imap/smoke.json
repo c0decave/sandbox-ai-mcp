@@ -1,0 +1,69 @@
+{
+  "name": "imap",
+  "network": "none",
+  "env": {
+    "IMAP_HOST": "127.0.0.1",
+    "IMAP_PORT": "9",
+    "IMAP_USER": "smoke@example.org",
+    "IMAP_PASSWORD": "smoke-password"
+  },
+  "expect_tools": [
+    "list_attachments",
+    "list_folders",
+    "read_message",
+    "search_messages"
+  ],
+  "calls": [
+    {
+      "tool": "list_folders",
+      "arguments": {},
+      "expect": "cannot reach 127.0.0.1:9",
+      "expect_error": true
+    },
+    {
+      "tool": "search_messages",
+      "arguments": {
+        "folder": "INBOX",
+        "subject": "invoice",
+        "since": "2026-11-01",
+        "limit": 10
+      },
+      "expect": "cannot reach 127.0.0.1:9",
+      "expect_error": true
+    },
+    {
+      "tool": "read_message",
+      "arguments": {
+        "uid": 101,
+        "folder": "INBOX",
+        "max_chars": 5000
+      },
+      "expect": "cannot reach 127.0.0.1:9",
+      "expect_error": true
+    },
+    {
+      "tool": "list_attachments",
+      "arguments": {
+        "uid": 101
+      },
+      "expect": "cannot reach 127.0.0.1:9",
+      "expect_error": true
+    },
+    {
+      "tool": "read_message",
+      "arguments": {
+        "uid": 0
+      },
+      "expect": "uid: a message's uid",
+      "expect_error": true
+    },
+    {
+      "tool": "search_messages",
+      "arguments": {
+        "subject": "x\r\nA1 EXPUNGE"
+      },
+      "expect": "subject: one line",
+      "expect_error": true
+    }
+  ]
+}

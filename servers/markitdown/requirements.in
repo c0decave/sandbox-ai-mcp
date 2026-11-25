@@ -1,0 +1,25 @@
+mcp==1.30.0
+# the versions of the shared lock (servers/duckduckgo) and of the reviewed lock of servers/youtube-transcript
+anyio==4.15.1
+click==8.5.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-multipart==0.0.32
+sse-starlette==3.5.0
+starlette==1.9.0
+typing-inspection==0.4.4
+requests==2.34.2
+urllib3==2.8.0
+charset-normalizer==3.5.2
+idna==3.20
+certifi==2026.10.23
+defusedxml==0.7.1
+six==1.17.0
+# new here (reviewed for this server, PROVENANCE.md); every pin published before 2026-11-11
+markitdown==0.1.9
+beautifulsoup4==4.15.0
+soupsieve==4.1
+markdownify==1.2.3
+mammoth==1.13.0
+cobble==0.1.4
+pdfminer.six==20260107

@@ -11,7 +11,7 @@
 | Signing and aligning | Debian trixie `zipalign=1:10.0.0+r36-1.1` (android-platform-build), `libapksig-java=35.0.2-1` and the one jar of `apksigner=35.0.2-1` (android-platform-tools-apksig, Apache-2.0), with `keytool` of the JRE |
 | Java | Debian trixie `openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1` (trixie-security; the same as servers/jadx and servers/cfr; 21.0.13.1+2-1~deb13u1 replaced 21.0.13+9-1~deb13u2 on 2026-11-21, in which CI's Trivy found the CRITICAL CVE-2026-114820 and CVE-2026-114938) |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line) |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), `unzip=6.0-29+deb13u1` (build stage), the JRE and Android tools above |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), `unzip=6.0-29+deb13u1` (build stage), the JRE and Android tools above |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as the other servers') |
 
 ## Every jar of `/opt/smali`

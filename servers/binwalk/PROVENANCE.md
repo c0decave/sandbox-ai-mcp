@@ -328,3 +328,6 @@ All fixed test-first (`tests/test_review_group_a.py`, each test failed before it
   replacement now. Each of the 100 stored results kept all of binwalk's output: 64 KiB now (32 MiB read at most per
   stream); stderr in an answer: its last 4,000 characters. A refused call, an unknown scan and an unknown tool are
   errors (`isError`) instead of ordinary answers; `binwalk_entropy` counts against the concurrent scans.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

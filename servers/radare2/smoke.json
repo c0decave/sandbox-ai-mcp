@@ -47,6 +47,197 @@
       "expect": "hunter2"
     },
     {
+      "tool": "show_info",
+      "arguments": {},
+      "expect": "class    ELF64"
+    },
+    {
+      "tool": "list_sections",
+      "arguments": {},
+      "expect": ".text"
+    },
+    {
+      "tool": "list_imports",
+      "arguments": {},
+      "expect": "strcmp"
+    },
+    {
+      "tool": "list_exports",
+      "arguments": {},
+      "expect": "0x00001159 29 check_password"
+    },
+    {
+      "tool": "list_symbols",
+      "arguments": {},
+      "expect": "0x00000000 0 hello.c"
+    },
+    {
+      "tool": "list_entrypoints",
+      "arguments": {},
+      "expect": "0x00001176  main"
+    },
+    {
+      "tool": "list_libraries",
+      "arguments": {},
+      "expect": "libc.so.6"
+    },
+    {
+      "tool": "list_classes",
+      "arguments": {},
+      "expect": "",
+      "expect_ok": true
+    },
+    {
+      "tool": "list_methods",
+      "arguments": {
+        "classname": "Example"
+      },
+      "expect": "",
+      "expect_ok": true
+    },
+    {
+      "tool": "list_functions_tree",
+      "arguments": {},
+      "expect": "sym.check_password:\nsym.imp.strcmp"
+    },
+    {
+      "tool": "list_all_strings",
+      "arguments": {},
+      "expect": "GLIBC_2.34"
+    },
+    {
+      "tool": "list_memory_maps",
+      "arguments": {},
+      "expect": "Debugger commands disabled in sandbox mode"
+    },
+    {
+      "tool": "list_files",
+      "arguments": {
+        "path": "/work"
+      },
+      "expect": "Sandbox forbids listing directories"
+    },
+    {
+      "tool": "list_decompilers",
+      "arguments": {},
+      "expect": "pdc"
+    },
+    {
+      "tool": "use_decompiler",
+      "arguments": {
+        "name": "pdc"
+      },
+      "expect": "ok"
+    },
+    {
+      "tool": "calculate",
+      "arguments": {
+        "expression": "sym.check_password + 4"
+      },
+      "expect": "0x115d"
+    },
+    {
+      "tool": "disassemble",
+      "arguments": {
+        "address": "main",
+        "num_instructions": 5
+      },
+      "expect": "call sym.check_password"
+    },
+    {
+      "tool": "disassemble_function",
+      "arguments": {
+        "address": "sym.check_password"
+      },
+      "expect": "lea rsi, str.hunter2"
+    },
+    {
+      "tool": "xrefs_to",
+      "arguments": {
+        "address": "sym.check_password"
+      },
+      "expect": "main 0x1183 [CALL:--x] call sym.check_password"
+    },
+    {
+      "tool": "get_function_prototype",
+      "arguments": {
+        "address": "sym.check_password"
+      },
+      "expect": "void sym.check_password ()"
+    },
+    {
+      "tool": "set_function_prototype",
+      "arguments": {
+        "address": "sym.check_password",
+        "prototype": "int check_password(const char *input)"
+      },
+      "expect": "ok"
+    },
+    {
+      "tool": "get_function_prototype",
+      "arguments": {
+        "address": "sym.check_password"
+      },
+      "expect": "int check_password (const char *input);"
+    },
+    {
+      "tool": "set_comment",
+      "arguments": {
+        "address": "sym.check_password",
+        "message": "compares the input with hunter2"
+      },
+      "expect": "ok"
+    },
+    {
+      "tool": "disassemble",
+      "arguments": {
+        "address": "sym.check_password",
+        "num_instructions": 3
+      },
+      "expect": "; compares the input with hunter2"
+    },
+    {
+      "tool": "rename_function",
+      "arguments": {
+        "address": "sym.check_password",
+        "name": "verify_password"
+      },
+      "expect": "ok"
+    },
+    {
+      "tool": "list_functions",
+      "arguments": {
+        "only_named": true
+      },
+      "expect": "0x00001159 verify_password"
+    },
+    {
+      "tool": "rename_flag",
+      "arguments": {
+        "address": "main",
+        "name": "str.hunter2",
+        "new_name": "str.the_secret"
+      },
+      "expect": "ok"
+    },
+    {
+      "tool": "disassemble_function",
+      "arguments": {
+        "address": "verify_password"
+      },
+      "expect": "lea rsi, str.the_secret"
+    },
+    {
+      "tool": "get_current_address",
+      "arguments": {},
+      "expect": "0x"
+    },
+    {
+      "tool": "show_function_details",
+      "arguments": {},
+      "expect": "addr: 0x"
+    },
+    {
       "tool": "open_file",
       "arguments": {
         "file_path": "/etc/passwd"
@@ -61,6 +252,11 @@
       },
       "expect": "Failed to open file",
       "expect_error": true
+    },
+    {
+      "tool": "close_file",
+      "arguments": {},
+      "expect": "File closed successfully."
     }
   ]
 }

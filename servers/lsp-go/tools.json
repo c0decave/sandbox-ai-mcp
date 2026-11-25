@@ -1,0 +1,10 @@
+{
+  "tools": [
+    "definition",
+    "diagnostics",
+    "document_symbols",
+    "hover",
+    "references",
+    "workspace_symbols"
+  ]
+}

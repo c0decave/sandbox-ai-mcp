@@ -44,6 +44,10 @@ COPY --from=build /opt/playwright-mcp /opt/playwright-mcp
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-playwright/
 RUN useradd --uid 10001 --user-group --no-create-home --home-dir /tmp --shell /usr/sbin/nologin mcp
 ENV HOME=/tmp
+# /etc/hosts of its own (a COPY: a build mounts its own over the image's; Podman and Docker mount theirs at run
+# time): the Bubblewrap form has the file sandbox-ai binds an allowlist server's pinned hosts onto, and resolvers
+# that read it (Ruby's) find it there.
+COPY hosts /etc/hosts
 # The usual mount targets exist in every image (a read-only rootfs under Bubblewrap cannot create them).
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001

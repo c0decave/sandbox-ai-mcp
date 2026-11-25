@@ -6,7 +6,7 @@
 | Upstream reviewed | PyPI wheel `mcp_server_time-2026.10.28-py3-none-any.whl`, uploaded 2026-10-28 21:06 UTC (21 days before this review), SHA-256 `4b8a1865e8c45da2d2247e72ca83ea087e5c8bc597c9ca93c63e9103aeb46c31`; its three modules are byte-identical to `src/time/src/mcp_server_time/` of commit `74af74c8ba3bfd27f3b0d9ae6c7e4c43965e7859` ("chore: stamp Python CalVer versions for 2026.10.28", 2026-10-28 18:49 UTC) and to the sdist (`b2b62b44...42cf3`): `server.py` SHA-256 `4bc15c31a98b694ad9c2abeaf75277f9cbeb5716d81989d8d7d7623bc175a095`, `__init__.py` `54a9c499...2ff12d`, `__main__.py` `1432ee99...2ca6c7` |
 | Why not newer | 2026.11.4 (uploaded 2026-11-04 21:34 UTC) is 14 days old only on 2026-11-18 21:34 UTC, after this review; 2026.11.11 and 2026.11.18 are too new |
 | Python packages | `requirements.txt`, hash-locked (`requirements.in`): the MCP Python SDK **2.3.0** lock of servers/osint-mcp, reviewed there (same versions of every shared package), plus `mcp-server-time` 2026.10.28, `tzdata` 2026.6 (2026-10-28, IANA 2026f) and `tzlocal` 5.4.5 (2026-10-22); every pin was published before 2026-11-04 (locked with `--exclude-newer 2026-11-04`) |
-| Debian packages | `python3=3.13.5-1` (no `ca-certificates`: no network) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1` (no `ca-certificates`: no network) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## The review (2026-11-18)

@@ -1,0 +1,32 @@
+{
+  "tools": [
+    "get_commit",
+    "get_file_contents",
+    "get_issue",
+    "get_pull_request",
+    "get_repository",
+    "get_workflow_run_logs",
+    "list_commits",
+    "list_issues",
+    "list_pull_requests",
+    "list_releases",
+    "list_workflow_runs",
+    "search_code",
+    "search_repositories"
+  ],
+  "read_only_tools": [
+    "get_commit",
+    "get_file_contents",
+    "get_issue",
+    "get_pull_request",
+    "get_repository",
+    "get_workflow_run_logs",
+    "list_commits",
+    "list_issues",
+    "list_pull_requests",
+    "list_releases",
+    "list_workflow_runs",
+    "search_code",
+    "search_repositories"
+  ]
+}

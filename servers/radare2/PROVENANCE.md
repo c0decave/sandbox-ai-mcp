@@ -250,3 +250,11 @@ files are `tests/fixtures/analysis-files.json` (base64, pinned by SHA-256; `scri
 writes them), self-made test files from the hub's smoke
 spec - no third-party samples, no malware. They are read by the tool inside its container and never
 executed.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).
+
+Bubblewrap form: r2mcp's flags (`-s /work -g none -N` and one `-e` per tool, 70 words) are in `r2mcp-run`, a
+`/bin/sh` script of one command that `exec`s r2mcp with exactly them and passes nothing on (no `"$@"`): sandbox-ai's
+Bubblewrap form takes at most 32 words of an ENTRYPOINT (`mcp_rootfs.validated`), which the 70 words had exceeded,
+so radare2 had been published for Podman only (CI run 45043648569 left its rootfs out).

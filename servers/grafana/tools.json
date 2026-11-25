@@ -1,0 +1,24 @@
+{
+  "tools": [
+    "get_dashboard_summary",
+    "list_alert_rules",
+    "list_datasources",
+    "list_loki_label_values",
+    "list_prometheus_label_values",
+    "list_prometheus_metric_names",
+    "query_loki_logs",
+    "query_prometheus",
+    "search_dashboards"
+  ],
+  "read_only_tools": [
+    "get_dashboard_summary",
+    "list_alert_rules",
+    "list_datasources",
+    "list_loki_label_values",
+    "list_prometheus_label_values",
+    "list_prometheus_metric_names",
+    "query_loki_logs",
+    "query_prometheus",
+    "search_dashboards"
+  ]
+}

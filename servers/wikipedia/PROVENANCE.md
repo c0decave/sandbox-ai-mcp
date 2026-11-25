@@ -5,7 +5,7 @@
 | MCP server | this repository, `src/server.py` (MIT), our own (2026-11-18); no third-party MCP code |
 | Service | the MediaWiki Action API of `{lang}.wikipedia.org/w/api.php` (`list=search`; `prop=extracts|description|info|pageprops` with `explaintext`), no key, a descriptive User-Agent as Wikimedia's policy asks |
 | Python packages | the shared lock of this repository (`mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt`, the same as servers/duckduckgo's) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## Why our own and not a third-party server

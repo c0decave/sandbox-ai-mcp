@@ -8,7 +8,7 @@
 | Device binaries | the 12 release files below, each by the SHA-256 GitHub publishes for the asset (`ADD --checksum`), kept **as published** (xz) in `/opt/frida/<platform>/<abi>/` - 197 MiB |
 | adb | Debian trixie `adb=1:34.0.5-12` (android-platform-tools), run only against the adb server the human configured |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (the shared lock of the other servers, with `frida` added) |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), adb above |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), adb above |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as the other servers') |
 
 **Pinning rule (14 days):** Frida 17.25.2 was published on 2026-11-02 - 17 days before this was written, so it is

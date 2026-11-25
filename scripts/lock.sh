@@ -13,7 +13,11 @@ exec podman run --rm --cap-drop=ALL --security-opt=no-new-privileges --userns=ke
     for d in /servers/*/; do
       [ -f "$d/requirements.in" ] || continue
       echo "== $d"
-      uv pip compile -q --no-cache --generate-hashes --universal --python-version 3.13 \
+      # overrides.txt: dependencies a server leaves out on purpose (an impossible marker drops them; its image
+      # installs requirements.txt with --no-deps), e.g. markitdown without magika
+      overrides=
+      [ -f "$d/overrides.txt" ] && overrides="--override $d/overrides.txt"
+      uv pip compile -q --no-cache --generate-hashes --universal --python-version 3.13 $overrides \
         --custom-compile-command "scripts/lock.sh" -o "$d/requirements.txt" "$d/requirements.in"
       if [ -f "$d/requirements-build.in" ]; then
         uv pip compile -q --no-cache --generate-hashes --universal --python-version 3.13 \

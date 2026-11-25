@@ -138,3 +138,6 @@ into resource tools local models mistake for the server's tools, and `read_graph
 `open_nodes`) answers the whole match, text and structured content, without a bound. Both need a patch of
 `dist/index.js`; left for the re-pin to 2.1.x/2.2 (from 2026-11-18; 2.1.0 adds read modes to these tools), which
 changes that file anyway.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

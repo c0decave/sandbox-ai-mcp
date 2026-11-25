@@ -5,7 +5,7 @@
 | MCP server | this repository, `src/server.py` (MIT, `LICENSES/`), written for this repository and reviewed in full (below) |
 | Service | the AT Protocol: the account's PDS (`BLUESKY_PDS`, default `https://bsky.social`, Bluesky's entryway that serves every account Bluesky hosts) for the session and the writes, Bluesky's public AppView `https://public.api.bsky.app` for the reads, never with the session |
 | Python packages | `mcp==1.30.0` and its dependencies (httpx 0.28.1 among them), hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line; the same set youtube, gowitness and whatweb run) |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as web-fetch's and youtube's) |
 
 **Pinning rule:** no new third-party release comes in: the Python set is the lock the published web-fetch, youtube,

@@ -1,0 +1,4 @@
+# Dependencies markitdown declares that this image leaves out (an impossible marker drops them from the lock):
+# magika (Google's ONNX file-type model on onnxruntime and numpy) - src/convert.py stands in for it with the
+# file's extension; see PROVENANCE.md.
+magika ; python_version < "0"

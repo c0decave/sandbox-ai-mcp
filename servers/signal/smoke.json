@@ -56,5 +56,10 @@
       "expect": "since: a date like 2026-01-31",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "list_contacts": "needs a Signal account linked into the mounted /data (signal-cli); CI has none",
+    "list_conversations": "needs a Signal account linked into the mounted /data (signal-cli); CI has none",
+    "list_groups": "needs a Signal account linked into the mounted /data (signal-cli); CI has none"
+  }
 }

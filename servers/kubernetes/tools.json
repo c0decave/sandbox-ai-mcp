@@ -1,0 +1,20 @@
+{
+  "tools": [
+    "api_resources_list",
+    "cluster_info",
+    "events_list",
+    "namespaces_list",
+    "pods_log",
+    "resources_get",
+    "resources_list"
+  ],
+  "read_only_tools": [
+    "api_resources_list",
+    "cluster_info",
+    "events_list",
+    "namespaces_list",
+    "pods_log",
+    "resources_get",
+    "resources_list"
+  ]
+}

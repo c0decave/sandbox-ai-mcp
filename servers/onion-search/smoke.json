@@ -1,0 +1,48 @@
+{
+  "name": "onion-search",
+  "network": "full",
+  "expect_tools": [
+    "search_onion",
+    "onion_status"
+  ],
+  "calls": [
+    {
+      "tool": "onion_status",
+      "arguments": {},
+      "expect": "not behind a Tor profile"
+    },
+    {
+      "tool": "onion_status",
+      "arguments": {
+        "check": true
+      },
+      "expect": "check: not behind a Tor profile",
+      "expect_error": true
+    },
+    {
+      "tool": "search_onion",
+      "arguments": {
+        "query": "privacy forum"
+      },
+      "expect": "works only behind a Tor profile (start it with --vpn TOR_PROFILE)",
+      "expect_error": true
+    },
+    {
+      "tool": "search_onion",
+      "arguments": {
+        "query": "x",
+        "engine": "google"
+      },
+      "expect": "engine: \"ahmia\", \"duckduckgo\" or \"both\"",
+      "expect_error": true
+    },
+    {
+      "tool": "search_onion",
+      "arguments": {
+        "query": "one two three four five six seven eight nine ten eleven"
+      },
+      "expect": "query: at most 10 words",
+      "expect_error": true
+    }
+  ]
+}

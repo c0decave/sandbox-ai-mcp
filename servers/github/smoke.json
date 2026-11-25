@@ -1,0 +1,250 @@
+{
+  "name": "github",
+  "network": "none",
+  "env": {
+    "GITHUB_API_URL": "https://127.0.0.1:9",
+    "GITHUB_TOKEN": "smoke-test-placeholder-not-a-token"
+  },
+  "expect_tools": [
+    "get_file_contents",
+    "get_pull_request",
+    "get_workflow_run_logs",
+    "search_code",
+    "search_repositories"
+  ],
+  "calls": [
+    {
+      "tool": "search_repositories",
+      "arguments": {
+        "query": "http client language:python",
+        "sort": "stars"
+      },
+      "expect": "127.0.0.1:9/search/repositories",
+      "expect_error": true
+    },
+    {
+      "tool": "get_repository",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World",
+      "expect_error": true
+    },
+    {
+      "tool": "get_file_contents",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "path": "docs/README.md",
+        "ref": "main"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/contents/docs/README.md",
+      "expect_error": true
+    },
+    {
+      "tool": "get_file_contents",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/contents",
+      "expect_error": true
+    },
+    {
+      "tool": "list_issues",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "state": "all",
+        "labels": "bug"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/issues",
+      "expect_error": true
+    },
+    {
+      "tool": "get_issue",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "issue_number": 1
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/issues/1",
+      "expect_error": true
+    },
+    {
+      "tool": "list_pull_requests",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "base_branch": "main"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/pulls",
+      "expect_error": true
+    },
+    {
+      "tool": "get_pull_request",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "pull_number": 2
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/pulls/2",
+      "expect_error": true
+    },
+    {
+      "tool": "get_pull_request",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "pull_number": 2,
+        "section": "files"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/pulls/2/files",
+      "expect_error": true
+    },
+    {
+      "tool": "get_pull_request",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "pull_number": 2,
+        "section": "diff",
+        "offset": 0
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/pulls/2",
+      "expect_error": true
+    },
+    {
+      "tool": "get_pull_request",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "pull_number": 2,
+        "section": "review_comments"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/pulls/2/comments",
+      "expect_error": true
+    },
+    {
+      "tool": "get_pull_request",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "pull_number": 2,
+        "section": "comments"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/issues/2/comments",
+      "expect_error": true
+    },
+    {
+      "tool": "list_commits",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "ref": "feature/x",
+        "path": "src",
+        "since": "2026-01-01"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/commits",
+      "expect_error": true
+    },
+    {
+      "tool": "get_commit",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "ref": "7fd1a60b01f91b314f59955a4e4d4e80d8edf11d"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/commits/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+      "expect_error": true
+    },
+    {
+      "tool": "search_code",
+      "arguments": {
+        "query": "addClass repo:jquery/jquery"
+      },
+      "expect": "127.0.0.1:9/search/code",
+      "expect_error": true
+    },
+    {
+      "tool": "list_workflow_runs",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "workflow": "ci.yml",
+        "status": "failure"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/actions/workflows/ci.yml/runs",
+      "expect_error": true
+    },
+    {
+      "tool": "get_workflow_run_logs",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "run_id": 30433642
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/actions/runs/30433642",
+      "expect_error": true
+    },
+    {
+      "tool": "get_workflow_run_logs",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "run_id": 30433642,
+        "job_id": 399444496
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/actions/jobs/399444496/logs",
+      "expect_error": true
+    },
+    {
+      "tool": "list_releases",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World"
+      },
+      "expect": "127.0.0.1:9/repos/octocat/Hello-World/releases",
+      "expect_error": true
+    },
+    {
+      "tool": "get_file_contents",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "path": "docs/../../../users/octocat"
+      },
+      "expect": "path: a path inside the repository without '.', '..'",
+      "expect_error": true
+    },
+    {
+      "tool": "get_repository",
+      "arguments": {
+        "owner": "octocat/../..",
+        "repo": "x"
+      },
+      "expect": "owner: a user or organisation name",
+      "expect_error": true
+    },
+    {
+      "tool": "get_commit",
+      "arguments": {
+        "owner": "octocat",
+        "repo": "Hello-World",
+        "ref": "main..evil"
+      },
+      "expect": "ref: a branch, tag or commit SHA",
+      "expect_error": true
+    },
+    {
+      "tool": "get_repository",
+      "arguments": {
+        "owner": "octocat",
+        "repo": ".."
+      },
+      "expect": "repo: a repository name",
+      "expect_error": true
+    }
+  ]
+}

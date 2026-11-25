@@ -338,7 +338,7 @@ class TheServers(unittest.TestCase):
             used |= set(re.findall(r"\$\{([A-Z0-9_]+)\}", spec.read_text()))
         steps = [chunk for chunk in workflow.split("\n      - ") if "scripts/smoke_test.py" in chunk
                  and "--list-only" not in chunk]
-        self.assertEqual(len(steps), 3, "docker, sandbox-ai under Podman, sandbox-ai under Bubblewrap")
+        self.assertEqual(len(steps), 4, "docker, sandbox-ai under Podman, without the host's init, under Bubblewrap")
         for step in steps:
             for name in sorted(used):
                 with self.subTest(step=step.split("\n", 1)[0], variable=name):

@@ -1,0 +1,65 @@
+{
+  "id": "mcp:imap",
+  "name": "imap",
+  "title": "IMAP e-mail (read-only)",
+  "description": "One mailbox over IMAP, read-only (our own server on Python's imaplib): list_folders (with message and unread counts), search_messages (from, to, subject, text, dates, unread, flagged - newest first with uid, date, sender, subject, size), read_message (headers and the text of one message - the plain-text part, or the HTML part as text - in parts of up to 20,000 characters) and list_attachments (names, types and sizes; their contents are never handed out). Folders are opened with EXAMINE and messages read with BODY.PEEK: nothing is marked as read, moved, deleted or sent (no SMTP). TLS always, verified (implicit or STARTTLS). Answers at most 24,000 characters. Needs IMAP_HOST, IMAP_USER and IMAP_PASSWORD.",
+  "category": "Messaging",
+  "tags": [
+    "email",
+    "imap",
+    "mail",
+    "inbox",
+    "messaging",
+    "local-llm"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/imap",
+  "page": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/imap",
+  "license": "MIT (MCP server: sandbox-ai-mcp); MCP Python SDK: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-imap",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "IMAP_HOST",
+      "description": "Your mail server's IMAP host, e.g. imap.example.org (or 127.0.0.1 for a bridge on this host, with --allow-tcp)",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "IMAP_USER",
+      "description": "Your login, usually your e-mail address",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "IMAP_PASSWORD",
+      "description": "Its password - an app password where your provider has them (Gmail, Outlook, iCloud, Fastmail ...)",
+      "secret": true,
+      "required": true
+    },
+    {
+      "name": "IMAP_TLS",
+      "description": "ssl (implicit TLS on port 993, the default) or starttls (port 143); mail is never read unencrypted",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "IMAP_PORT",
+      "description": "Another port than 993 (ssl) or 143 (starttls)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "IMAP_CA_CERT",
+      "description": "The certificate (PEM, or the PEM in base64) of a private CA or a bridge's own certificate (e.g. Proton Mail Bridge)",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "full",
+  "notes": "Only IMAP_HOST is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A mail server in your own network or a bridge on this host: open just its address with sandbox-ai mcp set imap --allow-tcp ADDRESS:PORT (inside the server's container localhost is the container itself). The password gives the full mailbox to the IMAP protocol; this server only reads, but use an app password you can revoke. Mail - and above all mail from strangers - can try to instruct the agent: it is data, not instructions; a preset should mark the server's results as untrusted.",
+  "tor": {
+    "support": "limited",
+    "note": "IMAP over TLS to IMAP_HOST over TCP through Tor: a mail server reachable from a Tor exit (many providers refuse or challenge Tor exits; an .onion address works); one in your local network or on this host cannot be reached through Tor."
+  }
+}

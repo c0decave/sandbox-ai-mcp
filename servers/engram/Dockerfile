@@ -56,6 +56,10 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
       org.opencontainers.image.title="sandbox-ai-mcp-engram" \
       org.opencontainers.image.description="Engram's persistent agent memory (SQLite, FTS5) in /data, only its MCP server, no network, an MCP server of sandbox-ai-mcp (stdio)" \
       org.opencontainers.image.licenses="MIT AND BSD-3-Clause AND Apache-2.0"
+# tini (Debian's), the init of the ENTRYPOINT
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt /var/log/apt /var/log/dpkg.log
 COPY --from=build /out/engram-mcp /usr/local/bin/engram-mcp
 COPY --from=build /out/licenses/ /usr/share/doc/sandbox-ai-mcp-engram/modules/
 COPY LICENSES/ /usr/share/doc/sandbox-ai-mcp-engram/
@@ -71,4 +75,6 @@ ENV HOME=/tmp PATH=/usr/local/bin:/usr/bin:/bin GOMAXPROCS=2 SQLITE_TMPDIR=/tmp
 RUN mkdir -p -m 0755 /work /work_ro /work_rw /app /srv
 USER 10001:10001
 WORKDIR /tmp
-ENTRYPOINT ["/usr/local/bin/engram-mcp"]
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/engram-mcp"]

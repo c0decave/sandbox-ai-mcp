@@ -11,6 +11,10 @@ of the build workflow keeps them in ci-digests/; `gh run download RUN -n catalog
   smoke-<name>-sandbox-ai-podman.json   ok, runner sandbox-ai-podman, image IMAGE@DIGEST of the catalog
   smoke-<name>-sandbox-ai-bwrap.json    ok, runner sandbox-ai-bwrap, image IMAGE@DIGEST of the catalog,
                                         rootfs_sha256 of rootfs.json
+  smoke-<name>-sandbox-ai-podman-no-host-init.json
+                                        ok, runner sandbox-ai-podman-no-host-init, the image as above, started
+                                        by sandbox-ai as on a host without Podman's init binary (catatonit):
+                                        host_init "none", its run line without --init (podman_init false)
 
 each with tools.json matched, with at least one passed tool call (a handshake and a tool list say nothing about
 the tool), run with no more network than the entry declares, and with catalog.json and rootfs.json current
@@ -35,7 +39,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 NAMESPACE = "sandbox-ai-mcp"
 PRINCIPAL = "mcp@sandbox-ai"
-RUNNERS = ("sandbox-ai-podman", "sandbox-ai-bwrap")
+RUNNERS = ("sandbox-ai-podman", "sandbox-ai-bwrap", "sandbox-ai-podman-no-host-init")
+NO_HOST_INIT = "sandbox-ai-podman-no-host-init"
 #: How much network a run had. A report may have had less than the entry declares (searxng's smoke
 #: runs without network), never more. "allowlist" counts as "full": sandbox-ai has no per-server
 #: egress proxy, so it gives an allowlist entry the full network, which is what CI tests it with.
@@ -43,8 +48,8 @@ NETWORK_ORDER = {"none": 0, "allowlist": 1, "full": 1}
 
 
 def problems_of(root: Path, reports: Path, allow_pending: bool = True) -> list[str]:
-    """What stands in the way of signing: a stale catalog, a server without its passed reports (Podman always,
-    Bubblewrap where rootfs.json has its rootfs)."""
+    """What stands in the way of signing: a stale catalog, a server without its passed reports (Podman and Podman
+    without the host's init always, Bubblewrap where rootfs.json has its rootfs)."""
     problems = []
     check = subprocess.run([sys.executable, str(root / "scripts/make_catalog.py"), "--root", str(root), "--check",
                             *(["--allow-pending"] if allow_pending else [])], capture_output=True, text=True)
@@ -116,6 +121,9 @@ def server_problems(reports: Path, name: str, image: str, rootfs_sha256: str | N
                             "more network than it declares")
         elif report.get("image") != image:
             problems.append(f"{name}: the {runner} report is of {report.get('image')}, the catalog pins {image}")
+        elif runner == NO_HOST_INIT and (report.get("host_init") != "none" or report.get("podman_init") is not False):
+            problems.append(f"{name}: the {runner} report is not of a start without the host's init (host_init "
+                            f"{report.get('host_init')!r}, --init in its run line: {report.get('podman_init')!r})")
         elif runner == "sandbox-ai-bwrap":
             if not rootfs_sha256:
                 problems.append(f"{name}: rootfs.json has no rootfs for it")

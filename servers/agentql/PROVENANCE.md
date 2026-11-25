@@ -6,7 +6,7 @@
 | Upstream reviewed | tinyfish-io/agentql-mcp **1.0.1** = npm `agentql-mcp` 1.0.1 (MIT, `LICENSES/agentql-mcp-MIT.txt`, "Copyright (c) 2025 Tiny Fish"), published 2026-02-21 03:07 UTC from `main` at commit `affb3a5c5eb817beac6a1aaa86e0ecd8a012f937` ("Fix AgentQL NPM publishing (#38)", 2026-02-21 03:06 UTC; npm provenance); tarball SHA-256 `367fd8df95f7e4b6eaa0ff541e39a4ea2295923d8a4b8b5f063720520a169ca4`, integrity `sha512-K2CsCfLysqSQ2iQTgLN2UGx/lrEdkpNKVsUa/+8fNseBHztn3W+jQ58ma/Vn2iCTZVcJ6PDAX+BFNcMI/IrciA==`. The newest release (269 days old on 2026-11-17); `src/index.ts` on `main` is unchanged since |
 | Service | AgentQL's data extraction API (TinyFish), `POST https://api.agentql.com/v1/query-data` |
 | Python packages | the shared lock of this repository (`mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt`, the same as servers/duckduckgo's) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## The review of agentql-mcp 1.0.1 (2026-11-17)

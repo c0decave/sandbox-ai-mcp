@@ -57,6 +57,391 @@
       "timeout": 180
     },
     {
+      "tool": "navigate_page",
+      "arguments": {
+        "pageId": 2,
+        "type": "url",
+        "url": "data:text/html,%3C%21DOCTYPE%20html%3E%3Ctitle%3Esmoke%20form%3C%2Ftitle%3E%3Cbutton%20id%3Dgo%20onclick%3D%22out%28%27Clicked%20%27%2Bdocument.getElementById%28%27name%27%29.value%29%22%3EGo%3C%2Fbutton%3E%3Cinput%20id%3Dname%20aria-label%3DName%20autocomplete%3Doff%3E%3Cinput%20id%3Dagree%20type%3Dcheckbox%20aria-label%3DAgree%3E%3Cbutton%20id%3Dhov%20onmouseover%3D%22out%28%27hovered%27%29%22%3EHover%20me%3C%2Fbutton%3E%3Cbutton%20id%3Dsrc%20draggable%3Dtrue%20ondragstart%3D%22event.dataTransfer.setData%28%27text%2Fplain%27%2C%27dragged%27%29%22%3EDrag%20me%3C%2Fbutton%3E%3Cbutton%20id%3Ddst%20ondragover%3D%22event.preventDefault%28%29%22%20ondrop%3D%22event.preventDefault%28%29%3Bout%28%27dropped%20%27%2Bevent.dataTransfer.getData%28%27text%2Fplain%27%29%29%22%3EDrop%20here%3C%2Fbutton%3E%3Cbutton%20id%3Ddlg%20onclick%3D%22out%28%27confirm%20%27%2Bconfirm%28%27Sure%3F%27%29%29%22%3EAsk%3C%2Fbutton%3E%3Cbutton%20id%3Dpick%20onclick%3D%22document.getElementById%28%27file%27%29.click%28%29%22%3EPick%3C%2Fbutton%3E%3Cinput%20id%3Dkey%20aria-label%3DKey%20autocomplete%3Doff%20onkeydown%3D%22out%28%27key%20%27%2Bevent.key%29%22%3E%3Cinput%20id%3Dfile%20type%3Dfile%20hidden%20onchange%3D%22out%28%27file%20%27%2Bthis.files%5B0%5D.name%29%22%3E%3Cp%20id%3Dout%3Eready%3C%2Fp%3E%3Cscript%3Efunction%20out%28t%29%7Bdocument.getElementById%28%27out%27%29.textContent%3Dt%7Dconsole.log%28%27smoke%20console%20line%27%29%3C%2Fscript%3E"
+      },
+      "expect": "Successfully navigated to data:text/html,",
+      "timeout": 120
+    },
+    {
+      "tool": "take_snapshot",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "uid=2_9 textbox \"Key\""
+    },
+    {
+      "tool": "click",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_2"
+      },
+      "expect": "Successfully clicked on the element"
+    },
+    {
+      "tool": "type_text",
+      "arguments": {
+        "pageId": 2,
+        "text": "Ada"
+      },
+      "expect": "Typed text \"Ada\""
+    },
+    {
+      "tool": "click",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_1"
+      },
+      "expect": "Successfully clicked on the element"
+    },
+    {
+      "tool": "wait_for",
+      "arguments": {
+        "pageId": 2,
+        "text": [
+          "Clicked Ada"
+        ]
+      },
+      "expect": "Element matching one of [\"Clicked Ada\"] found."
+    },
+    {
+      "tool": "fill",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_2",
+        "value": "Grace"
+      },
+      "expect": "Successfully filled out the element"
+    },
+    {
+      "tool": "fill_form",
+      "arguments": {
+        "pageId": 2,
+        "elements": [
+          {
+            "uid": "2_2",
+            "value": "Hopper"
+          },
+          {
+            "uid": "2_3",
+            "value": "true"
+          }
+        ]
+      },
+      "expect": "Successfully filled out the form"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('name').value + '|' + document.getElementById('agree').checked"
+      },
+      "expect": "\"Hopper|true\""
+    },
+    {
+      "tool": "hover",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_4"
+      },
+      "expect": "Successfully hovered over the element"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('out').textContent"
+      },
+      "expect": "\"hovered\""
+    },
+    {
+      "tool": "drag",
+      "arguments": {
+        "pageId": 2,
+        "from_uid": "2_5",
+        "to_uid": "2_6"
+      },
+      "expect": "Successfully dragged an element"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('out').textContent"
+      },
+      "expect": "\"dropped dragged\""
+    },
+    {
+      "tool": "click",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_7"
+      },
+      "expect": "The element was clicked and it opened a dialog."
+    },
+    {
+      "tool": "handle_dialog",
+      "arguments": {
+        "pageId": 2,
+        "action": "accept"
+      },
+      "expect": "Successfully accepted the dialog"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('out').textContent"
+      },
+      "expect": "\"confirm true\""
+    },
+    {
+      "tool": "take_screenshot",
+      "arguments": {
+        "pageId": 2,
+        "filePath": "/tmp/smoke-upload.png"
+      },
+      "expect": "Saved screenshot to /tmp/smoke-upload.png."
+    },
+    {
+      "tool": "upload_file",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_8",
+        "filePaths": [
+          "/tmp/smoke-upload.png"
+        ]
+      },
+      "expect": "File uploaded from /tmp/smoke-upload.png."
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('out').textContent"
+      },
+      "expect": "\"file smoke-upload.png\""
+    },
+    {
+      "tool": "click",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_9"
+      },
+      "expect": "Successfully clicked on the element"
+    },
+    {
+      "tool": "press_key",
+      "arguments": {
+        "pageId": 2,
+        "key": "ArrowLeft"
+      },
+      "expect": "Successfully pressed key: ArrowLeft"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => document.getElementById('out').textContent"
+      },
+      "expect": "\"key ArrowLeft\""
+    },
+    {
+      "tool": "get_css_styles",
+      "arguments": {
+        "pageId": 2,
+        "uid": "2_1"
+      },
+      "expect": "Styles for button#go (uid: \"2_1\")"
+    },
+    {
+      "tool": "emulate",
+      "arguments": {
+        "pageId": 2,
+        "colorScheme": "dark"
+      },
+      "expect": "Emulation configured successfully"
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'"
+      },
+      "expect": "\"dark\""
+    },
+    {
+      "tool": "resize_page",
+      "arguments": {
+        "pageId": 2,
+        "width": 800,
+        "height": 600
+      },
+      "expect": "2: smoke form",
+      "expect_ok": true
+    },
+    {
+      "tool": "evaluate_script",
+      "arguments": {
+        "pageId": 2,
+        "function": "() => innerWidth + 'x' + innerHeight"
+      },
+      "expect": "\"800x600\""
+    },
+    {
+      "tool": "list_console_messages",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "[log] smoke console line"
+    },
+    {
+      "tool": "take_heapsnapshot",
+      "arguments": {
+        "pageId": 2,
+        "filePath": "/tmp/smoke.heapsnapshot"
+      },
+      "expect": "Heap snapshot saved to /tmp/smoke.heapsnapshot"
+    },
+    {
+      "tool": "screencast_start",
+      "arguments": {
+        "pageId": 2,
+        "filePath": "/tmp/smoke-cast.mp4"
+      },
+      "expect": "Screencast recording started. The recording will be saved to /tmp/smoke-cast.mp4."
+    },
+    {
+      "tool": "screencast_stop",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "The screencast recording has been stopped and saved to /tmp/smoke-cast.mp4."
+    },
+    {
+      "tool": "performance_start_trace",
+      "arguments": {
+        "pageId": 2,
+        "reload": false,
+        "autoStop": false
+      },
+      "expect": "The performance trace is being recorded."
+    },
+    {
+      "tool": "performance_stop_trace",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "The performance trace has been stopped."
+    },
+    {
+      "tool": "performance_analyze_insight",
+      "arguments": {
+        "pageId": 2,
+        "insightSetId": "NO_NAVIGATION",
+        "insightName": "CLSCulprits"
+      },
+      "expect": "No Performance Insights for the given insight set id"
+    },
+    {
+      "tool": "lighthouse_audit",
+      "arguments": {
+        "pageId": 2,
+        "mode": "snapshot",
+        "device": "desktop"
+      },
+      "expect": "## Lighthouse audit results\nMode: snapshot\nDevice: desktop",
+      "timeout": 300
+    },
+    {
+      "tool": "new_page",
+      "arguments": {
+        "url": "data:text/html,%3C%21DOCTYPE%20html%3E%3Ctitle%3Econsole%20page%3C%2Ftitle%3E%3Cscript%3Econsole.log%28%27console%20page%20line%27%29%3C%2Fscript%3E"
+      },
+      "expect": "3: console page"
+    },
+    {
+      "tool": "list_console_messages",
+      "arguments": {
+        "pageId": 3
+      },
+      "expect": "msgid=1 [log] console page line"
+    },
+    {
+      "tool": "get_console_message",
+      "arguments": {
+        "pageId": 3,
+        "msgid": 1
+      },
+      "expect": "console page line"
+    },
+    {
+      "tool": "new_page",
+      "arguments": {
+        "url": "data:text/html,%3C%21DOCTYPE%20html%3E%3Ctitle%3Enetwork%20page%3C%2Ftitle%3E%3Cscript%3Efetch%28%27http%3A%2F%2F127.0.0.1%3A9%2Fsmoke%27%29.catch%28%28%29%3D%3E%7Bdocument.body.textContent%3D%27fetch%20failed%27%7D%29%3C%2Fscript%3E"
+      },
+      "expect": "4: ",
+      "expect_ok": true,
+      "timeout": 120
+    },
+    {
+      "tool": "wait_for",
+      "arguments": {
+        "pageId": 4,
+        "text": [
+          "fetch failed"
+        ]
+      },
+      "expect": "Element matching one of [\"fetch failed\"] found."
+    },
+    {
+      "tool": "list_network_requests",
+      "arguments": {
+        "pageId": 4
+      },
+      "expect": "reqid=2 GET http://127.0.0.1:9/smoke [net::ERR_UNSAFE_PORT]"
+    },
+    {
+      "tool": "get_network_request",
+      "arguments": {
+        "pageId": 4,
+        "reqid": 2
+      },
+      "expect": "## Request http://127.0.0.1:9/smoke\nStatus: net::ERR_UNSAFE_PORT"
+    },
+    {
+      "tool": "close_page",
+      "arguments": {
+        "pageId": 4
+      },
+      "expect": "3: console page",
+      "expect_ok": true
+    },
+    {
+      "tool": "list_pages",
+      "arguments": {},
+      "expect": "3: console page"
+    },
+    {
+      "tool": "select_page",
+      "arguments": {
+        "pageId": 2
+      },
+      "expect": "2: smoke form",
+      "expect_ok": true
+    },
+    {
+      "tool": "close_page",
+      "arguments": {
+        "pageId": 3
+      },
+      "expect": "2: smoke form",
+      "expect_ok": true
+    },
+    {
       "tool": "new_page",
       "arguments": {
         "url": "file:///etc/passwd"

@@ -1,0 +1,623 @@
+{
+  "name": "qt",
+  "version": "6.11.3",
+  "title": "Qt for C++ (the Qt SDK)",
+  "description": "Qt 6.11.3 for C++ with CMake and qmake: headers, libraries, CMake packages, mkspecs, plugins, QML modules and the tools (moc, uic, rcc, qmake, qt-cmake, lupdate, lrelease, Designer, Linguist, Assistant, qmllint, qmlformat, qmlls) of the open-source edition: Core, Gui, Widgets, Qml, Quick, Quick Controls, Network, Sql with SQLite, Svg, WebSockets, Charts, Graphs, 3D, Quick 3D, Multimedia, WebEngine, Pdf and the other add-ons. It is built with GCC: compile with GCC and libstdc++ (the image variant gcc, or the host's under Bubblewrap), not with the toolchain cc, whose libc++ cannot link Qt. Qt for Python (pyside6) is attached with it. Without a display Qt draws offscreen (QT_QPA_PLATFORM). The license texts and the sources of these binaries: licenses/ and NOTICE.txt in the tree (https://download.qt.io/official_releases/qt/6.11/6.11.3/single/qt-everywhere-src-6.11.3.tar.xz).",
+  "license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+  "homepage": "https://doc.qt.io/qt-6/",
+  "arches": [
+    "x86_64"
+  ],
+  "commands": {
+    "qmake": "bin/qmake",
+    "qmake6": "bin/qmake6",
+    "qt-cmake": "bin/qt-cmake",
+    "qtpaths": "bin/qtpaths",
+    "moc": "libexec/moc",
+    "uic": "libexec/uic",
+    "rcc": "libexec/rcc",
+    "lupdate": "bin/lupdate",
+    "lrelease": "bin/lrelease",
+    "lconvert": "bin/lconvert",
+    "designer": "bin/designer",
+    "linguist": "bin/linguist",
+    "assistant": "bin/assistant",
+    "qml": "bin/qml",
+    "qmllint": "bin/qmllint",
+    "qmlformat": "bin/qmlformat",
+    "qmlls": "bin/qmlls",
+    "qmlcachegen": "libexec/qmlcachegen",
+    "qmltyperegistrar": "libexec/qmltyperegistrar",
+    "qmlimportscanner": "libexec/qmlimportscanner",
+    "qsb": "bin/qsb",
+    "balsam": "bin/balsam"
+  },
+  "env": {
+    "CMAKE_PREFIX_PATH": "{prefix}",
+    "Qt6_DIR": "{prefix}/lib/cmake/Qt6",
+    "QT_QPA_PLATFORM": "offscreen"
+  },
+  "caches": {},
+  "hosts": [],
+  "allow": [],
+  "needs": {
+    "glibc": "2.34",
+    "libraries": [
+      "libstdc++.so.6",
+      "libgcc_s.so.1",
+      "libz.so.1",
+      "libzstd.so.1",
+      "libglib-2.0.so.0",
+      "libgthread-2.0.so.0",
+      "libEGL.so.1",
+      "libGL.so.1",
+      "libX11.so.6",
+      "libfontconfig.so.1",
+      "libfreetype.so.6",
+      "libxkbcommon.so.0",
+      "libbrotlicommon.so.1",
+      "libbrotlidec.so.1",
+      "libgssapi_krb5.so.2",
+      "libdbus-1.so.3"
+    ]
+  },
+  "requires": [
+    "pyside6"
+  ],
+  "optional": [
+    "*/platforms/libqxcb.so",
+    "*/libQt6XcbQpa.so*",
+    "*/xcbglintegrations/*",
+    "*/libQt6Wayland*",
+    "*/libQt6Wl*",
+    "*/platforms/libqwayland*",
+    "*/wayland-*/*",
+    "*/qml/QtWayland/*",
+    "*/libQt6EglFS*",
+    "*/libQt6EglFs*",
+    "*/egldeviceintegrations/*",
+    "*/platforms/libqlinuxfb.so",
+    "*/libQt6WebEngine*",
+    "*/libQt6Pdf*",
+    "*/QtWebEngineProcess",
+    "*/libQt6Multimedia.so*",
+    "*/plugins/multimedia/*",
+    "*/libav*",
+    "*/libsw*",
+    "*/libQt6FFmpegStub*",
+    "*/libQt6SpatialAudio*",
+    "*/libQt6Quick3DSpatialAudio*",
+    "*/platformthemes/libqgtk3.so",
+    "*/printsupport/*",
+    "*/sqldrivers/libqsqloci.so",
+    "*/sqldrivers/libqsqlibase.so",
+    "*/sqldrivers/libqsqlmimer.so",
+    "*/sqldrivers/libqsqlmysql.so",
+    "*/sqldrivers/libqsqlodbc.so",
+    "*/sqldrivers/libqsqlpsql.so",
+    "*/libQt6Nfc.so*",
+    "*/texttospeech/*",
+    "*/networkinformation/libqglib.so",
+    "*/libQt6Quick3DXr*"
+  ],
+  "build": [
+    {
+      "fetch": "qt3d-qt3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qt3d.linux_gcc_64/6.11.3-0-202610220312qt3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "38b428cf91cd5ef67c19b6838aef878486f92d6abf07c0f3afece7e3cbab823d",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt3d-qt3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt5compat-qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qt5compat.linux_gcc_64/6.11.3-0-202610220312qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "3acfe616b1db7a1486607ae4afdbcb1edba31c4f5a7c847090e50ab3774b22fb",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt5compat-qt5compat-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtcharts-qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtcharts.linux_gcc_64/6.11.3-0-202610220312qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "4627e58d2f8315f74d5cf853b5bbfae047e3b31ef419ab0d62b8fb94dd11d1bd",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtcharts-qtcharts-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtconnectivity-qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtconnectivity.linux_gcc_64/6.11.3-0-202610220312qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "1d2fafd74a316a75c29a3dc054d1cbc8830f9b503d12e599ce0ea1c934bfa953",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtconnectivity-qtconnectivity-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtdatavis3d-qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtdatavis3d.linux_gcc_64/6.11.3-0-202610220312qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "9c99357ed13ac53246b1ba8bcc7aba72525dc8b8e09c0da2da0e6ee2a6f652b9",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtdatavis3d-qtdatavis3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtgraphs-qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtgraphs.linux_gcc_64/6.11.3-0-202610220312qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "bca1e21f6ed5d5dad0513d2483cde385d4feb679c7429e9e2a6db80906486fc1",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtgraphs-qtgraphs-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtgrpc-qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtgrpc.linux_gcc_64/6.11.3-0-202610220312qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "9b463d27a2cf408795753ec4ae208ff332d90299f5e870fc5f4d0c43e1b63ce6",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtgrpc-qtgrpc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qthttpserver-qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qthttpserver.linux_gcc_64/6.11.3-0-202610220312qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "b817dab471536a75fbaf5c9204f5d122260e2f5fe3f7ed58704a36a226218685",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qthttpserver-qthttpserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtimageformats-qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtimageformats.linux_gcc_64/6.11.3-0-202610220312qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "05d9f331274a6b4247020f592306975b745a9ef2799b4a01dd7a4b881555d197",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtimageformats-qtimageformats-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtlanguageserver-qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtlanguageserver.linux_gcc_64/6.11.3-0-202610220312qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "ef3a6eddcfb3c6c9a7d8f2cc71961bc6e9a9af74911c9c16b521236eeb122e04",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtlanguageserver-qtlanguageserver-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtlocation-qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtlocation.linux_gcc_64/6.11.3-0-202610220312qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "44725a8cd9ca1b3abfbe3b2104e2345286246556ba3ede0dc60babd99ca674ca",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtlocation-qtlocation-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtlottie-qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtlottie.linux_gcc_64/6.11.3-0-202610220312qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "3b81eea7a9b5e67d580c2cdb41a99b113d0ca7123ceb963adde3704a31746ee8",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtlottie-qtlottie-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtmultimedia-qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtmultimedia.linux_gcc_64/6.11.3-0-202610220312qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "e2186e997704b4e5e6b7a8250818a198deb45c030a385a28fd64d43de682e5c4",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtmultimedia-qtmultimedia-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtnetworkauth-qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtnetworkauth.linux_gcc_64/6.11.3-0-202610220312qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "26666d45e7254b63c08d05e87caec37cd69c81f4f5447cfcb73e97c80789b679",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtnetworkauth-qtnetworkauth-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtpositioning-qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtpositioning.linux_gcc_64/6.11.3-0-202610220312qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "b050147b7e47cf7da6b16ab3e01dd78a93920c508c6d4929d5832ef1818671f6",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtpositioning-qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtquick3d-qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtquick3d.linux_gcc_64/6.11.3-0-202610220312qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "609e6baf2f1c02321df984b4e0b7ab4b182fb76ea7b6c5b2600c49bf344a13ed",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtquick3d-qtquick3d-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtquick3dphysics-qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtquick3dphysics.linux_gcc_64/6.11.3-0-202610220312qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "52c0143afcc94f3339585a52cefd59d57491549f0ae809bb92eb94765415bcc9",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtquick3dphysics-qtquick3dphysics-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtquickeffectmaker-qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtquickeffectmaker.linux_gcc_64/6.11.3-0-202610220312qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "7c945ba36758bd7254eb3bfa7b68660c43d4bfb2285db7d884a501f42103d33e",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtquickeffectmaker-qtquickeffectmaker-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtquicktimeline-qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtquicktimeline.linux_gcc_64/6.11.3-0-202610220312qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "a60ca0f0a499b4489b4c81cfa0b3855c6a0de88f8d4bffc03b20153f8f12547d",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtquicktimeline-qtquicktimeline-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtremoteobjects-qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtremoteobjects.linux_gcc_64/6.11.3-0-202610220312qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "d9e33be1ffb6f06b1ed608a9669db10f4ae50a13f6ccde1a22166ee58eb74573",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtremoteobjects-qtremoteobjects-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtscxml-qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtscxml.linux_gcc_64/6.11.3-0-202610220312qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "6b254236958de358eb33c0fe6224c6d75012ffc9a650bca3f3a28cf6c4557249",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtscxml-qtscxml-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtsensors-qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtsensors.linux_gcc_64/6.11.3-0-202610220312qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "78da6e48f014bf1b2fb9b54002d8124c1d5e0e805c2be81825f0af4742611407",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtsensors-qtsensors-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtserialbus-qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtserialbus.linux_gcc_64/6.11.3-0-202610220312qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "e87b20b8a1b1272d26b9972bd53708d686c6658ab3e9250a371ba07f3c3a89e1",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtserialbus-qtserialbus-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtserialport-qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtserialport.linux_gcc_64/6.11.3-0-202610220312qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "198d0908b633439c6094a78db1715f70592c9ddb8bd6d1b6cf5ca57621857949",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtserialport-qtserialport-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtshadertools-qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtshadertools.linux_gcc_64/6.11.3-0-202610220312qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "66d6df772d7e4a65262a036b905761a11862b653a8a50794190d8eb2e8130042",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtshadertools-qtshadertools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtspeech-qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtspeech.linux_gcc_64/6.11.3-0-202610220312qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "139c131c1a1d6de67ab5450f17e1d5138b27b4455b2331d1bf97105697c1ec77",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtspeech-qtspeech-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtvirtualkeyboard-qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtvirtualkeyboard.linux_gcc_64/6.11.3-0-202610220312qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "6c58032f623f20c1f85f7648eb52366fc9761d8caa9afec8764f2c680e764609",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtvirtualkeyboard-qtvirtualkeyboard-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtwebchannel-qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtwebchannel.linux_gcc_64/6.11.3-0-202610220312qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "db54c84002cc0701e7a761f5dc6dd60db0455962be74a8679542432e97520788",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtwebchannel-qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtwebsockets-qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtwebsockets.linux_gcc_64/6.11.3-0-202610220312qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "a1a49d30276d341a9b29321b56586d88cdb19d2c161762cc5980f7a0a7e15161",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtwebsockets-qtwebsockets-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtwebview-qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.addons.qtwebview.linux_gcc_64/6.11.3-0-202610220312qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "96984e8de0f5a99e3d2656eebcb47a2f6420c182ed2b4d4f03972076993f8e15",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtwebview-qtwebview-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "ce282da4d8a83dc216ed96b715202872d655177189c16205dc5fab09b41a9f09",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "7b71eea32674d6ac8e9b5b1d3819f510c6081619ca440b6cac86fd970942cf7a",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "424a4012edd475e21c108df6e297ab034cb786ec91f5fe451d20e3a5540e486d",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "9d03244cec3b39c9457459cb1081ff110414ef895a1980de914216f4348206e0",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "b511ad14e672bebbc6457fbaac2eb69100e2d864c6015fde1c305a699db89021",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "50991f143b82942001c73a263fe50e6fafa256d68c4da67ac8a7a9771dbfbdb9",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "510a61a415699e83a9d0431c7e3d4621e50776c7f57aefbe0f9a841132e2dd99",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qt-icu-linux-Rhel8.6-x86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6113/qt6_6113/qt.qt6.6113.linux_gcc_64/6.11.3-0-202610220312icu-linux-Rhel8.6-x86_64.7z",
+      "sha256": "16f1e8f409bd9f0b248e36d10deab498d0c1b33d25e0a515a076b1f6b5a1ab28",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qt-icu-linux-Rhel8.6-x86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtwebengine-qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/extensions/qtwebengine/6113/x86_64/extensions.qtwebengine.6113.linux_gcc_64/6.11.3-0-202610220311qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "ddd874383cb7d5c1a2afc484363f366d0d763d1e566840e2190716906fcd4822",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtwebengine-qtwebengine-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "fetch": "qtpdf-qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/linux_x64/extensions/qtpdf/6113/x86_64/extensions.qtpdf.6113.linux_gcc_64/6.11.3-0-202610220313qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "sha256": "c30ac21d925c12c0a4392759e3fc56d781ed27a8fed9c924aad346b6f5d48ecc",
+      "released": "2026-10-22"
+    },
+    {
+      "unpack": "qtpdf-qtpdf-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+      "strip": 2
+    },
+    {
+      "replace": "mkspecs/qconfig.pri",
+      "line": "QT_EDITION =",
+      "with": "QT_EDITION = OpenSource"
+    },
+    {
+      "replace": "mkspecs/qconfig.pri",
+      "line": "QT_LICHECK =",
+      "with": "QT_LICHECK ="
+    },
+    {
+      "write": "bin/qt.conf",
+      "text": "[Paths]\nPrefix=..\n"
+    },
+    {
+      "write": "libexec/qt.conf",
+      "text": "[Paths]\nPrefix=..\n"
+    },
+    {
+      "fetch": "license-LGPL-3.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.11.3/LICENSES/LGPL-3.0-only.txt",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "copy": "license-LGPL-3.0-only.txt",
+      "to": "licenses/LGPL-3.0-only.txt"
+    },
+    {
+      "fetch": "license-GPL-3.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.11.3/LICENSES/GPL-3.0-only.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "copy": "license-GPL-3.0-only.txt",
+      "to": "licenses/GPL-3.0-only.txt"
+    },
+    {
+      "fetch": "license-GPL-2.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.11.3/LICENSES/GPL-2.0-only.txt",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "copy": "license-GPL-2.0-only.txt",
+      "to": "licenses/GPL-2.0-only.txt"
+    },
+    {
+      "fetch": "license-Qt-GPL-exception-1.0.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.11.3/LICENSES/Qt-GPL-exception-1.0.txt",
+      "sha256": "40678d338ce53cd93f8b22b281a2ecbcaa3ee65ce60b25ffb0c462b0530846b2"
+    },
+    {
+      "copy": "license-Qt-GPL-exception-1.0.txt",
+      "to": "licenses/Qt-GPL-exception-1.0.txt"
+    },
+    {
+      "fetch": "license-LGPL-2.1-or-later.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.11.3/LICENSES/LGPL-2.1-or-later.txt",
+      "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+    },
+    {
+      "copy": "license-LGPL-2.1-or-later.txt",
+      "to": "licenses/LGPL-2.1-or-later.txt"
+    },
+    {
+      "fetch": "license-BSD-3-Clause.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.11.3/LICENSES/BSD-3-Clause.txt",
+      "sha256": "9f0490f18656c6f2435bd14f603ef0c96434d1825615363dce43abb42ed1dcce"
+    },
+    {
+      "copy": "license-BSD-3-Clause.txt",
+      "to": "licenses/BSD-3-Clause.txt"
+    },
+    {
+      "fetch": "license-MIT.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.11.3/LICENSES/MIT.txt",
+      "sha256": "d040359701c01996a017d5c515678929cd1b0625e64cb86db44025fbb6cdf1fc"
+    },
+    {
+      "copy": "license-MIT.txt",
+      "to": "licenses/MIT.txt"
+    },
+    {
+      "write": "NOTICE.txt",
+      "text": "The Qt SDK for Linux (gcc_64) 6.11.3, as published by The Qt Company, unchanged.\n\nLicenses: Qt and Qt for Python are available under LGPL-3.0-only, GPL-2.0-only or GPL-3.0-only; some\nmodules only under GPL-3.0-only (Qt Charts, Qt Data Visualization, Qt Graphs, Qt HTTP Server, Qt Lottie,\nQt Network Authorization, Qt Quick 3D, Qt Quick 3D Physics, Qt Quick Timeline, Qt Virtual Keyboard, Qt\nWayland Compositor and others: https://doc.qt.io/qt-6/qtmodules.html names the license of each). Qt's\ntools are GPL-3.0-only with the Qt GPL exception 1.0. No module of the commercial-only editions is here.\nThe texts: licenses/ in this folder.\n\nThird-party code inside Qt (FFmpeg under LGPL-2.1-or-later, Chromium in Qt WebEngine, ICU, HarfBuzz,\nPCRE2, libpng, libjpeg, SQLite, zlib and others) with its licenses and copyright notices:\nhttps://doc.qt.io/qt-6/licenses-used-in-qt.html, and qt_attribution.json beside each in Qt's sources.\n\nThe source code of exactly these binaries (LGPL-3.0 section 4, GPL-3.0 section 6):\n  https://download.qt.io/official_releases/qt/6.11/6.11.3/single/qt-everywhere-src-6.11.3.tar.xz\n  https://github.com/qt/qt5/tree/v6.11.3\n"
+    }
+  ],
+  "smoke": [
+    {
+      "files": {
+        "main.cpp": "#include <QApplication>\n#include <QImage>\n#include <QLabel>\n#include <QQuickView>\n#include <QSet>\n#include <QSqlDatabase>\n#include <QTimer>\n#include <QUrl>\n#include <chrono>\n#include <cstdio>\n\nusing namespace std::chrono_literals;\n\nstatic int colours(const QImage &image)\n{\n    QSet<QRgb> seen;\n    for (int x = 0; x < image.width(); x += 4)\n        for (int y = 0; y < image.height(); y += 4)\n            seen.insert(image.pixel(x, y));\n    return seen.size();\n}\n\nint main(int argc, char **argv)\n{\n    QApplication app(argc, argv);\n    QLabel label(QObject::tr(\"hello from Qt\"));\n    label.resize(200, 60);\n    label.show();\n    QQuickView view;\n    view.setSource(QUrl::fromLocalFile(QStringLiteral(\"hello.qml\")));\n    view.show();\n    QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral(\"QSQLITE\"));\n    db.setDatabaseName(QStringLiteral(\":memory:\"));\n    // (a std::chrono argument: only a C++ library of the ABI Qt was built with links this)\n    QTimer::singleShot(500ms, &app, [&] {\n        const QImage widget = label.grab().toImage(), quick = view.grabWindow();\n        widget.save(QStringLiteral(\"widget.png\"));\n        std::printf(\"qt %s %s widget %d quick %d sqlite %d\\n\", qVersion(), qPrintable(app.platformName()),\n                    colours(widget) > 1, colours(quick) > 1, db.open());\n        app.quit();\n    });\n    return app.exec();\n}\n",
+        "hello.qml": "import QtQuick\nimport QtQuick.Controls\n\nRectangle {\n    width: 160; height: 120; color: \"#2060c0\"\n    Button { text: qsTr(\"hello from QML\"); anchors.centerIn: parent }\n}\n",
+        "CMakeLists.txt": "cmake_minimum_required(VERSION 3.22)\nproject(hello LANGUAGES CXX)\nset(CMAKE_CXX_STANDARD 17)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\nfind_package(Qt6 REQUIRED COMPONENTS Widgets Quick QuickControls2 Sql Svg Network WebSockets Charts)\nqt_standard_project_setup()\nqt_add_executable(hello main.cpp)\ntarget_link_libraries(hello PRIVATE Qt6::Widgets Qt6::Quick Qt6::Sql)\n"
+      },
+      "run": "cmake -S . -B build -G Ninja >cmake.log 2>&1 && cmake --build build >>cmake.log 2>&1 || { tail -n 40 cmake.log; exit 1; }; ./build/hello && test -s widget.png",
+      "expect": "offscreen widget 1 quick 1 sqlite 1"
+    },
+    {
+      "files": {
+        "hello.pro": "QT += widgets quick sql\nCONFIG += c++17\nSOURCES += main.cpp\nTARGET = hello_qmake\n"
+      },
+      "run": "mkdir -p qm && cd qm && qmake ../hello.pro >../qmake.log 2>&1 && make -j2 >>../qmake.log 2>&1 || { tail -n 40 ../qmake.log; exit 1; }; cd .. && ./qm/hello_qmake",
+      "expect": "offscreen widget 1 quick 1 sqlite 1"
+    },
+    {
+      "files": {
+        "form.ui": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ui version=\"4.0\">\n <class>Form</class>\n <widget class=\"QWidget\" name=\"Form\">\n  <widget class=\"QPushButton\" name=\"button\">\n   <property name=\"text\"><string>hello</string></property>\n  </widget>\n </widget>\n</ui>\n"
+      },
+      "run": "uic form.ui -o ui_form.h && grep -c Ui_Form ui_form.h >/dev/null && moc --version && qmllint hello.qml && lupdate main.cpp -ts hello_de.ts >/dev/null && lrelease hello_de.ts -qm hello_de.qm >/dev/null && test -s hello_de.qm && qtpaths --qt-version",
+      "expect": "moc 6."
+    }
+  ],
+  "smoke_apt": [
+    "g++",
+    "make",
+    "cmake",
+    "ninja-build",
+    "libgl1-mesa-dev"
+  ],
+  "notes": "The open-source Qt online repository of download.qt.io (desktop, gcc_64): its Updates.xml names the archives, ARCHIVE.sha256 beside each pins it (written by scripts/qt_recipe.py qt VERSION). x86_64 only: the aarch64 builds need glibc 2.38. QT_PLUGIN_PATH and QML_IMPORT_PATH are not set: Qt finds its own plugins and QML modules from where its libraries are, and the variables would send every other Qt of the sandbox (PySide6's, a project's own) to this one's."
+}

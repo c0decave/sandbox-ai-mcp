@@ -1,0 +1,98 @@
+{
+  "name": "kubernetes",
+  "network": "none",
+  "env": {
+    "KUBECONFIG_DATA": "{\"apiVersion\":\"v1\",\"kind\":\"Config\",\"current-context\":\"smoke\",\"clusters\":[{\"name\":\"smoke\",\"cluster\":{\"server\":\"https://127.0.0.1:9\"}}],\"contexts\":[{\"name\":\"smoke\",\"context\":{\"cluster\":\"smoke\",\"user\":\"smoke\",\"namespace\":\"shop\"}}],\"users\":[{\"name\":\"smoke\",\"user\":{\"token\":\"smoke-token\"}}]}"
+  },
+  "expect_tools": [
+    "api_resources_list",
+    "cluster_info",
+    "events_list",
+    "namespaces_list",
+    "pods_log",
+    "resources_get",
+    "resources_list"
+  ],
+  "calls": [
+    {
+      "tool": "cluster_info",
+      "arguments": {},
+      "expect": "cannot reach https://127.0.0.1:9/version",
+      "expect_error": true
+    },
+    {
+      "tool": "namespaces_list",
+      "arguments": {},
+      "expect": "cannot reach https://127.0.0.1:9/api/v1/namespaces",
+      "expect_error": true
+    },
+    {
+      "tool": "api_resources_list",
+      "arguments": {
+        "kind": "Deployment"
+      },
+      "expect": "cannot reach https://127.0.0.1:9/apis",
+      "expect_error": true
+    },
+    {
+      "tool": "resources_list",
+      "arguments": {
+        "api_version": "apps/v1",
+        "kind": "Deployment",
+        "label_selector": "app=web",
+        "limit": 20
+      },
+      "expect": "cannot reach https://127.0.0.1:9/apis/apps/v1",
+      "expect_error": true
+    },
+    {
+      "tool": "resources_get",
+      "arguments": {
+        "api_version": "v1",
+        "kind": "Pod",
+        "name": "web-1",
+        "section": "status"
+      },
+      "expect": "cannot reach https://127.0.0.1:9/api/v1",
+      "expect_error": true
+    },
+    {
+      "tool": "pods_log",
+      "arguments": {
+        "name": "web-1",
+        "tail_lines": 50,
+        "previous": true
+      },
+      "expect": "cannot reach https://127.0.0.1:9/api/v1/namespaces/shop/pods/web-1/log",
+      "expect_error": true
+    },
+    {
+      "tool": "events_list",
+      "arguments": {
+        "namespace": "shop",
+        "field_selector": "type=Warning"
+      },
+      "expect": "cannot reach https://127.0.0.1:9/api/v1/namespaces/shop/events",
+      "expect_error": true
+    },
+    {
+      "tool": "resources_get",
+      "arguments": {
+        "api_version": "v1",
+        "kind": "Secret",
+        "name": "../../secrets/db"
+      },
+      "expect": "name: '../../secrets/db' is not a valid name",
+      "expect_error": true
+    },
+    {
+      "tool": "resources_list",
+      "arguments": {
+        "api_version": "../v1",
+        "kind": "Pod"
+      },
+      "expect": "is not a valid api version",
+      "expect_error": true
+    }
+  ]
+}

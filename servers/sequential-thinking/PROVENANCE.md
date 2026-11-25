@@ -115,3 +115,6 @@ reports pass.
 Run here (Node.js 26, the lock's packages, the dist files' SHA-256 checked): the smoke spec through a stand-in engine
 (ok); tools only (no resources or prompts capability); the schema valid (draft 2020-12 and 7); answers are counts,
 a few hundred characters. Nothing changed; the history cap of 2.1.1 comes with the planned re-pin.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

@@ -238,3 +238,6 @@ All fixed test-first (`tests/test_review_group_a.py`, each test failed before it
   killed on the limit.
 - **L** - stderr in an answer is its last 4,000 characters; refused calls, unknown analyses and tools are errors
   (`isError`).
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

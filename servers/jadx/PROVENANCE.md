@@ -8,7 +8,7 @@
 | What of it ships | only `lib/jadx-1.5.6-all.jar`, SHA-256 `fe3e12c45acf75f92369685fd02d1d7a7323385dc725680a9b98a0dac0ea554b` (checked where it is unpacked and again in the final image); not the `bin/` scripts |
 | Java | Debian trixie `openjdk-21-jre-headless=21.0.13.1+2-1~deb13u1` (trixie-security; 21.0.13.1+2-1~deb13u1 replaced 21.0.13+9-1~deb13u2 on 2026-11-21, in which CI's Trivy found the CRITICAL CVE-2026-114820 and CVE-2026-114938); the bridge is compiled in a build stage with `openjdk-21-jdk-headless=21.0.13.1+2-1~deb13u1` (`javac --release 21 -Xlint:all -Werror`), which does not ship |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line: the set files, code-search, exec and tasks run) |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), the JRE above; build stage only: the JDK above, `unzip=6.0-29+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (pip's download while building), the JRE above; build stage only: the JDK above, `unzip=6.0-29+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as web-fetch's) |
 
 **Pinning rule:** jadx 1.5.6 is upstream's newest release and 129 days old on 2026-11-16 (well past 14 days). The

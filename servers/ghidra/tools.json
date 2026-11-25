@@ -1,0 +1,14 @@
+{
+  "tools": [
+    "decompile_function",
+    "disassemble_function",
+    "find_references",
+    "function_calls",
+    "list_exports",
+    "list_files",
+    "list_functions",
+    "list_imports",
+    "list_strings",
+    "open_file"
+  ]
+}

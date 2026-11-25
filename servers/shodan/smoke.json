@@ -46,6 +46,18 @@
       ]
     },
     {
+      "tool": "cpe_lookup",
+      "arguments": {
+        "product": "log4j",
+        "limit": 5
+      },
+      "expect": "cpe:2.3:a:apache:log4j",
+      "upstream_limited": [
+        "rate limit",
+        "Shodan answered HTTP 5"
+      ]
+    },
+    {
       "tool": "ip_lookup",
       "arguments": {
         "ip": "999.1.1.1"
@@ -70,5 +82,13 @@
       "expect": "facets:",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "api_info": "needs a Shodan API key (SHODAN_API_KEY)",
+    "dns_lookup": "needs a Shodan API key (SHODAN_API_KEY)",
+    "reverse_dns_lookup": "needs a Shodan API key (SHODAN_API_KEY)",
+    "search_filters": "needs a Shodan API key (SHODAN_API_KEY)",
+    "domain_info": "needs a Shodan API key (SHODAN_API_KEY) and spends query credits",
+    "shodan_search": "needs a Shodan API key (SHODAN_API_KEY) and spends query credits"
+  }
 }

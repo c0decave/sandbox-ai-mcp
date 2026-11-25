@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` (MIT, `LICENSES/`) |
 | Python packages | `mcp==1.30.0` and its dependencies (httpx), hash-locked in `requirements.txt` |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## Why

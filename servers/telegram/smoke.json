@@ -49,5 +49,9 @@
       "expect": "limit: an integer",
       "expect_error": true
     }
-  ]
+  ],
+  "not_smoked": {
+    "get_chat": "needs a Telegram bot token (TELEGRAM_BOT_TOKEN) and a chat of that bot",
+    "edit_message_text": "needs a Telegram bot token and edits a message the bot sent: it changes something outside"
+  }
 }

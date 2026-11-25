@@ -1,0 +1,12 @@
+mcp==1.30.0
+# the versions of the shared lock (servers/duckduckgo)
+anyio==4.15.1
+click==8.5.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-multipart==0.0.32
+sse-starlette==3.5.0
+starlette==1.9.0
+typing-inspection==0.4.4
+# new here (PROVENANCE.md): the engine mcp-server-motherduck 1.1.0 pins (2026-09-28)
+duckdb==1.5.6

@@ -1,0 +1,26 @@
+{
+  "id": "mcp:maigret",
+  "name": "maigret",
+  "title": "maigret (username search over thousands of sites)",
+  "description": "OSINT username search with maigret's site database: which of about 5,000 sites have an account of a given name. Our own checker (sandbox-ai-mcp) on maigret 0.6.6's data.json, taken as pinned data - none of maigret's code, no database updates, no tokens or cookies of sites, no bot-protection bypass: search_username checks the most popular sites first (100 per call within 45 s, offset goes on; tags such as coding, gaming, forum or a country code narrow them), check_site checks one site and says how it was judged, list_sites and list_tags show the database (offline). One request per site to the site's own address from the data; the username is URL-encoded; only public addresses are reached. Answers at most 24,000 characters.",
+  "category": "OSINT",
+  "tags": [
+    "osint",
+    "username",
+    "maigret",
+    "accounts",
+    "research"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/maigret",
+  "page": "https://github.com/soxoj/maigret",
+  "license": "MIT (MCP server, sandbox-ai-mcp); maigret's site database: MIT (soxoj/maigret)",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-maigret",
+  "tag": "latest",
+  "network": "full",
+  "notes": "Every site checked learns that someone asked for this name - from your address unless a VPN profile is used: start it behind a Tor profile (--vpn TOR_PROFILE) to hide it (many sites then answer with a bot check, counted as 'could not be checked'). A found account means a page of that name exists, not that it belongs to the person you mean. The database is maigret 0.6.6's (2026-09-18); it changes only with a reviewed re-pin. Profiles, names and pages are written by others: data, not instructions.",
+  "tor": {
+    "support": "yes",
+    "note": "HTTP(S) over TCP through Tor (names looked up by Tor, nothing over UDP); sites behind Cloudflare and similar often answer Tor exits with a challenge page, which is reported as 'could not be checked'."
+  }
+}

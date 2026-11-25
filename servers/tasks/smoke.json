@@ -98,6 +98,18 @@
       "expect_error": true
     },
     {
+      "tool": "remove_step",
+      "arguments": {
+        "step": 3
+      },
+      "expect": "Step 3 removed: run the tests"
+    },
+    {
+      "tool": "list_steps",
+      "arguments": {},
+      "expect": "Progress: 1 of 2 steps done"
+    },
+    {
       "tool": "set_goal",
       "arguments": {
         "goal": "   "

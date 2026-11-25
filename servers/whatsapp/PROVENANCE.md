@@ -7,7 +7,7 @@
 | Go modules | the 27 of `bridge/go.mod` by their `go.sum` hashes (whatsmeow `v0.0.0-20260929112325-8b41cfe6d9c4`, libsignal 0.2.2, go-util 0.10.1, modernc sqlite 1.60.1 / libc 1.77.1, ...; list below); `go mod download && go mod verify` in the build |
 | Rust crates | the 160 crates.io packages of `Cargo.lock` by their checksums (rmcp 3.5.0, rusqlite 0.40.2 with bundled SQLite, tokio 1.53.1, prost 0.14.4, ...); `cargo build --locked --offline` |
 | Build images | `golang:1.26-trixie` (Go 1.26.10) `sha256:a050dcceee6eb9bf110151662dfac7662f3bec40927c7dee48731e3d92083d42` and `rust:1-slim-trixie` (Rust 1.99.1) `sha256:b8e062b1c3a80183df83d9ba187cadd2b5ab84bc78d453dbfeb2fccd5f982247`, as docker-library/repo-info recorded them on 2026-10-28 (commits `39f1d151`, `d4d021c0`); protoc 36.2 (`protocolbuffers/protobuf` release of 2026-09-17, `protoc-36.2-linux-x86_64.zip`, `sha256:121f6c7afe1d4d0e3ea6aab9432038599250134cbf4474cb1167d2c7decd4278`) with Debian's `unzip=6.0-29+deb13u1`; none of them is in the final image |
-| Debian packages | `ca-certificates=20250419+deb13u1` (the bridge speaks TLS to WhatsApp) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `ca-certificates=20250419+deb13u1` (the bridge speaks TLS to WhatsApp) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (`sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad`) |
 
 **Upstream:** https://github.com/edouard-claude/whatsapp-mcp, created 2026-09-30, 3 stars, 1 fork,

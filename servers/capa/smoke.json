@@ -1,6 +1,7 @@
 {
   "name": "capa",
   "network": "none",
+  "memory": "1g",
   "mounts": [
     {
       "host": "${FIXTURES}",
@@ -19,6 +20,19 @@
       },
       "expect": "act as TCP client",
       "timeout": 600
+    },
+    {
+      "tool": "list_active_scans",
+      "arguments": {},
+      "expect": "\"active_scans\": []"
+    },
+    {
+      "tool": "get_analysis_results",
+      "arguments": {
+        "scan_id": "00000000"
+      },
+      "expect": "Analysis not found (the last",
+      "expect_error": true
     },
     {
       "tool": "capa_analyze",

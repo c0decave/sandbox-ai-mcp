@@ -1,0 +1,47 @@
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -1,5 +1,3 @@
+-import java.time.Instant
+-
+ abstract class EmbedProxyJarTask : DefaultTask() {
+     @get:InputFile
+     abstract val shadowJarFile: RegularFileProperty
+@@ -105,11 +103,8 @@
+                     "Implementation-Title" to project.name,
+                     "Implementation-Version" to project.version,
+                     "Implementation-Vendor" to "PortSwigger",
+-                    "Built-By" to System.getProperty("user.name"),
+-                    "Built-Date" to Instant.now().toString(),
+-                    "Built-JDK" to "${System.getProperty("java.version")} (${System.getProperty("java.vendor")} ${
+-                        System.getProperty("java.vm.version")
+-                    })",
++                    // sandbox-ai-mcp: no user name, build time or JDK build in the manifest - the same source gives
++                    // the same jar (reproducible), wherever and whenever it is built.
+                     "Created-By" to "Gradle ${gradle.gradleVersion}"
+                 )
+             )
+--- a/src/main/kotlin/net/portswigger/mcp/ExtensionBase.kt
++++ b/src/main/kotlin/net/portswigger/mcp/ExtensionBase.kt
+@@ -15,6 +15,22 @@
+         api.extension().setName("Burp MCP Server")
+ 
+         val config = McpConfig(api.persistence().extensionData(), api.logging())
++
++        // sandbox-ai-mcp: in its container Burp runs headless, with nobody at its window to use the MCP tab or to
++        // answer a dialog. -Dsandbox.ai.burp.mcp=container sets what the tab would: the server on 127.0.0.1:9876, the
++        // tools that edit Burp's configuration off, Burp's own approval dialogs off (they cannot be shown headless:
++        // sandbox-ai's MCP gateway asks instead), credentials filtered from exported options. Without that
++        // property (a Burp of yours) nothing changes.
++        if (System.getProperty("sandbox.ai.burp.mcp") == "container") {
++            config.enabled = true
++            config.host = "127.0.0.1"
++            config.port = 9876
++            config.configEditingTooling = false
++            config.requireHttpRequestApproval = false
++            config.requireDataAccessApproval = false
++            config.filterConfigCredentials = true
++            api.logging().logToOutput("sandbox-ai-mcp: container settings (127.0.0.1:9876, no config editing)")
++        }
+         val serverManager = KtorServerManager(api)
+ 
+         val proxyJarManager = ProxyJarManager(api.logging())

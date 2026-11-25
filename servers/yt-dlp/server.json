@@ -1,0 +1,27 @@
+{
+  "id": "mcp:yt-dlp",
+  "name": "yt-dlp",
+  "title": "yt-dlp (video metadata and subtitles, no downloads)",
+  "description": "Metadata and subtitles of online videos with yt-dlp 2026.10.26 (YouTube and about 1,800 other video sites), through our own server: get_video_info (title, channel, upload date, length, views, likes, tags, chapters, subtitle languages, the description; a playlist or channel with its first 50 entries), list_subtitles (the uploader's and the automatic captions), get_subtitles (the text of one language, with or without timestamps, in parts) and search_videos (YouTube's search). No media is downloaded and nothing is written; no cookies, no plugins, no JavaScript runtime; each call runs yt-dlp in a worker process of its own with a time limit, and every name it looks up must resolve to a public address (no LAN, no container-local service). Answers at most 400 lines or 24,000 characters.",
+  "category": "Media",
+  "tags": [
+    "video",
+    "youtube",
+    "subtitles",
+    "transcript",
+    "osint",
+    "research"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/yt-dlp",
+  "page": "https://github.com/yt-dlp/yt-dlp",
+  "license": "MIT (MCP server, sandbox-ai-mcp); yt-dlp: Unlicense",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-yt-dlp",
+  "tag": "latest",
+  "network": "full",
+  "notes": "The URLs and search terms go to the video sites (and the sites' CDNs), from your address unless a VPN profile is used. YouTube often answers cloud, VPN and Tor addresses with a bot check ('Sign in to confirm you're not a bot'); without a JavaScript runtime yt-dlp cannot solve YouTube's player challenges, which limits formats but not metadata or subtitles. youtube-transcript is the smaller choice for YouTube transcripts alone. Titles, descriptions and captions are written by others: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTP(S) over TCP through Tor (names looked up by Tor, nothing over UDP); YouTube and several other sites usually answer Tor exits with a bot check or a block, other sites work."
+  }
+}

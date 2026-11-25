@@ -1,0 +1,14 @@
+{
+  "tools": [
+    "browse_subreddit",
+    "get_post_details",
+    "search_reddit",
+    "user_analysis"
+  ],
+  "read_only_tools": [
+    "browse_subreddit",
+    "get_post_details",
+    "search_reddit",
+    "user_analysis"
+  ]
+}

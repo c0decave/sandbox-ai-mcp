@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` (MIT, `LICENSES/`), written for this repository and reviewed in full (below) |
 | Python packages | `mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt` (byte-identical to web-fetch's but for the `# via` line; the set web-fetch, files, exec and tasks run). The server itself uses the standard library and the SDK only |
-| Debian packages | `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (for pip's download during the build) |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `python3-venv=3.13.5-1` (purged after the venv is made), `ca-certificates=20250419+deb13u1` (for pip's download during the build) |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` (the same as web-fetch's) |
 | Helper binaries | none: no ripgrep, no ast-grep, no language server (why: below) |
 

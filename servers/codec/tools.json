@@ -1,0 +1,10 @@
+{
+  "tools": [
+    "detect",
+    "run_recipe"
+  ],
+  "read_only_tools": [
+    "detect",
+    "run_recipe"
+  ]
+}

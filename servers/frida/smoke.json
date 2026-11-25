@@ -101,6 +101,61 @@
       },
       "expect": "out_name:",
       "expect_error": true
+    },
+    {
+      "tool": "attach",
+      "arguments": {
+        "target": "com.example.app"
+      },
+      "expect": "no device is configured",
+      "expect_error": true
+    },
+    {
+      "tool": "list_applications",
+      "arguments": {},
+      "expect": "no device is configured",
+      "expect_error": true
+    },
+    {
+      "tool": "enumerate_modules",
+      "arguments": {
+        "session": 1
+      },
+      "expect": "session 1: there is no such session",
+      "expect_error": true
+    },
+    {
+      "tool": "enumerate_exports",
+      "arguments": {
+        "session": 1,
+        "module": "libc.so"
+      },
+      "expect": "session 1: there is no such session",
+      "expect_error": true
+    },
+    {
+      "tool": "detach",
+      "arguments": {
+        "session": 1
+      },
+      "expect": "session 1: there is no such session",
+      "expect_error": true
+    },
+    {
+      "tool": "resume",
+      "arguments": {
+        "pid": 1234
+      },
+      "expect": "FRIDA_WRITE=1",
+      "expect_error": true
+    },
+    {
+      "tool": "kill",
+      "arguments": {
+        "pid": 1234
+      },
+      "expect": "FRIDA_WRITE=1",
+      "expect_error": true
     }
   ]
 }

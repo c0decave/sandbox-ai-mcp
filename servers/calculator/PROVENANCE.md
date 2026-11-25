@@ -4,7 +4,7 @@
 |---|---|
 | MCP server | this repository, `src/server.py` (MIT), our own (2026-11-18); no third-party MCP code |
 | Python packages | the shared lock of this repository (`mcp==1.30.0` and its dependencies, hash-locked in `requirements.txt`, the same as servers/duckduckgo's); arithmetic with the standard library (`ast`, `fractions`, `math`, `datetime`) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (unused: no network; kept so the layers equal the other servers') |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` (unused: no network; kept so the layers equal the other servers') |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## Why our own

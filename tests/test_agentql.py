@@ -138,7 +138,7 @@ class Packaging(unittest.TestCase):
         self.assertNotIn("mounts", entry)
         self.assertTrue([c for c in spec["calls"] if c.get("expect_error")])
         dockerfile = (FOLDER / "Dockerfile").read_text()
-        self.assertIn('ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]', dockerfile)
+        self.assertIn('ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]', dockerfile)
         self.assertIn("--require-hashes", dockerfile)
         lock = (FOLDER / "requirements.txt").read_text().replace("servers/agentql/", "servers/duckduckgo/")
         self.assertEqual(lock, (ROOT / "servers" / "duckduckgo" / "requirements.txt").read_text())

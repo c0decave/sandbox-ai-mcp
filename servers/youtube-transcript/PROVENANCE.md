@@ -6,7 +6,7 @@
 | Upstream reviewed | jkawamoto/mcp-youtube-transcript **v0.8.3** (MIT, `LICENSES/mcp-youtube-transcript-MIT.txt`), release published 2026-10-28 06:37 UTC (21 days before this review) from commit `fc6e33cfdc8618d375dc600bb54f0576d84615fe`; source tarball `codeload.github.com/jkawamoto/mcp-youtube-transcript/tar.gz/v0.8.3`, SHA-256 `a23dd2d79c4a06b73cf278ea2908cd88000fc484aaa16b79d3406ef7f9b9d0fd`. v0.8.4 (2026-11-14) is too new. PyPI's `mcp-youtube-transcript` stops at 0.3.5 (2025): upstream publishes on GitHub (an `.mcpb` bundle) only |
 | Library | `youtube-transcript-api` **1.2.4** (MIT, jdepoix), PyPI wheel uploaded 2026-01-29 09:09 UTC, SHA-256 `03878759356da5caf5edac77431780b91448fb3d8c21d4496015bdc8a7bc43ff`; 1.2.5 (2026-11-05) is too new |
 | Python packages | `requirements.txt`, hash-locked: the shared lock of this repository (`mcp==1.30.0` and the same versions as servers/duckduckgo), plus `youtube-transcript-api` 1.2.4, `requests` 2.34.2, `urllib3` 2.8.0, `charset-normalizer` 3.5.2 (the versions and hashes of servers/osint-mcp's reviewed lock; charset-normalizer's compiled modules removed as there) and `defusedxml` 0.7.1 (2021-03-08, reviewed here) |
-| Debian packages | `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
+| Debian packages | `tini=0.19.0-3+b8` (the image's init, its ENTRYPOINT: no host init needed), `python3=3.13.5-1`, `ca-certificates=20250419+deb13u1` |
 | Base image | the `debian:trixie-slim` digest in `Dockerfile` |
 
 ## The review (2026-11-18)

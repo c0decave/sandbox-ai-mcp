@@ -1,0 +1,350 @@
+{
+  "name": "pyside6",
+  "version": "6.12.0",
+  "title": "Qt for Python (PySide6)",
+  "description": "PySide6 6.12.0 with Qt 6.12.0 itself: every module of the open-source edition (Core, Gui, Widgets, Qml, Quick, Quick Controls, Network, Sql with SQLite, Svg, WebSockets, Charts, Graphs, 3D, Quick 3D, Multimedia, WebEngine, Pdf ...), the platforms offscreen, xcb and wayland, Designer, Linguist, Assistant, lupdate, lrelease, qmllint, qmlformat, qmlls and pyside6-uic, pyside6-rcc. `import PySide6` works in the python3 on PATH (Python <3.16, >=3.10: the toolchain python, attached with it) and in a virtual environment; without a display Qt draws offscreen (QT_QPA_PLATFORM). The license texts and the sources of these binaries: licenses/ and NOTICE.txt in the tree (https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.12.0-src/pyside-setup-everywhere-src-6.12.0.tar.xz, https://download.qt.io/official_releases/qt/6.12/6.12.0/single/qt-everywhere-src-6.12.0.tar.xz).",
+  "license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+  "homepage": "https://doc.qt.io/qtforpython-6/",
+  "arches": [
+    "x86_64"
+  ],
+  "commands": {
+    "pyside6-uic": "bin/pyside6-uic",
+    "pyside6-rcc": "bin/pyside6-rcc",
+    "pyside6-designer": "bin/pyside6-designer",
+    "pyside6-linguist": "bin/pyside6-linguist",
+    "pyside6-assistant": "bin/pyside6-assistant",
+    "pyside6-lupdate": "bin/pyside6-lupdate",
+    "pyside6-lrelease": "bin/pyside6-lrelease",
+    "pyside6-qml": "bin/pyside6-qml",
+    "pyside6-qmllint": "bin/pyside6-qmllint",
+    "pyside6-qmlformat": "bin/pyside6-qmlformat",
+    "pyside6-qmlls": "bin/pyside6-qmlls",
+    "pyside6-qmlcachegen": "bin/pyside6-qmlcachegen",
+    "pyside6-qmltyperegistrar": "bin/pyside6-qmltyperegistrar",
+    "pyside6-qmlimportscanner": "bin/pyside6-qmlimportscanner",
+    "pyside6-project": "bin/pyside6-project",
+    "pyside6-genpyi": "bin/pyside6-genpyi",
+    "pyside6-metaobjectdump": "bin/pyside6-metaobjectdump",
+    "pyside6-deploy": "bin/pyside6-deploy",
+    "pyside6-qsb": "bin/pyside6-qsb",
+    "pyside6-balsam": "bin/pyside6-balsam",
+    "pyside6-svgtoqml": "bin/pyside6-svgtoqml"
+  },
+  "env": {
+    "PYTHONPATH": "{prefix}/python",
+    "QT_QPA_PLATFORM": "offscreen"
+  },
+  "caches": {},
+  "hosts": [],
+  "allow": [],
+  "needs": {
+    "glibc": "2.34",
+    "libraries": [
+      "libstdc++.so.6",
+      "libgcc_s.so.1",
+      "libz.so.1",
+      "libzstd.so.1",
+      "libglib-2.0.so.0",
+      "libgthread-2.0.so.0",
+      "libEGL.so.1",
+      "libGL.so.1",
+      "libX11.so.6",
+      "libfontconfig.so.1",
+      "libfreetype.so.6",
+      "libxkbcommon.so.0",
+      "libbrotlicommon.so.1",
+      "libbrotlidec.so.1",
+      "libgssapi_krb5.so.2",
+      "libdbus-1.so.3"
+    ]
+  },
+  "requires": [
+    "python"
+  ],
+  "optional": [
+    "*/platforms/libqxcb.so",
+    "*/libQt6XcbQpa.so*",
+    "*/xcbglintegrations/*",
+    "*/libQt6Wayland*",
+    "*/libQt6Wl*",
+    "*/platforms/libqwayland*",
+    "*/wayland-*/*",
+    "*/qml/QtWayland/*",
+    "*/libQt6EglFS*",
+    "*/libQt6EglFs*",
+    "*/egldeviceintegrations/*",
+    "*/platforms/libqlinuxfb.so",
+    "*/libQt6WebEngine*",
+    "*/libQt6Pdf*",
+    "*/QtWebEngineProcess",
+    "*/libQt6Multimedia.so*",
+    "*/plugins/multimedia/*",
+    "*/libav*",
+    "*/libsw*",
+    "*/libQt6FFmpegStub*",
+    "*/libQt6SpatialAudio*",
+    "*/libQt6Quick3DSpatialAudio*",
+    "*/platformthemes/libqgtk3.so",
+    "*/printsupport/*",
+    "*/sqldrivers/libqsqloci.so",
+    "*/sqldrivers/libqsqlibase.so",
+    "*/sqldrivers/libqsqlmimer.so",
+    "*/sqldrivers/libqsqlmysql.so",
+    "*/sqldrivers/libqsqlodbc.so",
+    "*/sqldrivers/libqsqlpsql.so",
+    "*/libQt6Nfc.so*",
+    "*/texttospeech/*",
+    "*/networkinformation/libqglib.so",
+    "*/libQt6Quick3DXr*"
+  ],
+  "build": [
+    {
+      "fetch": "shiboken6.whl",
+      "url": "https://files.pythonhosted.org/packages/49/c2/a04fa003b4360e99d8e3fc2829abacf37396ace63ea1cd616402209ec7c6/shiboken6-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "3bde565bb0890044b5c7f63808adddede5abc241e9395a2bfed61919884d6240",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "shiboken6.whl",
+      "to": "python"
+    },
+    {
+      "fetch": "pyside6_essentials.whl",
+      "url": "https://files.pythonhosted.org/packages/7b/3c/7597d8dcb36aa8315427635ec6ec9d850ffbad4ce78b9118ac854889f2d3/pyside6_essentials-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "16f4b5e41daf49235ae048458243da9efe5f3d8040f9cc5aa454ce69893d3bd9",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "pyside6_essentials.whl",
+      "to": "python"
+    },
+    {
+      "fetch": "pyside6_addons.whl",
+      "url": "https://files.pythonhosted.org/packages/ff/3e/0d6c5934de575286ac0699a701d4155048185035b8da0ee78d57a38bc7ef/pyside6_addons-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "4ab38c0017f0453671a9313d3a53ca1c0e378924f54b07e596bcea94a9642391",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "pyside6_addons.whl",
+      "to": "python"
+    },
+    {
+      "fetch": "pyside6_webengine.whl",
+      "url": "https://files.pythonhosted.org/packages/ce/e0/cb8b68b962afc253709ed61555d0a4f297fd6786c0e77921d2e951504210/pyside6_webengine-6.12.0.140-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "c041c9921d7c91c9e51a2c027f434d05c3c59baa2c8f17b71dc8194e77791f06",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "pyside6_webengine.whl",
+      "to": "python"
+    },
+    {
+      "fetch": "pyside6_pdf.whl",
+      "url": "https://files.pythonhosted.org/packages/b4/f0/9b4f3cb0506641ea53210c7b635703f1c2c1e81c27074438105ff118f8e7/pyside6_pdf-6.12.0.140-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "0c94370b6b9d65fbfe54f9d6d25df0677db0cdcfd0a842a63958a3603a42007c",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "pyside6_pdf.whl",
+      "to": "python"
+    },
+    {
+      "fetch": "pyside6.whl",
+      "url": "https://files.pythonhosted.org/packages/2f/53/db0cabed1e70d0bc4666b8cbc2611b72bff2f9d2c4813820182621a8c6ee/pyside6-6.12.0-cp310-abi3-manylinux_2_34_x86_64.whl",
+      "sha256": "d13ed4d0053cc20f3e4e0fdbf12790a9b7f958d7e22c0843411ecfa8c799e2a9",
+      "released": "2026-10-08"
+    },
+    {
+      "unpack": "pyside6.whl",
+      "to": "python"
+    },
+    {
+      "write": "bin/pyside6-tool",
+      "mode": "755",
+      "text": "#!/bin/sh\n# sandbox-ai-mcp toolchain pyside6: PySide6's own commands (its console scripts pyside6-uic, pyside6-rcc ...),\n# run with the python3 on PATH.\ntool=$(basename \"$0\"); tool=${tool#pyside6-}\nPYTHONPATH=\"{prefix}/python${PYTHONPATH:+:$PYTHONPATH}\" exec python3 -c 'import sys\nfrom PySide6.scripts import pyside_tool\nname = sys.argv.pop(1)\nsys.argv[0] = \"pyside6-\" + name\nsys.exit(getattr(pyside_tool, name.replace(\"-\", \"_\"))())' \"$tool\" \"$@\"\n"
+    },
+    {
+      "link": "bin/pyside6-uic",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-rcc",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-designer",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-linguist",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-assistant",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-lupdate",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-lrelease",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qml",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmllint",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmlformat",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmlls",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmlcachegen",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmltyperegistrar",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qmlimportscanner",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-project",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-genpyi",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-metaobjectdump",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-deploy",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-qsb",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-balsam",
+      "to": "pyside6-tool"
+    },
+    {
+      "link": "bin/pyside6-svgtoqml",
+      "to": "pyside6-tool"
+    },
+    {
+      "fetch": "license-LGPL-3.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.12.0/LICENSES/LGPL-3.0-only.txt",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "copy": "license-LGPL-3.0-only.txt",
+      "to": "licenses/LGPL-3.0-only.txt"
+    },
+    {
+      "fetch": "license-GPL-3.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.12.0/LICENSES/GPL-3.0-only.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "copy": "license-GPL-3.0-only.txt",
+      "to": "licenses/GPL-3.0-only.txt"
+    },
+    {
+      "fetch": "license-GPL-2.0-only.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.12.0/LICENSES/GPL-2.0-only.txt",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "copy": "license-GPL-2.0-only.txt",
+      "to": "licenses/GPL-2.0-only.txt"
+    },
+    {
+      "fetch": "license-Qt-GPL-exception-1.0.txt",
+      "url": "https://raw.githubusercontent.com/pyside/pyside-setup/v6.12.0/LICENSES/Qt-GPL-exception-1.0.txt",
+      "sha256": "40678d338ce53cd93f8b22b281a2ecbcaa3ee65ce60b25ffb0c462b0530846b2"
+    },
+    {
+      "copy": "license-Qt-GPL-exception-1.0.txt",
+      "to": "licenses/Qt-GPL-exception-1.0.txt"
+    },
+    {
+      "fetch": "license-LGPL-2.1-or-later.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.12.0/LICENSES/LGPL-2.1-or-later.txt",
+      "sha256": "1ccf09bf2f598308df4bed9cd8e9657dc5cd0973d2800318f2e241486e2edf3f"
+    },
+    {
+      "copy": "license-LGPL-2.1-or-later.txt",
+      "to": "licenses/LGPL-2.1-or-later.txt"
+    },
+    {
+      "fetch": "license-BSD-3-Clause.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.12.0/LICENSES/BSD-3-Clause.txt",
+      "sha256": "9f0490f18656c6f2435bd14f603ef0c96434d1825615363dce43abb42ed1dcce"
+    },
+    {
+      "copy": "license-BSD-3-Clause.txt",
+      "to": "licenses/BSD-3-Clause.txt"
+    },
+    {
+      "fetch": "license-MIT.txt",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v6.12.0/LICENSES/MIT.txt",
+      "sha256": "d040359701c01996a017d5c515678929cd1b0625e64cb86db44025fbb6cdf1fc"
+    },
+    {
+      "copy": "license-MIT.txt",
+      "to": "licenses/MIT.txt"
+    },
+    {
+      "write": "NOTICE.txt",
+      "text": "Qt for Python (PySide6, Shiboken6) with Qt 6.12.0, as published by The Qt Company, unchanged.\n\nLicenses: Qt and Qt for Python are available under LGPL-3.0-only, GPL-2.0-only or GPL-3.0-only; some\nmodules only under GPL-3.0-only (Qt Charts, Qt Data Visualization, Qt Graphs, Qt HTTP Server, Qt Lottie,\nQt Network Authorization, Qt Quick 3D, Qt Quick 3D Physics, Qt Quick Timeline, Qt Virtual Keyboard, Qt\nWayland Compositor and others: https://doc.qt.io/qt-6/qtmodules.html names the license of each). Qt's\ntools are GPL-3.0-only with the Qt GPL exception 1.0. No module of the commercial-only editions is here.\nThe texts: licenses/ in this folder.\n\nThird-party code inside Qt (FFmpeg under LGPL-2.1-or-later, Chromium in Qt WebEngine, ICU, HarfBuzz,\nPCRE2, libpng, libjpeg, SQLite, zlib and others) with its licenses and copyright notices:\nhttps://doc.qt.io/qt-6/licenses-used-in-qt.html, and qt_attribution.json beside each in Qt's sources.\n\nThe source code of exactly these binaries (LGPL-3.0 section 4, GPL-3.0 section 6):\n  https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.12.0-src/pyside-setup-everywhere-src-6.12.0.tar.xz\n  https://download.qt.io/official_releases/qt/6.12/6.12.0/single/qt-everywhere-src-6.12.0.tar.xz\n  https://github.com/pyside/pyside-setup/tree/v6.12.0\n  https://github.com/qt/qt5/tree/v6.12.0\n"
+    }
+  ],
+  "smoke": [
+    {
+      "files": {
+        "app.py": "import sys\nfrom PySide6.QtCore import QTimer, QUrl, qVersion\nfrom PySide6.QtGui import QGuiApplication\nfrom PySide6.QtQuick import QQuickView\nfrom PySide6.QtWidgets import QApplication, QLabel\n\napp = QApplication(sys.argv)\nlabel = QLabel(\"hello from PySide6\")\nlabel.resize(200, 60)\nlabel.show()\nview = QQuickView()\nview.setSource(QUrl.fromLocalFile(\"hello.qml\"))\nview.show()\n\n\ndef colours(image):\n    return {image.pixelColor(x, y).name() for x in range(0, image.width(), 4) for y in range(0, image.height(), 4)}\n\n\ndef done():\n    widget, quick = label.grab().toImage(), view.grabWindow()\n    widget.save(\"widget.png\")\n    quick.save(\"quick.png\")\n    print(\"pyside6\", qVersion(), QGuiApplication.platformName(), \"widget\", len(colours(widget)) > 1, \"quick\",\n          \"#2060c0\" in colours(quick) and len(colours(quick)) > 1)\n    app.quit()\n\n\nQTimer.singleShot(500, done)\nsys.exit(app.exec())\n",
+        "hello.qml": "import QtQuick\nimport QtQuick.Controls\n\nRectangle {\n    width: 160; height: 120; color: \"#2060c0\"\n    Button { text: qsTr(\"hello from QML\"); anchors.centerIn: parent }\n}\n"
+      },
+      "run": "python3 app.py && test -s widget.png && test -s quick.png",
+      "expect": "offscreen widget True quick True"
+    },
+    {
+      "run": "python3 -c 'from PySide6 import QtCore, QtNetwork, QtSql, QtSvg, QtWebSockets, QtCharts, QtGraphs, Qt3DCore, QtQuick3D, QtQuickControls2, QtOpenGLWidgets, QtPrintSupport, QtTest, QtUiTools, QtDesigner, QtHelp, QtStateMachine, QtWebChannel, QtHttpServer, QtPdf\napp = QtCore.QCoreApplication([])\ndb = QtSql.QSqlDatabase.addDatabase(\"QSQLITE\")\ndb.setDatabaseName(\":memory:\")\nprint(\"modules\", QtCore.qVersion(), \"sqlite\", db.open())'",
+      "expect": "sqlite True"
+    },
+    {
+      "files": {
+        "form.ui": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ui version=\"4.0\">\n <class>Form</class>\n <widget class=\"QWidget\" name=\"Form\">\n  <widget class=\"QPushButton\" name=\"button\">\n   <property name=\"text\"><string>hello</string></property>\n  </widget>\n </widget>\n</ui>\n",
+        "res.qrc": "<RCC><qresource><file>hello.qml</file></qresource></RCC>\n"
+      },
+      "run": "pyside6-uic form.ui -o ui_form.py && pyside6-rcc res.qrc -o res_rc.py && python3 -c 'import res_rc, ui_form\nfrom PySide6.QtCore import QFile\nprint(ui_form.Ui_Form.__name__, QFile.exists(\":/hello.qml\"))'",
+      "expect": "Ui_Form True"
+    },
+    {
+      "run": "pyside6-qmllint hello.qml && pyside6-qmlformat hello.qml | head -n 1 && pyside6-lupdate hello.qml -ts hello_de.ts >/dev/null && pyside6-lrelease hello_de.ts -qm hello_de.qm >/dev/null && test -s hello_de.qm && echo translated",
+      "expect": "translated"
+    },
+    {
+      "run": "python3 -m venv venv && venv/bin/python -c 'import PySide6.QtWidgets, sys\nprint(\"venv\", sys.prefix != sys.base_prefix, PySide6.__version__)'",
+      "expect": "venv True"
+    }
+  ],
+  "notes": "The Qt Company's wheels from PyPI (URL, SHA-256 and upload day from PyPI's JSON API; written by scripts/qt_recipe.py pyside6 VERSION). x86_64 only: the aarch64 wheels need glibc 2.38, sandbox-ai's images have 2.36. The wheels hold no license text: licenses/ is from the release's tag in pyside-setup and qtbase, NOTICE.txt names the sources. Not checked at a start, because not every sandbox needs them (optional): the xcb and Wayland platforms (--gui; the agent images have their libraries), Multimedia (libpulse), WebEngine (Chromium's libraries, in the agent images; as root it wants QTWEBENGINE_DISABLE_SANDBOX=1), the GTK theme, CUPS, the SQL drivers other than SQLite."
+}

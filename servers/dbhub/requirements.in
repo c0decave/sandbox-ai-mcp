@@ -1,0 +1,17 @@
+mcp==1.30.0
+# the versions of the shared lock (servers/duckduckgo)
+anyio==4.15.1
+click==8.5.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-multipart==0.0.32
+sse-starlette==3.5.0
+starlette==1.9.0
+typing-inspection==0.4.4
+# as servers/time's lock (reviewed there)
+tzdata==2026.6
+# new here (PROVENANCE.md); every pin published before 2026-11-11
+pg8000==1.31.6
+scramp==1.5.0
+asn1crypto==1.5.1
+python-dateutil==4.0.0

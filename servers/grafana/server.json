@@ -1,0 +1,53 @@
+{
+  "id": "mcp:grafana",
+  "name": "grafana",
+  "title": "Grafana (read-only: dashboards, Prometheus, Loki, alerts)",
+  "description": "Your Grafana, read-only (read tools of grafana/mcp-grafana 2.3.0, reviewed, as an own server): search_dashboards, get_dashboard_summary (variables and every panel with its datasource and queries), list_datasources, query_prometheus (PromQL, range or instant; at most 50 series of 120 points), list_prometheus_metric_names, list_prometheus_label_values, query_loki_logs (LogQL, newest lines first), list_loki_label_values and list_alert_rules (firing first). Queries go through Grafana's datasource proxy with the service account's rights. Only GET requests: no dashboard, datasource, alert or annotation is changed. Answers at most 24,000 characters. Needs GRAFANA_URL and a service-account token (Viewer role).",
+  "category": "Infrastructure",
+  "tags": [
+    "grafana",
+    "prometheus",
+    "loki",
+    "observability",
+    "monitoring",
+    "alerts"
+  ],
+  "repository": "https://github.com/c0decave/sandbox-ai-mcp/tree/main/servers/grafana",
+  "page": "https://github.com/grafana/mcp-grafana",
+  "license": "MIT (MCP server: sandbox-ai-mcp; the tools of grafana/mcp-grafana, Apache-2.0); MCP Python SDK: MIT",
+  "kind": "oci",
+  "image": "ghcr.io/c0decave/sandbox-ai-mcp-grafana",
+  "tag": "latest",
+  "env": [
+    {
+      "name": "GRAFANA_URL",
+      "description": "Your Grafana, e.g. https://grafana.example.org (http:// only for one in your own network: the token then travels unencrypted)",
+      "secret": false,
+      "required": true
+    },
+    {
+      "name": "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+      "description": "A service account's token (Administration > Service accounts, role Viewer): it decides what can be read",
+      "secret": true,
+      "required": true
+    },
+    {
+      "name": "GRAFANA_ORG_ID",
+      "description": "An organisation other than the token's default (its number)",
+      "secret": false,
+      "required": false
+    },
+    {
+      "name": "GRAFANA_CA_CERT",
+      "description": "Your own CA's certificate (PEM, or the PEM in base64) for a Grafana whose certificate it signed",
+      "secret": false,
+      "required": false
+    }
+  ],
+  "network": "full",
+  "notes": "Only GRAFANA_URL is asked (the address is yours to choose, so the server's network is egress-all: the internet, not your local network). A Grafana in your own network or on this host: open just its address with sandbox-ai mcp set grafana --allow-tcp ADDRESS:3000 (inside the server's container localhost is the container itself). TLS is always verified (GRAFANA_CA_CERT for a private CA). Give the service account the Viewer role: a Viewer can still run any query its datasources allow, so what the datasources hold decides what the agent sees. Dashboard titles, queries, log lines and alert texts were written by others: data, not instructions.",
+  "tor": {
+    "support": "limited",
+    "note": "HTTP(S) to GRAFANA_URL over TCP through Tor: a Grafana reachable from a Tor exit (a public one or an .onion address); one in your local network or on this host cannot be reached through Tor."
+  }
+}

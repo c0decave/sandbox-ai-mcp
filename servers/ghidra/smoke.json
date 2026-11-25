@@ -1,0 +1,178 @@
+{
+  "name": "ghidra",
+  "network": "none",
+  "memory": "3g",
+  "pids": 512,
+  "tmp": "768m",
+  "start_timeout": 60,
+  "mounts": [
+    {
+      "host": "${FIXTURES}",
+      "target": "/work"
+    }
+  ],
+  "expect_tools": [
+    "open_file",
+    "list_functions",
+    "decompile_function",
+    "disassemble_function",
+    "find_references"
+  ],
+  "calls": [
+    {
+      "tool": "list_files",
+      "arguments": {},
+      "expect": "/work/hello  16,096 bytes"
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "hello"
+      },
+      "expect": "language x86:LE:64:default (x86, little endian, 64-bit pointers), compiler gcc"
+    },
+    {
+      "tool": "list_functions",
+      "arguments": {
+        "path": "hello",
+        "name_filter": "check"
+      },
+      "expect": "00101159  check_password  29 bytes"
+    },
+    {
+      "tool": "decompile_function",
+      "arguments": {
+        "path": "hello",
+        "function": "main"
+      },
+      "expect": "puts(\"access granted\");"
+    },
+    {
+      "tool": "decompile_function",
+      "arguments": {
+        "path": "/work/hello",
+        "function": "0x101180"
+      },
+      "expect": "C of main at 00101176 (decompiled)"
+    },
+    {
+      "tool": "disassemble_function",
+      "arguments": {
+        "path": "hello",
+        "function": "check_password"
+      },
+      "expect": "CALL 0x00101050    ; <EXTERNAL>::strcmp"
+    },
+    {
+      "tool": "function_calls",
+      "arguments": {
+        "path": "hello",
+        "function": "main"
+      },
+      "expect": "00101159  check_password  (function)"
+    },
+    {
+      "tool": "find_references",
+      "arguments": {
+        "path": "hello",
+        "target": "strcmp"
+      },
+      "expect": "00101164  UNCONDITIONAL_CALL  in check_password"
+    },
+    {
+      "tool": "find_references",
+      "arguments": {
+        "path": "hello",
+        "target": "0x102004"
+      },
+      "expect": "0010115d  DATA  in check_password  -> 00102004"
+    },
+    {
+      "tool": "list_imports",
+      "arguments": {
+        "path": "hello",
+        "name_filter": "str"
+      },
+      "expect": "<EXTERNAL>!strcmp  (function)"
+    },
+    {
+      "tool": "list_exports",
+      "arguments": {
+        "path": "hello"
+      },
+      "expect": "00101070  _start  (function)"
+    },
+    {
+      "tool": "list_strings",
+      "arguments": {
+        "path": "hello",
+        "text_filter": "hunter"
+      },
+      "expect": "00102004  \"hunter2\"  (7 chars, string)"
+    },
+    {
+      "tool": "decompile_function",
+      "arguments": {
+        "path": "hello",
+        "function": "no_such_function"
+      },
+      "expect": "no function no_such_function",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "../etc/passwd"
+      },
+      "expect": "'..' is not allowed",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "/etc/passwd"
+      },
+      "expect": "only files in /work can be read",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "firmware.bin"
+      },
+      "expect": "Ghidra does not recognise the format",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "firmware.bin",
+        "language": "ARM:LE:32:v8"
+      },
+      "expect": "format: Raw Binary; language ARM:LE:32:v8"
+    },
+    {
+      "tool": "list_functions",
+      "arguments": {
+        "path": "firmware.bin"
+      },
+      "expect": "00000000  Reset  4 bytes"
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "firmware.bin",
+        "language": "ARM:LE:32:nosuch"
+      },
+      "expect": "Ghidra has no language ARM:LE:32:nosuch; those of ARM:",
+      "expect_error": true
+    },
+    {
+      "tool": "open_file",
+      "arguments": {
+        "path": "caps"
+      },
+      "expect": "/work/caps (16,544 bytes) imported with Ghidra 12.2"
+    }
+  ]
+}

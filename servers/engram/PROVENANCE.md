@@ -287,3 +287,6 @@ against Engram and mcp-go as reviewed.
   network. Engram's own module could not be built here (its golang.org/x and modernc.org modules are not reachable);
   `main.go` and `main_test.go` were compiled, vetted and tested against stand-ins of `internal/mcp` and
   `internal/store` with mcp-go v0.44.0 (go.sum's hash): eight tests green. The image build runs them against Engram.
+
+Init: Debian's `tini=0.19.0-3+b8` (from the pinned trixie archive) is the ENTRYPOINT's first word, `tini -s --`: the image
+brings its own init, so it starts also on a host without Podman's catatonit (sandbox-ai then runs it without `--init`).

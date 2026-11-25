@@ -45,6 +45,10 @@ LABEL org.opencontainers.image.source="https://github.com/c0decave/sandbox-ai-mc
       org.opencontainers.image.title="sandbox-ai-mcp-filesystem" \
       org.opencontainers.image.description="The official MCP filesystem server (read, write, edit with diffs, move, search) confined to the mounted folders, no network, an MCP server of sandbox-ai-mcp (stdio)" \
       org.opencontainers.image.licenses="Apache-2.0 AND MIT AND BSD-3-Clause AND BlueOak-1.0.0"
+# tini (Debian's), the init of the ENTRYPOINT
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini=0.19.0-3+b8 \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt /var/log/apt /var/log/dpkg.log
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /opt/filesystem /opt/filesystem
 COPY --from=build /opt/nodejs-LICENSE /usr/share/doc/sandbox-ai-mcp-filesystem/nodejs-LICENSE
@@ -61,5 +65,7 @@ USER 10001:10001
 WORKDIR /tmp
 # --disallow-code-generation-from-strings: no eval/new Function at all (zod then validates without its JIT).
 # The arguments are the candidate folders; sandbox-ai and axross add none.
-ENTRYPOINT ["/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs", \
+# tini is PID 1 where nothing else is (Podman without the host's catatonit: sandbox-ai then starts the image
+# without --init) and reaps what the server leaves; -s: also where it is not PID 1 (Podman's --init, Bubblewrap).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/node", "--disallow-code-generation-from-strings", "/opt/filesystem/entry.mjs", \
             "/work", "/ref1", "/ref2", "/ref3"]

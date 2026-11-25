@@ -237,7 +237,7 @@ class Packaging(unittest.TestCase):
         self.assertEqual((spec["network"], spec["hosts"]), ("allowlist", ["www.youtube.com:443"]))
         self.assertTrue([c for c in spec["calls"] if c.get("expect_error")])
         dockerfile = (FOLDER / "Dockerfile").read_text()
-        self.assertIn('ENTRYPOINT ["/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]', dockerfile)
+        self.assertIn('ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/opt/venv/bin/python", "-I", "-u", "/opt/mcp/server.py"]', dockerfile)
         self.assertNotIn("yt-dlp", (FOLDER / "requirements.txt").read_text())
         self.assertNotIn("yt_dlp", (FOLDER / "src" / "server.py").read_text())
 
